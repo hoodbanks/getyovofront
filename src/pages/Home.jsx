@@ -1,43 +1,85 @@
 import React from 'react';
-import { useStore } from '../store/useStore';
+import { Menu } from 'lucide-react';
+import logo from '../assets/images/GetYovo-Logo1.png';
+import phones from '../assets/images/Phones.png';
+import mapBg from '../assets/images/map-background.png';
 
 const Home = () => {
-    const { count, increment } = useStore();
-
     return (
-        <div className="relative isolate px-6 pt-14 lg:px-8">
-            <div className="mx-auto max-w-2xl py-32 sm:py-48 lg:py-56 text-center">
-                <div className="mb-8 flex justify-center">
-                    <div className="relative rounded-full px-3 py-1 text-sm leading-6 text-zinc-400 ring-1 ring-zinc-800 hover:ring-zinc-700">
-                        Announcing our next-gen stack.{' '}
-                        <a href="#" className="font-semibold text-indigo-400">
-                            <span className="absolute inset-0" aria-hidden="true" />
-                            Read more <span aria-hidden="true">&rarr;</span>
-                        </a>
+        <div className="min-h-screen bg-white p-3 font-sans">
+            <div className="max-w-[1440px] mx-auto">
+                {/* Hero Section */}
+                <div className="relative bg-[#225B28] rounded-2xl overflow-hidden px-2 md:px-12 py-2 md:py-6 min-h-[350px] md:min-h-[900px]">
+                   
+
+                    {/* Navigation */}
+                    <nav className="relative z-10 flex justify-between items-center">
+                        <img src={logo} alt="GetYovo" className="h-16 md:h-20 w-auto" />
+                        
+                        {/* Desktop Download Button */}
+                        <button className="hidden md:block bg-white text-[#0F4A33] px-6 py-2.5 rounded-full text-sm font-bold shadow-sm hover:bg-zinc-100 transition-all active:scale-95">
+                            Download App
+                        </button>
+
+                        {/* Mobile Menu Icon */}
+                        <button className="md:hidden text-white hover:bg-white/10 rounded-lg transition-colors">
+                            <Menu size={28} />
+                        </button>
+                    </nav>
+
+                    {/* Hero Content */}
+                    <div className="relative z-10 md:mt-20 text-center max-w-4xl mx-auto space-y-3">
+                        <h1 className="text-xl md:text-4xl lg:text-5xl font-semibold lg:font-bold text-white leading-[1.3] tracking-tight px-7 md:px-0">
+                            Everything you need, delivered to your doorstep.
+                        </h1>
+                        <p className="text-xs md:text-xl text-white/90 font-medium max-w-2xl mx-auto leading-relaxed px-10 md:px-0">
+                            Order from nearby stores and get it delivered in minutes.
+                        </p>
+                    </div>
+
+                    {/* Map Background Decoration */}
+                    <div 
+                        className="absolute bottom-15 md:bottom-5 left-0 right-0 z-0 pointer-events-none opacity-100"
+                        style={{
+                            backgroundImage: `url(${mapBg})`,
+                            backgroundPosition: 'center bottom',
+                            backgroundSize: 'contain',
+                            height: '600px',
+                            backgroundRepeat: 'no-repeat'
+                        }}
+                    ></div>
+                
+                    {/* Phones Mockup Cluster */}
+                    <div className="absolute left-1/2 -translate-x-1/2 bottom-0 w-full max-w-5xl top-30 lg:top-0 px-4 translate-y-1/3 md:translate-y-1/2 z-20">
+                        <img 
+                            src={phones} 
+                            alt="GetYovo App Mockups" 
+                            className="w-full h-auto drop-shadow-[0_20px_50px_rgba(0,0,0,0.15)]"
+                        />
                     </div>
                 </div>
-                <h1 className="text-5xl font-bold tracking-tight text-white sm:text-7xl bg-linear-to-b from-white to-zinc-500 bg-clip-text text-transparent">
-                    Modern Web Development Redefined
-                </h1>
-                <p className="mt-6 text-lg leading-8 text-zinc-400">
-                    Experience the power of Vite, React Router, Axios, Zustand, and Tailwind CSS v4 in one seamless, high-performance starter kit.
-                </p>
-                <div className="mt-10 flex items-center justify-center gap-x-6">
-                    <button
-                        onClick={increment}
-                        className="rounded-xl bg-indigo-600 px-6 py-3 text-lg font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-600 active:scale-95"
-                    >
-                        Counter: {count}
-                    </button>
-                    <a href="#" className="text-sm font-semibold leading-6 text-white transition-colors hover:text-indigo-400">
-                        Learn more <span aria-hidden="true">→</span>
-                    </a>
+
+                {/* Mission Section */}
+                <div className="mt-8 md:mt-10 mb-20 px-6 text-center bg-[#EEF2EF] rounded-2xl py-6">
+                    <div className="lg:max-w-4xl mx-auto space-y-6">
+                        <h2 className="text-md md:text-2xl lg:text-3xl font-medium text-zinc-900 md:leading-[1.3]">
+                            We're changing the way people order, sell, and deliver by bringing customers closer to local vendors.
+                        </h2>
+                        
+                        <div className="flex justify-center">
+                            <button className=" sm:w-auto bg-[#225B28] text-white px-10 py-4 rounded-full text-base font-bold shadow-lg shadow-[#0F4A33]/20 hover:bg-[#0C3D2A] transition-all hover:scale-105 active:scale-95">
+                                Download App
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
-
-            <div className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80">
-                <div className="relative left-[calc(50%-11rem)] aspect-1155/678 w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-linear-to-tr from-indigo-500 to-purple-600 opacity-20 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]" />
-            </div>
+            
+            <style jsx>{`
+                .balance-text {
+                    text-wrap: balance;
+                }
+            `}</style>
         </div>
     );
 };

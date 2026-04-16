@@ -9,35 +9,35 @@ const AdminLayout = () => {
     const location = useLocation();
 
     const routeDetails = {
-        '/': {
+        '/admin': {
             title: 'Dashboard',
             description: 'Monitor platform activity, performance, and revenue.'
         },
-        '/analytics': {
+        '/admin/analytics': {
             title: 'Analytics',
             description: 'Monitor activity, growth, and performance at a glance.'
         },
-        '/customers': {
+        '/admin/customers': {
             title: 'Customers',
             description: 'View and manage registered customers.'
         },
-        '/vendors': {
+        '/admin/vendors': {
             title: 'Vendors',
             description: 'Review and manage all platform vendors.'
         },
-        '/riders': {
+        '/admin/riders': {
             title: 'Riders',
             description: 'Track and manage delivery rider activities.'
         },
-        '/orders': {
+        '/admin/orders': {
             title: 'Orders',
             description: 'Monitor and manage all customer orders.'
         },
-        '/payments': {
+        '/admin/payments': {
             title: 'Payments',
             description: 'Track revenue, commissions, and payouts.'
         },
-        '/settings': {
+        '/admin/settings': {
             title: 'Settings',
             description: 'Configure platform preferences and rules.'
         }

@@ -8,12 +8,14 @@ import {
     Users,
     Store,
     MessageSquare,
-    Search
+    Search,
+    Lock
 } from 'lucide-react';
 import OperatingHoursModal from '../../components/admin/OperatingHoursModal';
 import MaintenanceModeModal from '../../components/admin/MaintenanceModeModal';
 import DeliveryFeeModal from '../../components/admin/DeliveryFeeModal';
 import BusinessProfileModal from '../../components/admin/BusinessProfileModal';
+import ChangePasswordModal from '../../components/admin/ChangePasswordModal';
 
 const Settings = () => {
     const [activeTab, setActiveTab] = useState('General App Controls');
@@ -24,6 +26,7 @@ const Settings = () => {
     const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
     const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
     const tabs = [
         { id: 'General App Controls', icon: SettingsIcon },
@@ -63,6 +66,13 @@ const Settings = () => {
             description: 'Company info & contacts',
             icon: Building2,
             action: () => setIsProfileModalOpen(true)
+        },
+        {
+            id: 'change-password',
+            title: 'Change Password',
+            description: 'Update your account security',
+            icon: Lock,
+            action: () => setIsPasswordModalOpen(true)
         },
     ];
 
@@ -172,6 +182,10 @@ const Settings = () => {
             <BusinessProfileModal
                 isOpen={isProfileModalOpen}
                 onClose={() => setIsProfileModalOpen(false)}
+            />
+            <ChangePasswordModal
+                isOpen={isPasswordModalOpen}
+                onClose={() => setIsPasswordModalOpen(false)}
             />
         </div>
     );

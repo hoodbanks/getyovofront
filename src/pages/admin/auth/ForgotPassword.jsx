@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useMutation } from '@tanstack/react-query';
+import { Loader2 } from 'lucide-react';
+import api from '../../../api/api';
 import logo from '../../../assets/images/GetYovo-Logo2.png';
 import bgImage1 from '../../../assets/images/login-background2.png';
 import bgImage2 from '../../../assets/images/login-background3.png';
@@ -7,12 +10,26 @@ import bgImage3 from '../../../assets/images/login-background4.png';
 
 const ForgotPassword = () => {
     const [email, setEmail] = useState('');
+    const [error, setError] = useState(null);
     const navigate = useNavigate();
+
+    const forgotPasswordMutation = useMutation({
+        mutationFn: (email) => api.post('/superadmin/auth/forgot-password-otp', { email }),
+        onSuccess: (response) => {
+            if (response.success) {
+                // Pass email to the verify-email page via location state
+                navigate('/admin/verify-email', { state: { email } });
+            }
+        },
+        onError: (err) => {
+            setError(err.message || 'Failed to send OTP. Please try again.');
+        },
+    });
 
     const handleSendResetLink = (e) => {
         e.preventDefault();
-        // Add logic to send reset link
-        navigate('/admin/verify-email');
+        setError(null);
+        forgotPasswordMutation.mutate(email);
     };
 
     return (
@@ -38,11 +55,17 @@ const ForgotPassword = () => {
                     <img src={logo} alt="GetYovo Logo" className="h-12 mb-6" />
                     <h1 className="text-xl font-bold text-zinc-800 mb-2">Forgot your password?</h1>
                     <p className="text-sm text-zinc-500 px-4">
-                        Enter the email address linked to your admin account and we'll send you a reset link.
+                        Enter the email address linked to your admin account and we'll send you a reset code.
                     </p>
                 </div>
 
                 <form onSubmit={handleSendResetLink} className="space-y-6">
+                    {error && (
+                        <div className="p-3 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 text-xs font-medium">
+                            {error}
+                        </div>
+                    )}
+
                     <div className="space-y-2">
                         <label className="text-xs font-semibold text-zinc-800 block">Email</label>
                         <input
@@ -51,15 +74,24 @@ const ForgotPassword = () => {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="e.g. johndoe@example.com"
-                            className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-[#00B074]/20 focus:border-[#00B074] text-sm text-zinc-700 placeholder:text-zinc-600 font-medium transition-colors"
+                            className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-[#00B074]/20 focus:border-[#00B074] text-sm text-zinc-700 placeholder:text-zinc-600 font-medium transition-colors disabled:opacity-50"
+                            disabled={forgotPasswordMutation.isPending}
                         />
                     </div>
 
                     <button
                         type="submit"
-                        className="w-full bg-[#002f1a] hover:bg-[#002414] text-white font-medium py-3.5 rounded-xl transition-colors mt-2 text-sm"
+                        disabled={forgotPasswordMutation.isPending}
+                        className="w-full bg-[#002f1a] hover:bg-[#002414] text-white font-medium py-3.5 rounded-xl transition-colors mt-2 text-sm flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
-                        Send Reset Link
+                        {forgotPasswordMutation.isPending ? (
+                            <>
+                                <Loader2 size={18} className="animate-spin" />
+                                Sending code...
+                            </>
+                        ) : (
+                            'Send Reset Code'
+                        )}
                     </button>
                 </form>
 

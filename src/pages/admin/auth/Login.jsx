@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
+import api from '../../../api/api';
+import { useAuthStore } from '../../../store/useAuthStore';
 import logo from '../../../assets/images/GetYovo-Logo2.png';
 import bgImage from '../../../assets/images/login-background.png';
 
@@ -8,12 +11,33 @@ const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [error, setError] = useState(null);
     const navigate = useNavigate();
+    const setAuth = useAuthStore((state) => state.setAuth);
+
+    const loginMutation = useMutation({
+        mutationFn: (credentials) => api.post('/superadmin/auth/login', credentials),
+        onSuccess: (response) => {
+            if (response.success && response.data) {
+                setAuth(response.data);
+                navigate('/admin'); // Redirect to dashboard on success
+            }
+        },
+        onError: (err) => {
+            if (err.status === 404) {
+                setError('User does not exist');
+            } else if (err.status === 401) {
+                setError('Invalid credentials');
+            } else {
+                setError(err.message || 'Login failed. Please check your credentials.');
+            }
+        },
+    });
 
     const handleLogin = (e) => {
         e.preventDefault();
-        // Add authentication logic here
-        navigate('/'); // Redirect to dashboard on success
+        setError(null);
+        loginMutation.mutate({ email, password });
     };
 
     return (
@@ -33,6 +57,12 @@ const Login = () => {
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-6">
+                    {error && (
+                        <div className="p-3 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 text-xs font-medium animate-in fade-in slide-in-from-top-1">
+                            {error}
+                        </div>
+                    )}
+
                     <div className="space-y-2">
                         <label className="text-xs font-semibold text-zinc-800 block">Email</label>
                         <input
@@ -41,7 +71,8 @@ const Login = () => {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="e.g. johndoe@example.com"
-                            className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-[#00B074]/20 focus:border-[#00B074] text-sm text-zinc-700 placeholder:text-zinc-600 font-medium transition-colors"
+                            className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-[#00B074]/20 focus:border-[#00B074] text-sm text-zinc-700 placeholder:text-zinc-600 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={loginMutation.isPending}
                         />
                     </div>
 
@@ -54,12 +85,14 @@ const Login = () => {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 placeholder="•••••"
-                                className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-[#00B074]/20 focus:border-[#00B074] text-sm text-zinc-700 placeholder:text-zinc-400 font-medium transition-colors pr-12"
+                                className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-[#00B074]/20 focus:border-[#00B074] text-sm text-zinc-700 placeholder:text-zinc-400 font-medium transition-colors pr-12 disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={loginMutation.isPending}
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-700 focus:outline-none"
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-700 focus:outline-none disabled:opacity-50"
+                                disabled={loginMutation.isPending}
                             >
                                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                             </button>
@@ -68,9 +101,17 @@ const Login = () => {
 
                     <button
                         type="submit"
-                        className="w-full bg-[#002f1a] hover:bg-[#002414] text-white font-medium py-3.5 rounded-xl transition-colors mt-2 text-sm"
+                        disabled={loginMutation.isPending}
+                        className="w-full bg-[#002f1a] hover:bg-[#002414] text-white font-medium py-3.5 rounded-xl transition-colors mt-2 text-sm flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
-                        Sign in
+                        {loginMutation.isPending ? (
+                            <>
+                                <Loader2 size={18} className="animate-spin" />
+                                Signing in...
+                            </>
+                        ) : (
+                            'Sign in'
+                        )}
                     </button>
                 </form>
 

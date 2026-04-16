@@ -14,6 +14,8 @@ import ForgotPassword from './pages/admin/auth/ForgotPassword';
 import VerifyEmail from './pages/admin/auth/VerifyEmail';
 import ResetPassword from './pages/admin/auth/ResetPassword';
 import ResetSuccess from './pages/admin/auth/ResetSuccess';
+import Home from './pages/Home';
+
 
 // Customer Components (Onboarding & Auth)
 import CustomerSplash from './pages/customer/onboarding/Splash';
@@ -125,7 +127,9 @@ function App() {
         <Route path="profile/reset/success" element={<RiderProfileSuccessState />} />
       </Route>
 
-      <Route path="/" element={<AdminLayout />}>
+      <Route path="/" element={<Home />} />
+
+      <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Dashboard />} />
         <Route path="analytics" element={<Analytics />} />
         <Route path="customers" element={<Customers />} />
@@ -136,6 +140,7 @@ function App() {
         <Route path="settings" element={<Settings />} />
         <Route path="*" element={<div className="flex h-screen items-center justify-center text-2xl font-bold bg-zinc-50 text-zinc-900">404 - Not Found</div>} />
       </Route>
+
     </Routes>
   );
 }

@@ -13,8 +13,11 @@ import {
     PanelLeftOpen,
     X
 } from 'lucide-react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../../store/useStore';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useMutation } from '@tanstack/react-query';
+import api from '../../api/api';
 import logo from '../../assets/images/GetYovo-Logo1.png';
 import LogoutModal from './LogoutModal';
 
@@ -59,6 +62,8 @@ const SidebarGroup = ({ title, children, collapsed }) => (
 
 const Sidebar = () => {
     const location = useLocation();
+    const navigate = useNavigate();
+    const { accessToken, logout: storeLogout } = useAuthStore();
     const {
         isSidebarCollapsed,
         toggleSidebar,
@@ -68,17 +73,24 @@ const Sidebar = () => {
 
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
+    const logoutMutation = useMutation({
+        mutationFn: () => api.post('/superadmin/auth/logout', {}, accessToken),
+        onSettled: () => {
+            storeLogout();
+            setIsLogoutModalOpen(false);
+            navigate('/admin/login');
+        }
+    });
+
+    const handleLogout = () => {
+        logoutMutation.mutate();
+    };
+
     const sidebarClasses = `
     fixed left-0 top-0 bottom-0 bg-[#0F172B] text-zinc-400 flex flex-col border-r border-zinc-800/50 z-50 transition-all duration-300 ease-in-out
     ${isSidebarCollapsed ? 'w-20' : 'w-64'}
     ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
   `;
-
-    const handleLogout = () => {
-        // Logic for logout would go here (e.g. clear tokens, navigate to login)
-        console.log("Logging out...");
-        setIsLogoutModalOpen(false);
-    };
 
     return (
         <>
@@ -154,28 +166,29 @@ const Sidebar = () => {
                         <SidebarItem
                             icon={LayoutDashboard}
                             label="Dashboard"
-                            to="/"
+                            to="/admin"
                             collapsed={isSidebarCollapsed}
                         />
                         <SidebarItem
                             icon={BarChart3}
                             label="Analytics"
-                            to="/analytics"
+                            to="/admin/analytics"
                             collapsed={isSidebarCollapsed}
                         />
                     </div>
 
                     <SidebarGroup title="User Management" collapsed={isSidebarCollapsed}>
-                        <SidebarItem icon={Users} label="Customer" to="/customers" collapsed={isSidebarCollapsed} />
-                        <SidebarItem icon={Store} label="Vendor" to="/vendors" collapsed={isSidebarCollapsed} />
-                        <SidebarItem icon={Bike} label="Rider" to="/riders" collapsed={isSidebarCollapsed} />
+                        <SidebarItem icon={Users} label="Customer" to="/admin/customers" collapsed={isSidebarCollapsed} />
+                        <SidebarItem icon={Store} label="Vendor" to="/admin/vendors" collapsed={isSidebarCollapsed} />
+                        <SidebarItem icon={Bike} label="Rider" to="/admin/riders" collapsed={isSidebarCollapsed} />
                     </SidebarGroup>
 
                     <SidebarGroup title="Orders & Payments" collapsed={isSidebarCollapsed}>
-                        <SidebarItem icon={ShoppingBag} label="Orders" to="/orders" collapsed={isSidebarCollapsed} />
-                        <SidebarItem icon={CreditCard} label="Payments" to="/payments" collapsed={isSidebarCollapsed} />
-                        <SidebarItem icon={Settings} label="Settings" to="/settings" collapsed={isSidebarCollapsed} />
+                        <SidebarItem icon={ShoppingBag} label="Orders" to="/admin/orders" collapsed={isSidebarCollapsed} />
+                        <SidebarItem icon={CreditCard} label="Payments" to="/admin/payments" collapsed={isSidebarCollapsed} />
+                        <SidebarItem icon={Settings} label="Settings" to="/admin/settings" collapsed={isSidebarCollapsed} />
                     </SidebarGroup>
+
                 </div>
 
                 {/* Logout */}
@@ -194,6 +207,7 @@ const Sidebar = () => {
                 isOpen={isLogoutModalOpen}
                 onClose={() => setIsLogoutModalOpen(false)}
                 onLogout={handleLogout}
+                isLoading={logoutMutation.isPending}
             />
         </>
     );

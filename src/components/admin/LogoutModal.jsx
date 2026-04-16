@@ -1,7 +1,7 @@
 import React from 'react';
-import { X, LogOut } from 'lucide-react';
+import { X, LogOut, Loader2 } from 'lucide-react';
 
-const LogoutModal = ({ isOpen, onClose, onLogout }) => {
+const LogoutModal = ({ isOpen, onClose, onLogout, isLoading }) => {
     if (!isOpen) return null;
 
     return (
@@ -50,10 +50,19 @@ const LogoutModal = ({ isOpen, onClose, onLogout }) => {
                         </button>
                         <button
                             onClick={onLogout}
-                            className="w-full py-4 bg-rose-600 text-white rounded-3xl text-sm font-bold hover:bg-rose-700 transition-all shadow-md shadow-rose-600/10 active:scale-[0.98]"
+                            disabled={isLoading}
+                            className="w-full py-4 bg-rose-600 text-white rounded-3xl text-sm font-bold hover:bg-rose-700 transition-all shadow-md shadow-rose-600/10 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                            Log Out
+                            {isLoading ? (
+                                <>
+                                    <Loader2 size={18} className="animate-spin" />
+                                    <span>Processing...</span>
+                                </>
+                            ) : (
+                                'Log Out'
+                            )}
                         </button>
+
                         
                     </div>
                 </div>
