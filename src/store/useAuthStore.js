@@ -7,12 +7,14 @@ export const useAuthStore = create(
             accessToken: null,
             refreshToken: null,
             superAdmin: null,
+            rider: null,
             isAuthenticated: false,
 
             setAuth: (data) => set({
                 accessToken: data.accessToken,
                 refreshToken: data.refreshToken,
-                superAdmin: data.superAdmin,
+                superAdmin: data.superAdmin || null,
+                rider: data.rider || null,
                 isAuthenticated: true,
             }),
 
@@ -20,6 +22,7 @@ export const useAuthStore = create(
                 accessToken: null,
                 refreshToken: null,
                 superAdmin: null,
+                rider: null,
                 isAuthenticated: false,
             }),
         }),

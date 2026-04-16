@@ -1,17 +1,40 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, LogOut, X, User, RotateCcw } from 'lucide-react';
+import { ChevronRight, LogOut, X, User, RotateCcw, Loader2 } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
 import RiderSimpleHeader from '../../../components/rider/RiderSimpleHeader';
+import { useAuthStore } from '../../../store/useAuthStore';
+import api from '../../../api/api';
 
 const RiderProfile = () => {
     const navigate = useNavigate();
     const [isOnline, setIsOnline] = useState(true);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
+    
+    const { rider, accessToken, logout: clearAuth } = useAuthStore();
+
+    const logoutMutation = useMutation({
+        mutationFn: () => api.post('/rider/auth/logout', {}, accessToken),
+        onSuccess: () => {
+            clearAuth();
+            navigate('/rider/welcome');
+        },
+        onError: (err) => {
+            console.error('Logout failed:', err);
+            // Still logout locally even if API fails
+            clearAuth();
+            navigate('/rider/login');
+        }
+    });
+
+    const handleLogout = () => {
+        logoutMutation.mutate();
+    };
 
     const userData = {
-        name: 'Glenn Dickson',
-        email: 'glenndick@email.com',
-        phone: '08064582587'
+        name: rider?.name || 'Rider',
+        email: rider?.email || 'N/A',
+        phone: rider?.phonenumber || 'N/A'
     };
 
     return (
@@ -31,7 +54,7 @@ const RiderProfile = () => {
                         <div className="absolute bottom-1 right-1 w-4 h-4 bg-[#1C5E20] border-2 border-white rounded-full"></div>
                     </div>
                     <div>
-                        <h2 className="text-[19px] font-bold text-[#103D2E] leading-tight">{userData.name}</h2>
+                        <h2 className="text-[19px] font-bold text-[#103D2E] leading-tight text-capitalize">{userData.name}</h2>
                         <p className="text-[14px] text-zinc-500 font-medium">{userData.email}</p>
                     </div>
                 </div>
@@ -40,7 +63,7 @@ const RiderProfile = () => {
                 <div className="bg-white rounded-[16px] p-6 border border-zinc-100 shadow-sm space-y-5 mb-5">
                     <div>
                         <label className="text-[15px] font-bold text-[#103D2E] block mb-1">Full Name</label>
-                        <p className="text-[14px] text-zinc-500 font-medium">{userData.name}</p>
+                        <p className="text-[14px] text-zinc-500 font-medium text-capitalize">{userData.name}</p>
                     </div>
 
                     <div>
@@ -101,14 +124,23 @@ const RiderProfile = () => {
 
                         <div className="space-y-6">
                             <button
-                                onClick={() => navigate('/rider/welcome')}
-                                className="w-full bg-[#1C5E20] text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] text-[15px] shadow-lg shadow-[#103D2E]/20"
+                                onClick={handleLogout}
+                                disabled={logoutMutation.isPending}
+                                className="w-full bg-[#1C5E20] text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] text-[15px] shadow-lg shadow-[#103D2E]/20 flex items-center justify-center gap-2"
                             >
-                                Log Out
+                                {logoutMutation.isPending ? (
+                                    <>
+                                        <Loader2 size={18} className="animate-spin" />
+                                        Logging Out...
+                                    </>
+                                ) : (
+                                    'Log Out'
+                                )}
                             </button>
                             <button
                                 onClick={() => setShowLogoutModal(false)}
-                                className="flex items-center justify-center gap-1 text-[#BE1E2D] font-bold mx-auto text-[14px]"
+                                disabled={logoutMutation.isPending}
+                                className="flex items-center justify-center gap-1 text-[#BE1E2D] font-bold mx-auto text-[14px] disabled:opacity-50"
                             >
                                 <X size={18} />
                                 Cancel

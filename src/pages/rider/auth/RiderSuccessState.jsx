@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { CheckCircle2 } from 'lucide-react';
 import PasswordSuccess from '../../../assets/images/password-success-icon.png';
 
 const RiderSuccessState = () => {
@@ -7,26 +8,36 @@ const RiderSuccessState = () => {
 
     return (
         <div className="min-h-screen bg-[#768C76] flex flex-col items-center justify-center p-4 relative text-center">
-            <div className="bg-white rounded-[40px] p-10 w-full max-w-sm flex flex-col items-center text-center shadow-2xl z-10 py-16">
+            <div className="bg-white rounded-[40px] p-10 w-full max-w-sm flex flex-col items-center text-center shadow-2xl z-10 py-16 animate-in zoom-in duration-500">
 
                 {/* Status Icon */}
                 <div className="mb-8 relative">
-                    <div className="w-24 h-24 rounded-full flex items-center justify-center bg-white border-[3px] border-[#00B074]">
-                        <img src={PasswordSuccess} alt="password success" />
+                    <div className="w-24 h-24 rounded-full flex items-center justify-center bg-white border-[3px] border-emerald-500 shadow-xl shadow-emerald-500/20">
+                        {/* Try to use the provided image if it exists, otherwise fallback to a clean icon */}
+                        <img 
+                            src={PasswordSuccess} 
+                            alt="password success" 
+                            className="w-16 h-16 object-contain"
+                            onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'block';
+                            }}
+                        />
+                        <CheckCircle2 size={48} className="text-emerald-500 hidden" />
                     </div>
                 </div>
 
-                <h1 className="text-xl font-bold text-[#1C5E20] mb-2">
-                    Password Updated
+                <h1 className="text-2xl font-bold text-[#1C5E20] mb-3">
+                    Password Updated!
                 </h1>
 
                 <p className="text-[13px] text-zinc-500 font-medium mb-10 px-4 leading-relaxed italic">
-                    Your password has been reset successfully.
+                    Your password has been reset successfully. You can now use your new password to sign in.
                 </p>
 
                 <button
                     onClick={() => navigate('/rider/login')}
-                    className="w-full bg-[#1C5E20] hover:bg-[#002414] text-white font-bold py-4 rounded-xl transition-colors shadow-lg shadow-[#002f1a]/20 text-sm"
+                    className="w-full bg-[#1C5E20] hover:bg-[#002414] text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-[#002f1a]/20 text-sm active:scale-95"
                 >
                     Proceed to Login
                 </button>

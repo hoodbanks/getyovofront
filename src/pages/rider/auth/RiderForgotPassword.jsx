@@ -1,22 +1,39 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
+import api from '../../../api/api';
 import logo from '../../../assets/images/GetYovo-Logo2.png';
 
 const RiderForgotPassword = () => {
     const navigate = useNavigate();
-    const [phone, setPhone] = useState('');
+    const [phonenumber, setPhonenumber] = useState('');
+    const [error, setError] = useState(null);
+
+    const forgotPasswordMutation = useMutation({
+        mutationFn: (data) => api.post('/rider/auth/forgot-password-otp', data),
+        onSuccess: (response) => {
+            if (response.success) {
+                // Navigate to the consolidated verification page
+                navigate('/rider/verify-otp', { state: { phonenumber, isPasswordReset: true } });
+            }
+        },
+        onError: (err) => {
+            setError(err.message || 'Failed to send reset code. Please try again.');
+        },
+    });
 
     const handleSendCode = (e) => {
         e.preventDefault();
-        navigate('/rider/verify-otp');
+        setError(null);
+        forgotPasswordMutation.mutate({ phonenumber });
     };
 
     return (
         <div className="min-h-screen bg-[#768C76] flex flex-col items-center justify-center px-4 relative">
             {/* Top Back Button */}
             <div className="absolute top-10 left-6 z-20">
-                <button onClick={() => navigate('/rider/login')} className="p-1 bg-white rounded-full transition-colors backdrop-blur-sm shadow-sm">
+                <button onClick={() => navigate('/rider/login')} className="p-1 bg-white rounded-full transition-colors backdrop-blur-sm shadow-sm hover:bg-zinc-100">
                     <ArrowLeft size={22} className='text-zinc-900' />
                 </button>
             </div>
@@ -28,29 +45,44 @@ const RiderForgotPassword = () => {
                     Enter the phone number linked to your account.
                 </p>
 
+                {error && (
+                    <div className="w-full mb-6 p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-3 animate-in slide-in-from-top-2 duration-300">
+                        <AlertCircle size={18} className="text-rose-500 shrink-0 mt-0.5" />
+                        <p className="text-[13px] text-rose-600 font-medium leading-relaxed">{error}</p>
+                    </div>
+                )}
+
                 <form onSubmit={handleSendCode} className="w-full space-y-8">
                     <div className="space-y-2">
                         <input
                             type="tel"
                             required
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                            placeholder="Business phone (e.g. 0803...)"
+                            value={phonenumber}
+                            onChange={(e) => setPhonenumber(e.target.value)}
+                            placeholder="Phone number (e.g. 080...)"
+                            disabled={forgotPasswordMutation.isPending}
                             className="w-full px-5 py-4 rounded-xl border-none bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#00B074]/30 focus:bg-white text-sm text-zinc-900 placeholder:text-zinc-400 font-medium transition-all"
                         />
                     </div>
 
                     <button
                         type="submit"
-                        className={`w-full font-bold py-4 rounded-xl transition-colors text-sm ${phone ? 'bg-[#1C5E20] hover:bg-[#002414] text-white shadow-lg shadow-[#002f1a]/30' : 'bg-zinc-200 text-zinc-400 cursor-not-allowed'}`}
-                        disabled={!phone}
+                        disabled={forgotPasswordMutation.isPending || !phonenumber}
+                        className={`w-full font-bold py-4 rounded-xl transition-colors text-sm flex items-center justify-center gap-2 ${phonenumber && !forgotPasswordMutation.isPending ? 'bg-[#1C5E20] hover:bg-[#002414] text-white shadow-lg shadow-[#002f1a]/30' : 'bg-zinc-200 text-zinc-400 cursor-not-allowed'}`}
                     >
-                        Send Code
+                        {forgotPasswordMutation.isPending ? (
+                            <>
+                                <Loader2 size={18} className="animate-spin" />
+                                Sending Code...
+                            </>
+                        ) : (
+                            'Send Code'
+                        )}
                     </button>
 
                     <div className="text-center pt-2">
                         <p className="text-[13px] text-zinc-500 font-medium">
-                            Remember your login? <button type="button" onClick={() => navigate('/rider/login')} className="text-[#1C5E20] font-bold">Sign in</button>
+                            Remember your login? <button type="button" onClick={() => navigate('/rider/login')} className="text-[#1C5E20] font-bold hover:underline">Sign in</button>
                         </p>
                     </div>
                 </form>
