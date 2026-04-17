@@ -1,4 +1,4 @@
-const BASE_URL = 'https://getyovo.onrender.com/api/v1';
+const BASE_URL = 'https://api.getyovo.app/api/v1';
 
 const api = {
     post: async (endpoint, data, token) => {
