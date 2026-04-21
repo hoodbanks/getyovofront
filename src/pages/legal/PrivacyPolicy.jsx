@@ -8,7 +8,7 @@ const PrivacyPolicy = () => {
     }, []);
 
     return (
-        <div className="min-h-screen bg-white p-3 font-sans pb-0">
+        <div className="min-h-screen bg-white p-1 font-sans pb-0">
             <div className="max-w-[1440px] mx-auto">
                 <Hero 
                     title="Privacy Policy"
@@ -20,14 +20,14 @@ const PrivacyPolicy = () => {
                 />
 
                 {/* Page Content */}
-                <div className="py-20 px-6 max-w-4xl mx-auto">
+                <div className="py-20 px-2 max-w-4xl mx-auto">
                     <div className="space-y-12 text-zinc-700 leading-relaxed">
                         <div className="text-center mb-16">
-                            <h2 className="text-3xl md:text-4xl font-bold text-zinc-900 mb-2 uppercase">PRIVACY POLICY</h2>
+                            <h2 className="text-xl md:text-3xl font-bold text-zinc-900 mb-2 uppercase">PRIVACY POLICY</h2>
                             <p className="text-zinc-500 font-medium tracking-wide">Last updated March 18, 2026</p>
                         </div>
 
-                        <section className="space-y-6">
+                        <section className="space-y-4">
                             <p>
                                 This Privacy Policy for <strong>GETYOVO LIMITED</strong> describes how and why we might access, collect, store, use, and/or share ("process") your personal information when you use our services ("Services"), including when you:
                             </p>
@@ -42,7 +42,7 @@ const PrivacyPolicy = () => {
                             </p>
                         </section>
 
-                        <div className="bg-[#EEF2EF] p-10 rounded-[2rem] border border-[#225B28]/10 shadow-sm">
+                        <div className="bg-[#EEF2EF] p-4 rounded-xl border border-[#225B28]/10 shadow-sm">
                             <h3 className="text-xl font-bold text-[#0C3D2A] mb-6 uppercase tracking-wider">Summary of Key Points</h3>
                             <div className="grid gap-6 text-sm">
                                 <p><strong>What personal information do we process?</strong> When you visit, use, or navigate our Services, we may process personal information depending on how you interact with us and the Services.</p>
@@ -52,9 +52,9 @@ const PrivacyPolicy = () => {
                             </div>
                         </div>
 
-                        <div className="bg-zinc-50 p-10 rounded-[2rem] border border-zinc-100 shadow-sm">
+                        <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-100 shadow-sm">
                             <h3 className="font-bold text-zinc-900 mb-6 uppercase tracking-widest text-sm">Table of Contents</h3>
-                            <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm font-semibold text-[#1C5E20]">
+                            <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-semibold text-[#1C5E20]">
                                 <li>1. WHAT INFORMATION DO WE COLLECT?</li>
                                 <li>2. HOW DO WE PROCESS YOUR INFORMATION?</li>
                                 <li>3. WHEN AND WITH WHOM DO WE SHARE YOUR INFO?</li>
@@ -122,7 +122,7 @@ const PrivacyPolicy = () => {
 
                             <section>
                                 <h3 className="text-xl font-bold text-zinc-900 mb-6">11. HOW CAN YOU CONTACT US ABOUT THIS NOTICE?</h3>
-                                <div className="space-y-4 bg-zinc-50 p-8 rounded-3xl border border-zinc-100">
+                                <div className="space-y-4 bg-zinc-50 p-4 rounded-xl border border-zinc-100">
                                     <p>If you have questions or comments about this notice, you may email us at <strong>getyovo.app</strong>.</p>
                                     <div>
                                         <p className="font-bold text-zinc-900">GETYOVO LIMITED</p>

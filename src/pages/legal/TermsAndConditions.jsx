@@ -20,10 +20,10 @@ const TermsAndConditions = () => {
                 />
 
                 {/* Page Content */}
-                <div className="py-20 px-6 max-w-4xl mx-auto">
+                <div className="py-20 px-2 max-w-4xl mx-auto">
                     <div className="space-y-12 text-zinc-700 leading-relaxed">
                         <div className="text-center mb-16">
-                            <h2 className="text-3xl md:text-4xl font-bold text-zinc-900 mb-2 uppercase">TERMS AND CONDITIONS OF USE</h2>
+                            <h2 className="text-xl md:text-3xl font-bold text-zinc-900 mb-2 uppercase">TERMS AND CONDITIONS OF USE</h2>
                             <p className="text-zinc-500 font-medium tracking-wide">Last updated 18/03/2026</p>
                         </div>
 
@@ -41,9 +41,9 @@ const TermsAndConditions = () => {
                             <p>We recommend that you print a copy of these Legal Terms for your records.</p>
                         </section>
 
-                        <div className="bg-zinc-50 p-10 rounded-[2rem] border border-zinc-100 shadow-sm">
+                        <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-100 shadow-sm">
                             <h3 className="font-bold text-zinc-900 mb-6 uppercase tracking-widest text-sm">Table of Contents</h3>
-                            <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm font-semibold text-[#1C5E20]">
+                            <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-semibold text-[#1C5E20]">
                                 <li>1. OUR SERVICES</li>
                                 <li>2. INTELLECTUAL PROPERTY RIGHTS</li>
                                 <li>3. USER REPRESENTATIONS</li>
