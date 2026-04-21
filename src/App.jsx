@@ -15,6 +15,11 @@ import VerifyEmail from './pages/admin/auth/VerifyEmail';
 import ResetPassword from './pages/admin/auth/ResetPassword';
 import ResetSuccess from './pages/admin/auth/ResetSuccess';
 import Home from './pages/Home';
+import PrivacyPolicy from './pages/legal/PrivacyPolicy';
+import TermsAndConditions from './pages/legal/TermsAndConditions';
+import MobilePrivacyPolicy from './pages/legal/MobilePrivacyPolicy';
+import MobileTermsAndConditions from './pages/legal/MobileTermsAndConditions';
+
 
 
 // Customer Components (Onboarding & Auth)
@@ -128,6 +133,13 @@ function App() {
       </Route>
 
       <Route path="/" element={<Home />} />
+      <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+      <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+
+      {/* for mobile app */}
+      <Route path="/mobile/privacy-policy" element={<MobilePrivacyPolicy />} />
+      <Route path="/mobile/terms-and-conditions" element={<MobileTermsAndConditions />} />
+
 
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Dashboard />} />
