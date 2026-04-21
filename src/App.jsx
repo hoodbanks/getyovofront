@@ -140,7 +140,7 @@ function App() {
       <Route path="/mobile/privacy-policy" element={<MobilePrivacyPolicy />} />
       <Route path="/mobile/terms-and-conditions" element={<MobileTermsAndConditions />} />
 
-
+ 
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Dashboard />} />
         <Route path="analytics" element={<Analytics />} />
