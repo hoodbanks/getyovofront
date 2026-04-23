@@ -6,8 +6,12 @@ import {
     CheckCircle2,
     AlertTriangle,
     Copy,
-    Check
+    Check,
+    Loader2
 } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '../../api/api';
+import { useAuthStore } from '../../store/useAuthStore';
 
 const ConfirmationModal = ({ isOpen, onClose, type, vendor, onConfirm }) => {
     const [reason, setReason] = useState('');
@@ -23,6 +27,8 @@ const ConfirmationModal = ({ isOpen, onClose, type, vendor, onConfirm }) => {
         'Suspicious behavior',
         'Other'
     ];
+
+    const isReasonValid = reason && (reason !== 'Other' || otherReason.trim() !== '');
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -74,7 +80,7 @@ const ConfirmationModal = ({ isOpen, onClose, type, vendor, onConfirm }) => {
                                 </div>
                             </div>
                             <p className="text-xs text-zinc-500 font-bold text-center mb-6 max-w-[200px]">
-                                This will temporarily restrict this account from accessing the platform.
+                                This will temporarily make this account inactive and restrict access to the platform.
                             </p>
                             <div className="w-full text-left space-y-4 mb-8">
                                 <div>
@@ -89,7 +95,7 @@ const ConfirmationModal = ({ isOpen, onClose, type, vendor, onConfirm }) => {
                                         </button>
 
                                         {showReasons && (
-                                            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-zinc-100 rounded-2xl shadow-xl z-10 overflow-hidden py-1">
+                                            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-zinc-100 rounded-2xl shadow-xl z-20 overflow-y-auto max-h-72 py-1 custom-scrollbar">
                                                 {reasons.map((r) => (
                                                     <button
                                                         key={r}
@@ -106,7 +112,7 @@ const ConfirmationModal = ({ isOpen, onClose, type, vendor, onConfirm }) => {
                                 {reason === 'Other' && (
                                     <textarea
                                         placeholder="Give reasons if you select others..."
-                                        className="w-full px-4 py-4 bg-white border border-zinc-100 rounded-2xl text-xs font-medium text-zinc-700 focus:ring-1 focus:ring-rose-500/20 outline-none h-24 resize-none transition-all"
+                                        className="w-full px-4 py-4 bg-white border border-zinc-100 rounded-2xl text-xs font-medium text-zinc-700 focus:ring-1 focus:ring-rose-500/20 outline-none h-32 resize-none transition-all"
                                         value={otherReason}
                                         onChange={(e) => setOtherReason(e.target.value)}
                                     />
@@ -124,7 +130,8 @@ const ConfirmationModal = ({ isOpen, onClose, type, vendor, onConfirm }) => {
                         </button>
                         <button
                             onClick={() => { onConfirm({ reason, otherReason }); onClose(); }}
-                            className={`flex-1 py-4 text-white text-sm font-bold rounded-3xl transition-all shadow-md ${isActivate
+                            disabled={!isActivate && !isReasonValid}
+                            className={`flex-1 py-4 text-white text-sm font-bold rounded-3xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed ${isActivate
                                     ? 'bg-emerald-800 hover:bg-emerald-900 shadow-emerald-900/10'
                                     : 'bg-rose-600 hover:bg-rose-700 shadow-rose-900/10'
                                 }`}
@@ -139,11 +146,41 @@ const ConfirmationModal = ({ isOpen, onClose, type, vendor, onConfirm }) => {
 };
 
 const VendorModal = ({ isOpen, onClose, vendor }) => {
+    const token = useAuthStore((state) => state.accessToken);
+    const queryClient = useQueryClient();
     const [showConfirm, setShowConfirm] = useState(false);
-    const [confirmType, setConfirmType] = useState(''); // 'activate', 'suspend', 'approve'
+    const [confirmType, setConfirmType] = useState(''); // 'activate', 'suspend', 'approve', 'delete'
     const [copied, setCopied] = useState(false);
+    const [filter, setFilter] = useState('all');
+
+    // Fetch Overview
+    const { data: overviewData, isLoading: isOverviewLoading } = useQuery({
+        queryKey: ['vendorOverview', vendor?.id, filter],
+        queryFn: () => api.get(`/superadmin/vendors/${vendor?.id}/overview?filter=${filter}`, token),
+        enabled: !!vendor?.id && isOpen
+    });
+
+    // Mutations
+    const suspensionMutation = useMutation({
+        mutationFn: (data) => api.patch(`/superadmin/vendors/${vendor?.id}/suspension`, data, token),
+        onSuccess: () => {
+            queryClient.invalidateQueries(['vendorOverview', vendor?.id]);
+            queryClient.invalidateQueries(['vendors']);
+            setShowConfirm(false);
+        }
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: () => api.delete('/superadmin/vendors', { vendorId: vendor?.id }, token),
+        onSuccess: () => {
+            queryClient.invalidateQueries(['vendors']);
+            onClose();
+        }
+    });
 
     if (!isOpen) return null;
+
+    const overview = overviewData?.data || {};
 
     const handleActionClick = (type) => {
         setConfirmType(type);
@@ -151,11 +188,18 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
     };
 
     const handleConfirm = (data) => {
-        console.log('Vendor action confirmed:', confirmType, data);
-        // API call logic here
+        if (confirmType === 'delete') {
+            deleteMutation.mutate();
+        } else {
+            suspensionMutation.mutate({
+                suspend: confirmType === 'suspend',
+                reason: data?.reason === 'Other' ? data?.otherReason : data?.reason
+            });
+        }
     };
 
     const copyToClipboard = (text) => {
+        if (!text) return;
         navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
@@ -170,12 +214,12 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
                         {/* Header */}
                         <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 font-bold text-sm">
-                                    {vendor?.initials || 'AJ'}
+                                <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 font-bold text-sm overflow-hidden">
+                                    {overview.logo ? <img src={overview.logo} alt="Store logo" className="w-full h-full object-cover" /> : (vendor?.storeName?.[0] || 'V')}
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold text-zinc-900">{vendor?.storeName || 'Roban Mart'}</h2>
-                                    <p className="text-xs text-zinc-400 font-medium tracking-wide uppercase">{vendor?.vendorId || 'v_1005'}</p>
+                                    <h2 className="text-xl font-bold text-zinc-900">{overview.storeName || vendor?.storeName || 'Store'}</h2>
+                                    <p className="text-xs text-zinc-400 font-medium tracking-wide uppercase">{vendor?.id}</p>
                                 </div>
                             </div>
                             <button onClick={onClose} className="p-2 hover:bg-zinc-100 rounded-full transition-colors text-zinc-400 hover:text-zinc-600">
@@ -185,57 +229,80 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
 
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
                             {/* Stats Grid */}
+                            <div className="flex items-center justify-between gap-4">
+                                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Metrics</label>
+                                <select 
+                                    value={filter}
+                                    onChange={(e) => setFilter(e.target.value)}
+                                    className="text-[10px] font-bold text-zinc-500 bg-zinc-100 px-3 py-1.5 rounded-xl border-none outline-none"
+                                >
+                                    <option value="all">All Time</option>
+                                    <option value="today">Today</option>
+                                    <option value="yesterday">Yesterday</option>
+                                    <option value="last7days">Last 7 Days</option>
+                                    <option value="last30days">Last 30 Days</option>
+                                </select>
+                            </div>
+                            
                             <div className="grid grid-cols-2 gap-4">
-                                {[
-                                    { label: 'Total Orders (Week)', value: '6' },
-                                    { label: 'Delivered', value: '5' },
-                                    { label: 'Cancelled', value: '1' },
-                                    { label: 'Total Payout', value: '₦72,766' },
-                                ].map((stat, i) => (
-                                    <div key={i} className="bg-zinc-100 border border-zinc-100 p-5 rounded-2xl hover:bg-white hover:shadow-md transition-all group">
-                                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2 group-hover:text-zinc-500">{stat.label}</p>
-                                        <p className="text-xl font-bold text-zinc-900">{stat.value}</p>
+                                {isOverviewLoading ? (
+                                    <div className="col-span-2 flex justify-center py-10">
+                                        <Loader2 className="text-emerald-600 animate-spin" size={32} />
                                     </div>
-                                ))}
+                                ) : (
+                                    [
+                                        { label: 'Total Orders', value: overview.metrics?.totalOrders || 0 },
+                                        { label: 'Delivered', value: overview.metrics?.deliveredOrders || 0 },
+                                        { label: 'Cancelled', value: overview.metrics?.cancelledOrders || 0 },
+                                        { label: 'Total Payout', value: `₦${(overview.metrics?.totalPayout || 0).toLocaleString()}` },
+                                    ].map((stat, i) => (
+                                        <div key={i} className="bg-zinc-100 border border-zinc-100 p-5 rounded-2xl hover:bg-white hover:shadow-md transition-all group">
+                                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2 group-hover:text-zinc-500">{stat.label}</p>
+                                            <p className="text-xl font-bold text-zinc-900">{stat.value}</p>
+                                        </div>
+                                    ))
+                                )}
                             </div>
 
                             {/* Details Section */}
                             <div className="bg-white border border-zinc-100 rounded-2xl p-6 shadow-sm">
                                 <h3 className="text-sm font-bold text-zinc-900 mb-4">Details</h3>
                                 <div className="mb-6">
-                                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold border capitalize ${vendor?.status === 'Active'
+                                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold border capitalize ${!overview.isSuspended && overview.status !== 'PENDING'
                                             ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                                            : vendor?.status === 'Suspended'
+                                            : overview.isSuspended
                                                 ? 'bg-rose-50 text-rose-600 border-rose-100'
                                                 : 'bg-amber-50 text-amber-600 border-amber-100'
                                         }`}>
-                                        {vendor?.status || 'Active'}
+                                        {overview.isSuspended ? 'Inactive' : (overview.status || vendor?.status || 'Active')}
                                     </span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-y-6">
                                     <div>
                                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Store owner</label>
-                                        <p className="text-sm font-bold text-zinc-800">{vendor?.owner || 'Priscilia Onoh'}</p>
+                                        <p className="text-sm font-bold text-zinc-800">{overview.ownerName || vendor?.ownerName || 'N/A'}</p>
                                     </div>
                                     <div>
                                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Store Type</label>
-                                        <p className="text-sm font-bold text-zinc-800">{vendor?.type || 'Restaurant'}</p>
+                                        <p className="text-sm font-bold text-zinc-800">{overview.storeType || 'N/A'}</p>
                                     </div>
                                     <div>
                                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Phone</label>
-                                        <p className="text-sm font-bold text-zinc-800">{vendor?.phone || '+2348067772345'}</p>
+                                        <p className="text-sm font-bold text-zinc-800">{overview.phone || vendor?.phonenumber || 'N/A'}</p>
                                     </div>
                                     <div>
                                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Email</label>
-                                        <p className="text-sm font-bold text-zinc-800 lowercase break-all pr-2">{vendor?.email || 'storeowner@yahoo.com'}</p>
+                                        <p className="text-sm font-bold text-zinc-800 lowercase break-all pr-2">{overview.email || vendor?.email || 'N/A'}</p>
                                     </div>
                                     <div className="col-span-2">
                                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Address</label>
-                                        <p className="text-sm font-bold text-zinc-800">{vendor?.address || '18 Ogui Rd, Enugu'}</p>
+                                        <p className="text-sm font-bold text-zinc-800">{overview.address || vendor?.address || 'N/A'}</p>
                                     </div>
                                     <div className="col-span-2">
                                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Date Joined</label>
-                                        <p className="text-sm font-bold text-zinc-800">{vendor?.joined || '20 Jan 2024, 1:00 PM'}</p>
+                                        <p className="text-sm font-bold text-zinc-800">
+                                            {overview.joinedAt ? `${overview.joinedAt.date}/${overview.joinedAt.month}/${overview.joinedAt.year}` : 'N/A'}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -246,12 +313,12 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
                                 <div className="space-y-4">
                                     <div className="bg-zinc-100 rounded-2xl p-4 flex items-center justify-between">
                                         <div>
-                                            <p className="text-sm font-bold text-zinc-600">Candles Enterprises</p>
-                                            <p className="text-xs font-medium text-zinc-400 mt-0.5">GTBank</p>
+                                            <p className="text-sm font-bold text-zinc-600">{overview.bank?.accountName || 'N/A'}</p>
+                                            <p className="text-xs font-medium text-zinc-400 mt-0.5">{overview.bank?.bankName || 'N/A'}</p>
                                             <div className="flex items-center gap-3 mt-4">
-                                                <span className="text-sm font-medium text-zinc-400 tracking-widest">0123456789</span>
+                                                <span className="text-sm font-medium text-zinc-400 tracking-widest">{overview.bank?.accountNumber || 'N/A'}</span>
                                                 <button
-                                                    onClick={() => copyToClipboard('0123456789')}
+                                                    onClick={() => copyToClipboard(overview.bank?.accountNumber)}
                                                     className="p-1.5 bg-white rounded-lg border border-zinc-200 text-zinc-400 hover:text-zinc-600 transition-colors"
                                                 >
                                                     {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
@@ -267,7 +334,7 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
                                 <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-5 flex items-start gap-3">
                                     <AlertTriangle className="text-amber-500 shrink-0" size={18} />
                                     <div>
-                                        <p className="text-sm font-bold text-amber-900">Vendor Account Suspended</p>
+                                        <p className="text-sm font-bold text-amber-900">Vendor Account Inactive</p>
                                         <p className="text-[11px] text-amber-600 font-medium leading-relaxed mt-1">
                                             The store is currently unavailable and cannot accept new orders until reinstated by an administrator.
                                         </p>
@@ -290,22 +357,28 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
 
                         {/* Footer Actions */}
                         <div className="p-6 border-t border-zinc-100 flex items-center gap-3">
-                            <button className="flex-1 py-3 text-xs font-bold text-emerald-800 border-2 border-emerald-800/20 rounded-3xl hover:bg-emerald-50 transition-all">
-                                Delete account
+                            <button 
+                                onClick={() => handleActionClick('delete')}
+                                disabled={deleteMutation.isPending}
+                                className="flex-1 py-3 text-xs font-bold text-emerald-800 border-2 border-emerald-800/20 rounded-3xl hover:bg-emerald-50 transition-all disabled:opacity-50"
+                            >
+                                {deleteMutation.isPending ? <Loader2 className="animate-spin mx-auto" size={16} /> : 'Delete account'}
                             </button>
-                            {vendor?.status === 'Pending' ? (
+                            {overview.status === 'PENDING' ? (
                                 <button
                                     onClick={() => handleActionClick('approve')}
-                                    className="flex-1 py-3 text-xs font-bold text-white rounded-3xl bg-emerald-800 hover:bg-emerald-900 transition-all shadow-md shadow-emerald-900/10"
+                                    disabled={suspensionMutation.isPending}
+                                    className="flex-1 py-3 text-xs font-bold text-white rounded-3xl bg-emerald-800 hover:bg-emerald-900 transition-all shadow-md shadow-emerald-900/10 disabled:opacity-50"
                                 >
-                                    Approve account
+                                    {suspensionMutation.isPending ? <Loader2 className="animate-spin mx-auto" size={16} /> : 'Approve account'}
                                 </button>
                             ) : (
                                 <button
-                                    onClick={() => handleActionClick(vendor?.status === 'Suspended' ? 'activate' : 'suspend')}
-                                    className={`flex-1 py-3 text-xs font-bold text-white rounded-3xl transition-all shadow-md shadow-emerald-900/10 ${vendor?.status === 'Suspended' ? 'bg-emerald-800 hover:bg-emerald-900' : 'bg-emerald-900 hover:bg-black'
+                                    onClick={() => handleActionClick(overview.isSuspended ? 'activate' : 'suspend')}
+                                    disabled={suspensionMutation.isPending}
+                                    className={`flex-1 py-3 text-xs font-bold text-white rounded-3xl transition-all shadow-md shadow-emerald-900/10 flex items-center justify-center gap-2 disabled:opacity-50 ${overview.isSuspended ? 'bg-emerald-800 hover:bg-emerald-900' : 'bg-emerald-900 hover:bg-black'
                                         }`}>
-                                    {vendor?.status === 'Suspended' ? 'Activate account' : 'Suspend account'}
+                                    {suspensionMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : (overview.isSuspended ? 'Activate account' : 'Suspend account')}
                                 </button>
                             )}
                         </div>

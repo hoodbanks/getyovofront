@@ -4,8 +4,12 @@ import {
     ChevronDown,
     AlertCircle,
     CheckCircle2,
-    AlertTriangle
+    AlertTriangle,
+    Loader2
 } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '../../api/api';
+import { useAuthStore } from '../../store/useAuthStore';
 
 const ConfirmationModal = ({ isOpen, onClose, type, customer, onConfirm }) => {
     const [reason, setReason] = useState('');
@@ -21,6 +25,8 @@ const ConfirmationModal = ({ isOpen, onClose, type, customer, onConfirm }) => {
         'Suspicious behavior',
         'Other'
     ];
+    
+    const isReasonValid = reason && (reason !== 'Other' || otherReason.trim() !== '');
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -56,7 +62,7 @@ const ConfirmationModal = ({ isOpen, onClose, type, customer, onConfirm }) => {
                             Activating this account will allow the customer to log in and use all available features.
                         </p>
 
-                        <div className="flex w-full gap-3">
+                        <div className="flex w-full gap-3 mt-8">
                             <button
                                 onClick={onClose}
                                 className="flex-1 py-4 bg-zinc-50 text-zinc-900 text-sm font-bold rounded-3xl hover:bg-zinc-100 transition-all"
@@ -99,7 +105,7 @@ const ConfirmationModal = ({ isOpen, onClose, type, customer, onConfirm }) => {
                     </div>
 
                     <p className="text-xs text-zinc-500 font-bold text-center mb-6 max-w-[200px]">
-                        This will temporarily restrict this account from accessing the platform.
+                        This will temporarily make this account inactive and restrict access to the platform.
                     </p>
 
                     <div className="w-full space-y-4 mb-8">
@@ -115,7 +121,7 @@ const ConfirmationModal = ({ isOpen, onClose, type, customer, onConfirm }) => {
                                 </button>
 
                                 {showReasons && (
-                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-zinc-100 rounded-2xl shadow-xl z-10 overflow-hidden py-1">
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-zinc-100 rounded-2xl shadow-xl z-20 overflow-y-auto max-h-72 py-1 custom-scrollbar">
                                         {reasons.map((r) => (
                                             <button
                                                 key={r}
@@ -133,7 +139,7 @@ const ConfirmationModal = ({ isOpen, onClose, type, customer, onConfirm }) => {
                         {reason === 'Other' && (
                             <textarea
                                 placeholder="Give reasons if you select others..."
-                                className="w-full px-4 py-4 bg-white border border-zinc-100 rounded-2xl text-xs font-medium text-zinc-700 focus:ring-1 focus:ring-rose-500/20 outline-none h-24 resize-none transition-all"
+                                className="w-full px-4 py-4 bg-white border border-zinc-100 rounded-2xl text-xs font-medium text-zinc-700 focus:ring-1 focus:ring-rose-500/20 outline-none h-32 resize-none transition-all"
                                 value={otherReason}
                                 onChange={(e) => setOtherReason(e.target.value)}
                             />
@@ -148,10 +154,14 @@ const ConfirmationModal = ({ isOpen, onClose, type, customer, onConfirm }) => {
                             Cancel
                         </button>
                         <button
+                            disabled={!isActivate && !isReasonValid}
                             onClick={() => { onConfirm({ reason, otherReason }); onClose(); }}
-                            className="flex-1 py-4 bg-rose-600 text-white text-sm font-bold rounded-3xl hover:bg-rose-700 transition-all shadow-md shadow-rose-900/10"
+                            className={`flex-1 py-4 text-white text-sm font-bold rounded-3xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed ${isActivate
+                                    ? 'bg-emerald-800 hover:bg-emerald-900 shadow-emerald-900/10'
+                                    : 'bg-rose-600 hover:bg-rose-700 shadow-rose-900/10'
+                                }`}
                         >
-                            Suspend
+                            {isActivate ? 'Activate' : 'Suspend'}
                         </button>
                     </div>
                 </div>
@@ -161,27 +171,69 @@ const ConfirmationModal = ({ isOpen, onClose, type, customer, onConfirm }) => {
 };
 
 const CustomerModal = ({ isOpen, onClose, customer }) => {
+    const token = useAuthStore((state) => state.accessToken);
+    const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState('Overview');
     const [showConfirm, setShowConfirm] = useState(false);
-    const [confirmType, setConfirmType] = useState(''); // 'activate' or 'suspend'
+    const [confirmType, setConfirmType] = useState(''); // 'activate', 'suspend', or 'delete'
+    const [filter, setFilter] = useState('last7days');
+
+    // Fetch Overview
+    const { data: overviewData, isLoading: isOverviewLoading } = useQuery({
+        queryKey: ['userOverview', customer?.id, filter],
+        queryFn: () => api.get(`/superadmin/users/${customer?.id}/overview?filter=${filter}`, token),
+        enabled: !!customer?.id && isOpen && activeTab === 'Overview'
+    });
+
+    // Fetch Orders
+    const { data: ordersData, isLoading: isOrdersLoading } = useQuery({
+        queryKey: ['userOrders', customer?.id, filter],
+        queryFn: () => api.get(`/superadmin/users/${customer?.id}/orders?filter=${filter}&page=1`, token),
+        enabled: !!customer?.id && isOpen && activeTab === 'Orders'
+    });
+
+    // Mutations
+    const suspensionMutation = useMutation({
+        mutationFn: (data) => api.patch(`/superadmin/users/${customer?.id}/suspension`, data, token),
+        onSuccess: () => {
+            queryClient.invalidateQueries(['userOverview', customer?.id]);
+            queryClient.invalidateQueries(['users']);
+            setShowConfirm(false);
+        }
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: () => api.delete('/superadmin/users', { userId: customer?.id }, token),
+        onSuccess: () => {
+            queryClient.invalidateQueries(['users']);
+            onClose();
+        }
+    });
 
     if (!isOpen) return null;
 
-    const mockOrders = [
-        { id: 'GY-276025', date: '21 Jan, 2026 1:45 PM', store: 'Candles', status: 'Cancelled', amount: '₦15,404' },
-        { id: 'GY-276025', date: '21 Jan, 2026 1:45 PM', store: 'Raban Mart', status: 'Delivered', amount: '₦15,404' },
-        { id: 'GY-276025', date: '21 Jan, 2026 1:45 PM', store: 'Candles', status: 'Delivered', amount: '₦15,404' },
-        { id: 'GY-276025', date: '21 Jan, 2026 1:45 PM', store: 'Candles', status: 'Cancelled', amount: '₦15,404' },
-    ];
+    const overview = overviewData?.data || {};
+    const orders = ordersData?.data?.orders || [];
 
     const handleActionClick = () => {
-        setConfirmType(customer?.status === 'Suspended' ? 'activate' : 'suspend');
+        setConfirmType(customer?.isSuspended ? 'activate' : 'suspend');
+        setShowConfirm(true);
+    };
+
+    const handleDeleteClick = () => {
+        setConfirmType('delete');
         setShowConfirm(true);
     };
 
     const handleConfirm = (data) => {
-        console.log('Action confirmed:', confirmType, data);
-        // Here you would typically call an API
+        if (confirmType === 'delete') {
+            deleteMutation.mutate();
+        } else {
+            suspensionMutation.mutate({
+                suspend: confirmType === 'suspend',
+                reason: data?.reason === 'Other' ? data?.otherReason : data?.reason
+            });
+        }
     };
 
     return (
@@ -200,11 +252,18 @@ const CustomerModal = ({ isOpen, onClose, customer }) => {
                         <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 font-bold text-sm">
-                                    {customer?.initials || 'AJ'}
+                                    {(customer?.firstname?.[0] || '') + (customer?.lastname?.[0] || '')}
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold text-zinc-900">{customer?.name || 'Adaeze James'}</h2>
-                                    <p className="text-xs text-zinc-400 font-medium tracking-wide uppercase">CUS-mli5fxnu_615hfs</p>
+                                    <h2 className="text-xl font-bold text-zinc-900 leading-tight">{customer?.firstname} {customer?.lastname}</h2>
+                                    <div className="mt-1">
+                                        <span className={`px-3 py-0.5 rounded-full text-[10px] font-bold border capitalize ${!overview.isSuspended
+                                            ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                            : 'bg-rose-50 text-rose-600 border-rose-100'
+                                            }`}>
+                                            {overview.isSuspended ? 'Inactive' : 'Active'}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                             <button
@@ -221,15 +280,15 @@ const CustomerModal = ({ isOpen, onClose, customer }) => {
                                 <div className="bg-zinc-100 rounded-2xl p-5 border border-zinc-100 space-y-4">
                                     <div>
                                         <label className="text-sm font-bold text-zinc-900 tracking-wider block mb-1">Phone</label>
-                                        <p className="text-xs font-medium text-zinc-400">+2348088888888</p>
+                                        <p className="text-xs font-medium text-zinc-400">{overview.phone || customer?.phonenumber || 'N/A'}</p>
                                     </div>
                                     <div>
                                         <label className="text-sm font-bold text-zinc-900 tracking-wider block mb-1">Email</label>
-                                        <p className="text-xs font-medium text-zinc-400">adaezegetyovo@email.com</p>
+                                        <p className="text-xs font-medium text-zinc-400">{overview.email || customer?.email || 'N/A'}</p>
                                     </div>
                                     <div>
                                         <label className="text-sm font-bold text-zinc-900 tracking-wider block mb-1">Address</label>
-                                        <p className="text-xs font-medium text-zinc-400">No 1 Nzekwe street, Awka, Anambra state</p>
+                                        <p className="text-xs font-medium text-zinc-400">{overview.address || 'N/A'}</p>
                                     </div>
                                 </div>
                             </div>
@@ -251,28 +310,41 @@ const CustomerModal = ({ isOpen, onClose, customer }) => {
                                     ))}
                                 </div>
                                 <div className="relative">
-                                    <button className="flex items-center gap-2 px-4 py-2.5 bg-zinc-100 rounded-2xl text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                                        All Time <ChevronDown size={14} />
-                                    </button>
+                                    <select
+                                        value={filter}
+                                        onChange={(e) => setFilter(e.target.value)}
+                                        className="appearance-none flex items-center gap-2 px-4 py-2.5 bg-zinc-100 rounded-2xl text-[10px] font-bold text-zinc-500 uppercase tracking-wider outline-none"
+                                    >
+                                        <option value="last7days">Last 7 Days</option>
+                                        <option value="last30days">Last 30 Days</option>
+                                        <option value="thisMonth">This Month</option>
+                                        <option value="lastMonth">Last Month</option>
+                                        <option value="all">All Time</option>
+                                    </select>
                                 </div>
                             </div>
 
                             {activeTab === 'Overview' ? (
                                 <div className="px-6 space-y-6">
-                                    {/* Stats Grid */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {[
-                                            { label: 'Total Orders (Week)', value: '6' },
-                                            { label: 'Delivered', value: '5' },
-                                            { label: 'Cancelled', value: '1' },
-                                            { label: 'Total Spent', value: '₦72,766' },
-                                        ].map((stat, i) => (
-                                            <div key={i} className="bg-zinc-100 border border-zinc-100 p-5 rounded-2xl hover:bg-white hover:shadow-md transition-all group">
-                                                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2 group-hover:text-zinc-500">{stat.label}</p>
-                                                <p className="text-xl font-bold text-zinc-900">{stat.value}</p>
-                                            </div>
-                                        ))}
-                                    </div>
+                                    {isOverviewLoading ? (
+                                        <div className="flex justify-center py-10">
+                                            <Loader2 className="text-emerald-600 animate-spin" size={32} />
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {[
+                                                { label: 'Total Orders', value: overview.totalOrders || 0 },
+                                                { label: 'Delivered', value: overview.deliveredOrders || 0 },
+                                                { label: 'Cancelled', value: overview.cancelledOrders || 0 },
+                                                { label: 'Total Spent', value: `₦${(overview.totalSpent || 0).toLocaleString()}` },
+                                            ].map((stat, i) => (
+                                                <div key={i} className="bg-zinc-100 border border-zinc-100 p-5 rounded-2xl hover:bg-white hover:shadow-md transition-all group">
+                                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2 group-hover:text-zinc-500">{stat.label}</p>
+                                                    <p className="text-xl font-bold text-zinc-900">{stat.value}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
 
                                     {/* DetailsSection */}
                                     <div className="bg-white border border-zinc-100 rounded-2xl p-6 shadow-sm">
@@ -280,65 +352,83 @@ const CustomerModal = ({ isOpen, onClose, customer }) => {
                                         <div className="space-y-4">
                                             <div>
                                                 <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Joined</label>
-                                                <p className="text-sm font-bold text-zinc-800">31 Dec 2025</p>
+                                                <p className="text-sm font-bold text-zinc-800">
+                                                    {overview.joinedAt ? `${overview.joinedAt.date}/${overview.joinedAt.month}/${overview.joinedAt.year}` : 'N/A'}
+                                                </p>
                                             </div>
                                             <div>
                                                 <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Last Seen</label>
-                                                <p className="text-sm font-bold text-zinc-800">20 Jan, 1:00 PM</p>
-                                            </div>
-                                            <div>
-                                                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Last Order</label>
-                                                <p className="text-sm font-bold text-zinc-800">20 Jan, 1:00 PM</p>
+                                                <p className="text-sm font-bold text-zinc-800">
+                                                    {overview.lastSeenAt ? `${overview.lastSeenAt.date}/${overview.lastSeenAt.month}/${overview.lastSeenAt.year}` : 'N/A'}
+                                                </p>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {customer?.status === 'Suspended' && (
-                                        <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-5 flex items-start gap-3">
-                                            <AlertCircle className="text-amber-500 shrink-0" size={18} />
+                                    {overview.isSuspended && (
+                                        <div className="bg-rose-50/50 border border-rose-100 rounded-2xl p-5 flex items-start gap-3">
+                                            <AlertCircle className="text-rose-500 shrink-0" size={18} />
                                             <div>
-                                                <p className="text-sm font-bold text-amber-900">Account Suspended</p>
-                                                <p className="text-xs text-amber-600 font-medium">This user's access to the platform has been restricted.</p>
+                                                <p className="text-sm font-bold text-rose-900">User Account Inactive</p>
+                                                <p className="text-[11px] text-rose-600 font-medium leading-relaxed mt-1">
+                                                    {overview.suspensionReason || 'This account is currently inactive and cannot perform any transactions on the platform.'}
+                                                </p>
                                             </div>
                                         </div>
                                     )}
                                 </div>
                             ) : (
                                 <div className="px-6 space-y-6">
-                                    <div className="space-y-4">
-                                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Today</p>
-                                        {mockOrders.map((order, i) => (
-                                            <div key={i} className="group relative flex items-center justify-between p-4 bg-zinc-100 border border-zinc-100 rounded-2xl hover:bg-white hover:shadow-md transition-all">
-                                                <div className="flex flex-col gap-1">
-                                                    <div className="flex items-center justify-between gap-2">
-                                                        <span className="text-sm font-bold text-zinc-900">{order.id}</span>
-                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${order.status === 'Cancelled' ? 'bg-rose-50 text-rose-500' : 'bg-emerald-50 text-emerald-500'
-                                                            }`}>
-                                                            {order.status}
-                                                        </span>
+                                    {isOrdersLoading ? (
+                                        <div className="flex justify-center py-10">
+                                            <Loader2 className="text-emerald-600 animate-spin" size={32} />
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {orders.length === 0 ? (
+                                                <p className="text-center py-10 text-zinc-500 font-medium text-xs">No orders found.</p>
+                                            ) : (
+                                                orders.map((order, i) => (
+                                                    <div key={i} className="group relative flex items-center justify-between p-4 bg-zinc-100 border border-zinc-100 rounded-2xl hover:bg-white hover:shadow-md transition-all">
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <span className="text-sm font-bold text-zinc-900">{order.code}</span>
+                                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${order.status === 'CANCELLED' ? 'bg-rose-50 text-rose-500' : 'bg-emerald-50 text-emerald-500'
+                                                                    }`}>
+                                                                    {order.status}
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-[10px] font-medium text-zinc-400">
+                                                                {order.date ? `${order.date.date}/${order.date.month}/${order.date.year}` : ''} • {order.vendorStore}
+                                                            </p>
+                                                            <div className="mt-2 text-[10px] font-bold text-zinc-400 flex justify-between items-center gap-1.5 uppercase tracking-wider">
+                                                                Amount <span className="text-zinc-900">₦{(order.amount || 0).toLocaleString()}</span>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <p className="text-[10px] font-medium text-zinc-400">{order.date} • {order.store}</p>
-                                                    <div className="mt-2 text-[10px] font-bold text-zinc-400 flex justify-between items-center gap-1.5 uppercase tracking-wider">
-                                                        Amount <span className="text-zinc-900">{order.amount}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
 
                         {/* Footer Actions */}
                         <div className="p-6 border-t border-zinc-100 flex items-center gap-3">
-                            <button className="flex-1 py-3 text-xs font-bold text-emerald-800 border-2 border-emerald-800/20 rounded-3xl hover:bg-emerald-50 transition-all flex items-center justify-center gap-2">
-                                Delete account
+                            <button
+                                onClick={handleDeleteClick}
+                                disabled={deleteMutation.isPending}
+                                className="flex-1 py-3 text-xs font-bold text-emerald-800 border-2 border-emerald-800/20 rounded-3xl hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                {deleteMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : 'Delete account'}
                             </button>
                             <button
                                 onClick={handleActionClick}
-                                className={`flex-1 py-3 text-xs font-bold text-white rounded-3xl transition-all shadow-md shadow-emerald-900/10 ${customer?.status === 'Suspended' ? 'bg-emerald-800' : 'bg-emerald-900 hover:bg-emerald-950'
+                                disabled={suspensionMutation.isPending}
+                                className={`flex-1 py-3 text-xs font-bold text-white rounded-3xl transition-all shadow-md shadow-emerald-900/10 flex items-center justify-center gap-2 disabled:opacity-50 ${overview.isSuspended ? 'bg-emerald-800' : 'bg-emerald-900 hover:bg-emerald-950'
                                     }`}>
-                                {customer?.status === 'Suspended' ? 'Activate account' : 'Suspend account'}
+                                {suspensionMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : (overview.isSuspended ? 'Activate account' : 'Suspend account')}
                             </button>
                         </div>
                     </div>
