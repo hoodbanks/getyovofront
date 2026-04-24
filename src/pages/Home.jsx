@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Footer from '../components/common/Footer';
 import Hero from '../components/common/Hero';
 import shopperImg from '../assets/images/shopper-img.png';
@@ -15,8 +15,33 @@ import appleStoreImg from '../assets/images/apple-store-img.png';
 import bgImage1 from '../assets/images/login-background2.png';
 import bgImage2 from '../assets/images/login-background3.png';
 import bgImage3 from '../assets/images/login-background4.png';
+import doublePhoneImg from '../assets/images/double-phone-img.png';
+
+const useReveal = () => {
+    useEffect(() => {
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('show');
+                }
+            });
+        }, observerOptions);
+
+        const elements = document.querySelectorAll('.reveal');
+        elements.forEach(el => observer.observe(el));
+
+        return () => observer.disconnect();
+    }, []);
+};
 
 const Home = () => {
+    useReveal();
+
     return (
         <div className="min-h-screen bg-white p-1 font-sans pb-0">
             <div className="max-w-[1440px] mx-auto">
@@ -30,13 +55,13 @@ const Home = () => {
                 />
 
                 {/* Mission Section */}
-                <div className="mt-8 md:mt-10 mb-5 px-6 mx-2 text-center bg-[#EEF2EF] rounded-2xl py-6">
+                <div className="reveal reveal-up mt-8 md:mt-10 mb-5 px-6 mx-2 text-center bg-[#EEF2EF] rounded-2xl py-6">
                     <div className="lg:max-w-4xl mx-auto space-y-6">
                         <h2 className="text-md md:text-2xl lg:text-3xl font-medium text-zinc-900 md:leading-[1.3]">
                             We're changing the way people order, sell, and deliver by bringing customers closer to local vendors.
                         </h2>
 
-                        <div className="flex justify-center">
+                        <div className="flex justify-center delay-200">
                             <button className=" sm:w-auto bg-[#225B28] text-white px-10 py-4 rounded-full text-base font-bold shadow-lg shadow-[#0F4A33]/20 hover:bg-[#0C3D2A] transition-all hover:scale-105 active:scale-95">
                                 Download App
                             </button>
@@ -49,7 +74,7 @@ const Home = () => {
 
                     {/* Shoppers Section */}
                     <div className="flex flex-col md:flex-row items-center text-left gap-6 lg:gap-12">
-                        <div className="flex-1 space-y-6 text-left md:text-left">
+                        <div className="reveal reveal-left flex-1 space-y-6 text-left md:text-left">
                             <div className="flex items-center justify-start gap-2 text-sm font-semibold text-[#1C5E20]">
                                 <span className="w-2 h-2 rounded-full bg-[#1C5E20]"></span>
                                 <span>For Shoppers</span>
@@ -64,7 +89,7 @@ const Home = () => {
                                 Join as a shopper
                             </button>
                         </div>
-                        <div className="flex-1 w-full max-w-xl">
+                        <div className="reveal reveal-right flex-1 w-full max-w-xl">
                             <div className="relative overflow-hidden group">
                                 <div className="absolute inset-x-0 bottom-0 top-1/4 rounded-t-full transition-transform group-hover:scale-105"></div>
                                 <img
@@ -80,7 +105,7 @@ const Home = () => {
                     <div className="flex flex-col-reverse md:flex-row-reverse items-center gap-6 lg:gap-12">
 
                         {/* Text Content */}
-                        <div className="flex-1 space-y-6 text-left md:text-left w-full">
+                        <div className="reveal reveal-right flex-1 space-y-6 text-left md:text-left w-full">
                             <div className="flex items-center justify-start gap-2 text-sm font-semibold text-[#1C5E20]">
                                 <span className="w-2 h-2 rounded-full bg-[#1C5E20]"></span>
                                 <span>For Vendors</span>
@@ -100,7 +125,7 @@ const Home = () => {
                         </div>
 
                         {/* Image */}
-                        <div className="flex-1 w-full max-w-xl">
+                        <div className="reveal reveal-left flex-1 w-full max-w-xl">
                             <div className="relative overflow-hidden group">
                                 <div className="absolute inset-x-0 bottom-0 top-1/4 transition-transform group-hover:scale-105"></div>
 
@@ -133,7 +158,7 @@ const Home = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* Step 1 */}
-                        <div className="bg-[#EEF2EF] p-8 space-y-6 relative group border border-zinc-100 hover:border-[#1C5E20]/20 transition-all rounded-tr-[5rem] md:rounded-tr-none md:rounded-bl-[5rem]">
+                        <div className="reveal reveal-up bg-[#EEF2EF] p-8 space-y-6 relative group border border-zinc-100 hover:border-[#1C5E20]/20 transition-all rounded-tr-[5rem] md:rounded-tr-none md:rounded-bl-[5rem]">
                             <div className="w-10 h-10 rounded-full bg-[#1C5E20] text-white flex items-center justify-center font-bold text-lg">
                                 1
                             </div>
@@ -149,7 +174,7 @@ const Home = () => {
                         </div>
 
                         {/* Step 2 */}
-                        <div className="bg-[#1C5E20] p-8 space-y-6 text-white relative group shadow-2xl shadow-[#1C5E20]/20">
+                        <div className="reveal reveal-up delay-100 bg-[#1C5E20] p-8 space-y-6 text-white relative group shadow-2xl shadow-[#1C5E20]/20">
                             <div className="w-10 h-10 rounded-full bg-white text-[#1C5E20] flex items-center justify-center font-bold text-lg">
                                 2
                             </div>
@@ -170,7 +195,7 @@ const Home = () => {
                         </div>
 
                         {/* Step 3 */}
-                        <div className="bg-[#EEF2EF] p-8 space-y-6 relative group border border-zinc-100 hover:border-[#1C5E20]/20 transition-all rounded-bl-[5rem] md:rounded-tr-[5rem] md:rounded-bl-none">
+                        <div className="reveal reveal-up delay-200 bg-[#EEF2EF] p-8 space-y-6 relative group border border-zinc-100 hover:border-[#1C5E20]/20 transition-all rounded-bl-[5rem] md:rounded-tr-[5rem] md:rounded-bl-none">
                             <div className="w-10 h-10 rounded-full bg-[#1C5E20] text-white flex items-center justify-center font-bold text-lg">
                                 3
                             </div>
@@ -206,7 +231,7 @@ const Home = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {/* Pharmacy */}
-                        <div className="bg-[#225B28] rounded-[2.5rem] overflow-hidden flex flex-col pt-10 group">
+                        <div className="reveal reveal-up bg-[#225B28] rounded-[2.5rem] overflow-hidden flex flex-col pt-10 group">
                             <div className="px-10 space-y-4 mb-10">
                                 <h3 className="text-2xl font-bold text-white">Pharmacy</h3>
                                 <p className="text-white/80 text-sm max-w-[220px]">
@@ -214,16 +239,16 @@ const Home = () => {
                                 </p>
                             </div>
                             <div className="mt-auto">
-                                <img 
-                                    src={pharmacyImg} 
-                                    alt="Pharmacy" 
+                                <img
+                                    src={pharmacyImg}
+                                    alt="Pharmacy"
                                     className="w-full h-auto object-cover transition-transform group-hover:scale-105"
                                 />
                             </div>
                         </div>
 
                         {/* Groceries */}
-                        <div className="bg-[#EEF2EF] rounded-[2.5rem] overflow-hidden flex flex-col pt-10 group">
+                        <div className="reveal reveal-up delay-100 bg-[#EEF2EF] rounded-[2.5rem] overflow-hidden flex flex-col pt-10 group">
                             <div className="px-10 space-y-4 mb-10">
                                 <h3 className="text-2xl font-bold text-zinc-900">Groceries</h3>
                                 <p className="text-zinc-600 text-sm max-w-[220px]">
@@ -231,16 +256,16 @@ const Home = () => {
                                 </p>
                             </div>
                             <div className="mt-auto">
-                                <img 
-                                    src={groceriesImg} 
-                                    alt="Groceries" 
+                                <img
+                                    src={groceriesImg}
+                                    alt="Groceries"
                                     className="w-full h-auto object-cover transition-transform group-hover:scale-105"
                                 />
                             </div>
                         </div>
 
                         {/* Restaurants */}
-                        <div className="bg-[#EEF2EF] rounded-[2.5rem] overflow-hidden flex flex-col pt-10 group">
+                        <div className="reveal reveal-up delay-200 bg-[#EEF2EF] rounded-[2.5rem] overflow-hidden flex flex-col pt-10 group">
                             <div className="px-10 space-y-4 mb-10">
                                 <h3 className="text-2xl font-bold text-zinc-900">Restaurants</h3>
                                 <p className="text-zinc-600 text-sm max-w-[220px]">
@@ -248,9 +273,9 @@ const Home = () => {
                                 </p>
                             </div>
                             <div className="mt-auto">
-                                <img 
-                                    src={restaurantsImg} 
-                                    alt="Restaurants" 
+                                <img
+                                    src={restaurantsImg}
+                                    alt="Restaurants"
                                     className="w-full h-auto object-cover transition-transform group-hover:scale-105"
                                 />
                             </div>
@@ -259,25 +284,25 @@ const Home = () => {
                 </div>
 
                 {/* Get Started CTA Banner */}
-                <div className="mb-32 px-2">
-                    <div className="bg-[#225B28] rounded-2xl relative overflow-hidden flex flex-col md:flex-row items-center px-2 md:px-20 py-10 md:py-14">
-                        
-                         {/* Background Images */}
-                                    <img
-                                        src={bgImage1}
-                                        alt="Background Decoration 1"
-                                        className="absolute top-[-100px] left-[-60px] md:top-[-60px] md:left-[-30px] -z-0 opacity-10 pointer-events-none"
-                                    />
-                                    <img
-                                        src={bgImage2}
-                                        alt="Background Decoration 2"
-                                        className="absolute top-[-80px] left-[-100px] md:top-[-110px] md:left-[-100px] -z-0 opacity-10 pointer-events-none"
-                                    />
-                                    <img
-                                        src={bgImage3}
-                                        alt="Background Decoration 3"
-                                        className="absolute bottom-0 right-0 -z-0 opacity-10 pointer-events-none w-140"
-                                    />
+                <div className="reveal mt-15 mb-15 px-2">
+                    <div className="bg-[#225B28] rounded-2xl relative overflow-hidden flex flex-col md:flex-row items-center px-2 md:px-20 pt-10">
+
+                        {/* Background Images */}
+                        <img
+                            src={bgImage1}
+                            alt="Background Decoration 1"
+                            className="absolute top-[-100px] left-[-60px] md:top-[-60px] md:left-[-30px] -z-0 opacity-10 pointer-events-none"
+                        />
+                        <img
+                            src={bgImage2}
+                            alt="Background Decoration 2"
+                            className="absolute top-[-80px] left-[-100px] md:top-[-110px] md:left-[-100px] -z-0 opacity-10 pointer-events-none"
+                        />
+                        <img
+                            src={bgImage3}
+                            alt="Background Decoration 3"
+                            className="absolute bottom-0 right-0 -z-0 opacity-10 pointer-events-none w-140"
+                        />
 
                         <div className="relative z-10 flex-1 space-y-8 text-center md:text-left">
                             <div className="space-y-2">
@@ -302,10 +327,10 @@ const Home = () => {
                         <div className="relative z-10 flex-1 mt-16 md:mt-0 w-full md:w-auto h-full flex justify-center md:justify-end">
                             <div className="relative w-full max-w-md transform md:translate-x-10 md:translate-y-10 rotate-3 group">
                                 <div className="absolute inset-0 bg-white/5 rounded-3xl blur-2xl group-hover:bg-white/10 transition-colors"></div>
-                                <img 
-                                    src={groceriesImg} 
-                                    alt="Join Getyovo" 
-                                    className="relative z-10 w-full object-cover rounded-3xl shadow-2xl border-4 border-white/10"
+                                <img
+                                    src={doublePhoneImg}
+                                    alt="Join Getyovo"
+                                    className="relative z-10 w-full"
                                 />
                             </div>
                         </div>

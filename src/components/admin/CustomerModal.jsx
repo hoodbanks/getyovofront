@@ -8,6 +8,7 @@ import {
     Loader2
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
 
@@ -40,111 +41,91 @@ const ConfirmationModal = ({ isOpen, onClose, type, customer, onConfirm }) => {
 
     if (!isOpen) return null;
 
-    if (type === 'activate') {
-        return (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-                <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-                <div className="relative bg-white rounded-[2rem] w-full max-w-sm overflow-hidden shadow-2xl animate-fade-in scale-100 transition-all duration-300">
-                    <div className="p-6 flex flex-col items-center text-center">
-                        <div className="flex justify-between w-full mb-4">
-                            <span className="text-sm font-bold text-zinc-900">Activate account</span>
-                            <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 transition-colors">
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        <div className="w-20 h-20 rounded-full bg-zinc-100 flex items-center justify-center mb-6">
-                            <CheckCircle2 size={40} className="text-zinc-900" />
-                        </div>
-
-                        <h3 className="text-xl font-bold text-zinc-900 mb-2">Confirm Account Activation</h3>
-                        <p className="text-xs text-zinc-400 font-medium leading-relaxed mb-8 px-4">
-                            Activating this account will allow the customer to log in and use all available features.
-                        </p>
-
-                        <div className="flex w-full gap-3 mt-8">
-                            <button
-                                onClick={onClose}
-                                className="flex-1 py-4 bg-zinc-50 text-zinc-900 text-sm font-bold rounded-3xl hover:bg-zinc-100 transition-all"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={() => { onConfirm(); onClose(); }}
-                                className="flex-1 py-4 bg-emerald-800 text-white text-sm font-bold rounded-3xl hover:bg-emerald-900 transition-all shadow-md shadow-emerald-900/10"
-                            >
-                                Activate
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    const isActivate = type === 'activate';
+    const isDelete = type === 'delete';
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
             <div className="relative bg-white rounded-[2rem] w-full max-w-sm overflow-hidden shadow-2xl animate-fade-in transition-all duration-300">
-                <div className="p-6 flex flex-col items-center">
+                <div className="p-6 flex flex-col items-center text-center">
                     <div className="flex justify-between w-full mb-4">
-                        <span className="text-sm font-bold text-zinc-900">Suspend account</span>
+                        <span className="text-sm font-bold text-zinc-900 capitalize">{type} account</span>
                         <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 transition-colors">
                             <X size={20} />
                         </button>
                     </div>
 
-                    <div className="w-24 h-24 flex items-center justify-center mb-4">
-                        <div className="relative">
-                            <div className="absolute inset-0 bg-amber-400 opacity-20 blur-xl rounded-full"></div>
-                            <AlertTriangle size={60} className="text-amber-400 relative z-10" fill="currentColor" />
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-1">
-                                <span className="text-white font-bold text-xl">!</span>
+                    {isActivate ? (
+                        <>
+                            <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mb-6">
+                                <CheckCircle2 size={40} className="text-emerald-600" />
                             </div>
-                        </div>
-                    </div>
-
-                    <p className="text-xs text-zinc-500 font-bold text-center mb-6 max-w-[200px]">
-                        This will temporarily make this account inactive and restrict access to the platform.
-                    </p>
-
-                    <div className="w-full space-y-4 mb-8">
-                        <div>
-                            <label className="text-xs font-bold text-zinc-900 mb-2 block tracking-tight">Suspension Reason *</label>
-                            <div className="relative" ref={dropdownRef}>
-                                <button
-                                    onClick={() => setShowReasons(!showReasons)}
-                                    className="w-full flex items-center justify-between px-4 py-4 bg-white border border-zinc-100 rounded-2xl text-xs font-medium text-zinc-400 hover:bg-zinc-50 transition-all"
-                                >
-                                    <span>{reason || 'Reasons'}</span>
-                                    <ChevronDown size={18} className={`transition-transform duration-300 ${showReasons ? 'rotate-180' : ''}`} />
-                                </button>
-
-                                {showReasons && (
-                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-zinc-100 rounded-2xl shadow-xl z-20 overflow-y-auto max-h-72 py-1 custom-scrollbar">
-                                        {reasons.map((r) => (
-                                            <button
-                                                key={r}
-                                                onClick={() => { setReason(r); setShowReasons(false); }}
-                                                className="w-full text-left px-4 py-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
-                                            >
-                                                {r}
-                                            </button>
-                                        ))}
+                            <h3 className="text-xl font-bold text-zinc-900 mb-2">Confirm Account Activation</h3>
+                            <p className="text-xs text-zinc-400 font-medium leading-relaxed mb-8 px-4">
+                                Activating this account will allow the customer to log in and use all available features.
+                            </p>
+                        </>
+                    ) : (
+                        <>
+                            <div className="w-24 h-24 flex items-center justify-center mb-4">
+                                <div className="relative">
+                                    <div className="absolute inset-0 bg-rose-400 opacity-20 blur-xl rounded-full"></div>
+                                    <AlertTriangle size={60} className={isDelete ? "text-rose-500 relative z-10" : "text-amber-400 relative z-10"} fill="currentColor" />
+                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-1">
+                                        <span className="text-white font-bold text-xl">!</span>
                                     </div>
-                                )}
+                                </div>
                             </div>
-                        </div>
+                            <h3 className="text-lg font-bold text-zinc-900 mb-2">
+                                {isDelete ? 'Delete User Account' : 'Suspend User Account'}
+                            </h3>
+                            <p className="text-xs text-zinc-500 font-bold text-center mb-6 max-w-[200px]">
+                                {isDelete 
+                                    ? 'This action is PERMANENT and will remove all user data from the system.' 
+                                    : 'This will temporarily make this account inactive and restrict access to the platform.'}
+                            </p>
 
-                        {reason === 'Other' && (
-                            <textarea
-                                placeholder="Give reasons if you select others..."
-                                className="w-full px-4 py-4 bg-white border border-zinc-100 rounded-2xl text-xs font-medium text-zinc-700 focus:ring-1 focus:ring-rose-500/20 outline-none h-32 resize-none transition-all"
-                                value={otherReason}
-                                onChange={(e) => setOtherReason(e.target.value)}
-                            />
-                        )}
-                    </div>
+                            {!isDelete && (
+                                <div className="w-full text-left space-y-4 mb-8">
+                                    <div>
+                                        <label className="text-xs font-bold text-zinc-900 mb-2 block tracking-tight">Suspension Reason *</label>
+                                        <div className="relative" ref={dropdownRef}>
+                                            <button
+                                                onClick={() => setShowReasons(!showReasons)}
+                                                className="w-full flex items-center justify-between px-4 py-4 bg-white border border-zinc-100 rounded-2xl text-xs font-medium text-zinc-400 hover:bg-zinc-50 transition-all"
+                                            >
+                                                <span>{reason || 'Reasons'}</span>
+                                                <ChevronDown size={18} className={`transition-transform duration-300 ${showReasons ? 'rotate-180' : ''}`} />
+                                            </button>
+
+                                            {showReasons && (
+                                                <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-zinc-100 rounded-2xl shadow-xl z-20 overflow-y-auto max-h-48 py-1 custom-scrollbar">
+                                                    {reasons.map((r) => (
+                                                        <button
+                                                            key={r}
+                                                            onClick={() => { setReason(r); setShowReasons(false); }}
+                                                            className="w-full text-left px-4 py-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+                                                        >
+                                                            {r}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {reason === 'Other' && (
+                                        <textarea
+                                            placeholder="Give reasons if you select others..."
+                                            className="w-full px-4 py-4 bg-white border border-zinc-100 rounded-2xl text-xs font-medium text-zinc-700 focus:ring-1 focus:ring-rose-500/20 outline-none h-32 resize-none transition-all"
+                                            value={otherReason}
+                                            onChange={(e) => setOtherReason(e.target.value)}
+                                        />
+                                    )}
+                                </div>
+                            )}
+                        </>
+                    )}
 
                     <div className="flex w-full gap-3">
                         <button
@@ -154,14 +135,14 @@ const ConfirmationModal = ({ isOpen, onClose, type, customer, onConfirm }) => {
                             Cancel
                         </button>
                         <button
-                            disabled={!isActivate && !isReasonValid}
+                            disabled={!isActivate && !isDelete && !isReasonValid}
                             onClick={() => { onConfirm({ reason, otherReason }); onClose(); }}
                             className={`flex-1 py-4 text-white text-sm font-bold rounded-3xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed ${isActivate
                                     ? 'bg-emerald-800 hover:bg-emerald-900 shadow-emerald-900/10'
                                     : 'bg-rose-600 hover:bg-rose-700 shadow-rose-900/10'
                                 }`}
                         >
-                            {isActivate ? 'Activate' : 'Suspend'}
+                            {isActivate ? 'Activate' : (isDelete ? 'Delete' : 'Suspend')}
                         </button>
                     </div>
                 </div>
@@ -195,18 +176,26 @@ const CustomerModal = ({ isOpen, onClose, customer }) => {
     // Mutations
     const suspensionMutation = useMutation({
         mutationFn: (data) => api.patch(`/superadmin/users/${customer?.id}/suspension`, data, token),
-        onSuccess: () => {
+        onSuccess: (res) => {
             queryClient.invalidateQueries(['userOverview', customer?.id]);
             queryClient.invalidateQueries(['users']);
             setShowConfirm(false);
+            toast.success(res.message || 'Suspension status updated');
+        },
+        onError: (err) => {
+            toast.error(err.message || 'Failed to update suspension');
         }
     });
 
     const deleteMutation = useMutation({
         mutationFn: () => api.delete('/superadmin/users', { userId: customer?.id }, token),
-        onSuccess: () => {
+        onSuccess: (res) => {
             queryClient.invalidateQueries(['users']);
+            toast.success(res.message || 'User deleted successfully');
             onClose();
+        },
+        onError: (err) => {
+            toast.error(err.message || 'Failed to delete user');
         }
     });
 
@@ -256,6 +245,7 @@ const CustomerModal = ({ isOpen, onClose, customer }) => {
                                 </div>
                                 <div>
                                     <h2 className="text-xl font-bold text-zinc-900 leading-tight">{customer?.firstname} {customer?.lastname}</h2>
+                                    <h5 className="text-xs font-medium text-zinc-500 leading-tight">{customer?.id}</h5>
                                     <div className="mt-1">
                                         <span className={`px-3 py-0.5 rounded-full text-[10px] font-bold border capitalize ${!overview.isSuspended
                                             ? 'bg-emerald-50 text-emerald-600 border-emerald-100'

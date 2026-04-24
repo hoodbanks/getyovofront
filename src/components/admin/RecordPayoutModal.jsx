@@ -4,27 +4,73 @@ import {
     ChevronDown,
     Upload,
     Trash2,
-    Image as ImageIcon,
-    CheckCircle2
+    ImageIcon,
+    CheckCircle2,
+    Loader2
 } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
+import api from '../../api/api';
+import { useAuthStore } from '../../store/useAuthStore';
+import { toast } from 'sonner';
 
-const RecordPayoutModal = ({ isOpen, onClose, vendor, amount, onConfirm }) => {
+const RecordPayoutModal = ({ isOpen, onClose, vendor, amount, payoutBatchId, onConfirm }) => {
+    const token = useAuthStore((state) => state.accessToken);
     const [paymentMethod, setPaymentMethod] = useState('Transfer');
     const [reference, setReference] = useState('');
     const [notes, setNotes] = useState('');
     const [proof, setProof] = useState(null);
+    const [fileObj, setFileObj] = useState(null);
+
+    // Execute Payout Mutation
+    const executeMutation = useMutation({
+        mutationFn: async (formData) => {
+            return await api.post(`/superadmin/payment/vendor/${vendor.id}/execute`, formData, token, true);
+        },
+        onSuccess: (res) => {
+            toast.success(`Successfully paid ₦${amount}. Total orders: ${res.data.ordersPaid}`);
+            onConfirm();
+        },
+        onError: (err) => {
+            toast.error(err.response?.data?.message || 'Failed to execute payout');
+        }
+    });
 
     if (!isOpen) return null;
 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
+            setFileObj(file);
             setProof({
                 name: file.name,
                 size: (file.size / 1024).toFixed(2) + ' KB',
                 url: URL.createObjectURL(file)
             });
         }
+    };
+
+    const handleSubmit = () => {
+        if (!payoutBatchId) {
+            toast.error('Payout session lost. Please try again.');
+            return;
+        }
+        if (!reference) {
+            toast.error('Reference/Narration is required');
+            return;
+        }
+        if (!fileObj) {
+            toast.error('Proof of payment image is required');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('payoutBatchId', payoutBatchId);
+        formData.append('paymentMode', paymentMethod);
+        formData.append('reference', reference);
+        formData.append('narration', notes);
+        formData.append('proofImage', fileObj);
+
+        executeMutation.mutate(formData);
     };
 
     return (
@@ -147,10 +193,11 @@ const RecordPayoutModal = ({ isOpen, onClose, vendor, amount, onConfirm }) => {
                             Cancel
                         </button>
                         <button
-                            onClick={onConfirm}
-                            className="flex-1 py-3.5 bg-emerald-800 text-white rounded-3xl text-[12px] font-bold hover:bg-emerald-900 transition-all shadow-md shadow-emerald-900/10"
+                            onClick={handleSubmit}
+                            disabled={executeMutation.isLoading}
+                            className="flex-1 py-3.5 bg-emerald-800 text-white rounded-3xl text-[12px] font-bold hover:bg-emerald-900 transition-all shadow-md shadow-emerald-900/10 disabled:opacity-50 flex items-center justify-center gap-2"
                         >
-                            Confirm Paid
+                            {executeMutation.isLoading ? <Loader2 className="animate-spin" size={16} /> : 'Confirm Paid'}
                         </button>
                     </div>
                     <p className="text-[10px] font-medium text-zinc-500">

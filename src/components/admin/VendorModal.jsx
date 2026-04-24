@@ -10,6 +10,7 @@ import {
     Loader2
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
 
@@ -43,6 +44,7 @@ const ConfirmationModal = ({ isOpen, onClose, type, vendor, onConfirm }) => {
     if (!isOpen) return null;
 
     const isActivate = type === 'activate' || type === 'approve';
+    const isDelete = type === 'delete';
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -58,8 +60,8 @@ const ConfirmationModal = ({ isOpen, onClose, type, vendor, onConfirm }) => {
 
                     {isActivate ? (
                         <>
-                            <div className="w-20 h-20 rounded-full bg-zinc-100 flex items-center justify-center mb-6">
-                                <CheckCircle2 size={40} className="text-zinc-900" />
+                            <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mb-6">
+                                <CheckCircle2 size={40} className="text-emerald-600" />
                             </div>
                             <h3 className="text-xl font-bold text-zinc-900 mb-2">Confirm Account {type === 'approve' ? 'Approval' : 'Activation'}</h3>
                             <p className="text-xs text-zinc-400 font-medium leading-relaxed mb-8 px-4">
@@ -72,52 +74,60 @@ const ConfirmationModal = ({ isOpen, onClose, type, vendor, onConfirm }) => {
                         <>
                             <div className="w-24 h-24 flex items-center justify-center mb-4">
                                 <div className="relative">
-                                    <div className="absolute inset-0 bg-amber-400 opacity-20 blur-xl rounded-full"></div>
-                                    <AlertTriangle size={60} className="text-amber-400 relative z-10" fill="currentColor" />
+                                    <div className="absolute inset-0 bg-rose-400 opacity-20 blur-xl rounded-full"></div>
+                                    <AlertTriangle size={60} className={isDelete ? "text-rose-500 relative z-10" : "text-amber-400 relative z-10"} fill="currentColor" />
                                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-1">
                                         <span className="text-white font-bold text-xl">!</span>
                                     </div>
                                 </div>
                             </div>
+                            <h3 className="text-lg font-bold text-zinc-900 mb-2">
+                                {isDelete ? 'Delete Vendor Account' : 'Suspend Vendor Account'}
+                            </h3>
                             <p className="text-xs text-zinc-500 font-bold text-center mb-6 max-w-[200px]">
-                                This will temporarily make this account inactive and restrict access to the platform.
+                                {isDelete 
+                                    ? 'This action is PERMANENT and will remove all vendor data from the system.' 
+                                    : 'This will temporarily make this account inactive and restrict access to the platform.'}
                             </p>
-                            <div className="w-full text-left space-y-4 mb-8">
-                                <div>
-                                    <label className="text-xs font-bold text-zinc-900 mb-2 block tracking-tight">Suspension Reason *</label>
-                                    <div className="relative" ref={dropdownRef}>
-                                        <button
-                                            onClick={() => setShowReasons(!showReasons)}
-                                            className="w-full flex items-center justify-between px-4 py-4 bg-white border border-zinc-100 rounded-2xl text-xs font-medium text-zinc-400 hover:bg-zinc-50 transition-all"
-                                        >
-                                            <span>{reason || 'Reasons'}</span>
-                                            <ChevronDown size={18} className={`transition-transform duration-300 ${showReasons ? 'rotate-180' : ''}`} />
-                                        </button>
 
-                                        {showReasons && (
-                                            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-zinc-100 rounded-2xl shadow-xl z-20 overflow-y-auto max-h-72 py-1 custom-scrollbar">
-                                                {reasons.map((r) => (
-                                                    <button
-                                                        key={r}
-                                                        onClick={() => { setReason(r); setShowReasons(false); }}
-                                                        className="w-full text-left px-4 py-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
-                                                    >
-                                                        {r}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
+                            {!isDelete && (
+                                <div className="w-full text-left space-y-4 mb-8">
+                                    <div>
+                                        <label className="text-xs font-bold text-zinc-900 mb-2 block tracking-tight">Suspension Reason *</label>
+                                        <div className="relative" ref={dropdownRef}>
+                                            <button
+                                                onClick={() => setShowReasons(!showReasons)}
+                                                className="w-full flex items-center justify-between px-4 py-4 bg-white border border-zinc-100 rounded-2xl text-xs font-medium text-zinc-400 hover:bg-zinc-50 transition-all"
+                                            >
+                                                <span>{reason || 'Reasons'}</span>
+                                                <ChevronDown size={18} className={`transition-transform duration-300 ${showReasons ? 'rotate-180' : ''}`} />
+                                            </button>
+
+                                            {showReasons && (
+                                                <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-zinc-100 rounded-2xl shadow-xl z-20 overflow-y-auto max-h-72 py-1 custom-scrollbar">
+                                                    {reasons.map((r) => (
+                                                        <button
+                                                            key={r}
+                                                            onClick={() => { setReason(r); setShowReasons(false); }}
+                                                            className="w-full text-left px-4 py-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+                                                        >
+                                                            {r}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
+                                    {reason === 'Other' && (
+                                        <textarea
+                                            placeholder="Give reasons if you select others..."
+                                            className="w-full px-4 py-4 bg-white border border-zinc-100 rounded-2xl text-xs font-medium text-zinc-700 focus:ring-1 focus:ring-rose-500/20 outline-none h-32 resize-none transition-all"
+                                            value={otherReason}
+                                            onChange={(e) => setOtherReason(e.target.value)}
+                                        />
+                                    )}
                                 </div>
-                                {reason === 'Other' && (
-                                    <textarea
-                                        placeholder="Give reasons if you select others..."
-                                        className="w-full px-4 py-4 bg-white border border-zinc-100 rounded-2xl text-xs font-medium text-zinc-700 focus:ring-1 focus:ring-rose-500/20 outline-none h-32 resize-none transition-all"
-                                        value={otherReason}
-                                        onChange={(e) => setOtherReason(e.target.value)}
-                                    />
-                                )}
-                            </div>
+                            )}
                         </>
                     )}
 
@@ -130,13 +140,13 @@ const ConfirmationModal = ({ isOpen, onClose, type, vendor, onConfirm }) => {
                         </button>
                         <button
                             onClick={() => { onConfirm({ reason, otherReason }); onClose(); }}
-                            disabled={!isActivate && !isReasonValid}
+                            disabled={!isActivate && !isDelete && !isReasonValid}
                             className={`flex-1 py-4 text-white text-sm font-bold rounded-3xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed ${isActivate
                                     ? 'bg-emerald-800 hover:bg-emerald-900 shadow-emerald-900/10'
                                     : 'bg-rose-600 hover:bg-rose-700 shadow-rose-900/10'
                                 }`}
                         >
-                            {isActivate ? (type === 'approve' ? 'Approve' : 'Activate') : 'Suspend'}
+                            {isActivate ? (type === 'approve' ? 'Approve' : 'Activate') : (isDelete ? 'Delete' : 'Suspend')}
                         </button>
                     </div>
                 </div>
@@ -163,18 +173,26 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
     // Mutations
     const suspensionMutation = useMutation({
         mutationFn: (data) => api.patch(`/superadmin/vendors/${vendor?.id}/suspension`, data, token),
-        onSuccess: () => {
+        onSuccess: (res) => {
             queryClient.invalidateQueries(['vendorOverview', vendor?.id]);
             queryClient.invalidateQueries(['vendors']);
             setShowConfirm(false);
+            toast.success(res.message || 'Suspension status updated');
+        },
+        onError: (err) => {
+            toast.error(err.message || 'Failed to update suspension');
         }
     });
 
     const deleteMutation = useMutation({
         mutationFn: () => api.delete('/superadmin/vendors', { vendorId: vendor?.id }, token),
-        onSuccess: () => {
+        onSuccess: (res) => {
             queryClient.invalidateQueries(['vendors']);
+            toast.success(res.message || 'Vendor deleted successfully');
             onClose();
+        },
+        onError: (err) => {
+            toast.error(err.message || 'Failed to delete vendor');
         }
     });
 

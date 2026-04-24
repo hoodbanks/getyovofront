@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import api from '../../../api/api';
@@ -13,14 +13,24 @@ const Login = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState(null);
     const navigate = useNavigate();
-    const setAuth = useAuthStore((state) => state.setAuth);
+    const location = useLocation();
+    const { setAuth, isAuthenticated, superAdmin } = useAuthStore();
+
+    const from = location.state?.from?.pathname || '/admin';
+
+    // Redirect if already logged in
+    React.useEffect(() => {
+        if (isAuthenticated && superAdmin) {
+            navigate(from, { replace: true });
+        }
+    }, [isAuthenticated, superAdmin, navigate, from]);
 
     const loginMutation = useMutation({
         mutationFn: (credentials) => api.post('/superadmin/auth/login', credentials),
         onSuccess: (response) => {
             if (response.success && response.data) {
                 setAuth(response.data);
-                navigate('/admin'); // Redirect to dashboard on success
+                navigate(from, { replace: true });
             }
         },
         onError: (err) => {

@@ -11,6 +11,10 @@ import {
     Filter
 } from 'lucide-react';
 import OrderModal from '../../components/admin/OrderModal';
+import { useQuery } from '@tanstack/react-query';
+import api from '../../api/api';
+import { useAuthStore } from '../../store/useAuthStore';
+import { Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const StatCard = ({ label, value, subLabel, icon: Icon, color, bg, borderColor, cardBg, dotColor }) => (
     <div className={`relative overflow-hidden p-4 pb-6 rounded-xl ${cardBg} border ${borderColor} shadow-sm transition-all hover:shadow-md group flex-1 min-w-[200px]`}>
@@ -37,16 +41,36 @@ const StatCard = ({ label, value, subLabel, icon: Icon, color, bg, borderColor, 
 );
 
 const Orders = () => {
+    const token = useAuthStore((state) => state.accessToken);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [filter, setFilter] = useState('all');
+    const [sortBy, setSortBy] = useState('all');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [page, setPage] = useState(1);
 
-    const orders = [
-        { id: 'GY-145896', customerName: 'Cameron Williamson', vendor: 'Jacob Jones', rider: 'Leslie Alexander', status: 'Delivered', time: '01:08 pm', eta: '01:28 pm' },
-        { id: 'GY-145895', customerName: 'Wade Warren', vendor: 'Bessie Cooper', rider: 'Arlene McCoy', status: 'Canceled', time: '07:59 pm', eta: '-' },
-        { id: 'GY-145896', customerName: 'Kathryn Murphy', vendor: 'Jenny Wilson', rider: 'Jane Cooper', status: 'In Transit', time: '07:38 am', eta: '10 minutes' },
-        { id: 'GY-145896', customerName: 'Darrell Steward', vendor: 'Ronald Richards', rider: 'Marvin McKinney', status: 'Pending', time: '01:55 pm', eta: '10 minutes' },
-        { id: 'GY-145896', customerName: 'Jerome Bell', vendor: 'Dianne Russell', rider: 'Cody Fisher', status: 'Delivered', time: '12:01 pm', eta: '12:31 pm' },
-    ];
+    // Fetch Orders Data
+    const { data: dashboardData, isLoading, error, refetch } = useQuery({
+        queryKey: ['order-dashboard', filter, sortBy, page, searchQuery],
+        queryFn: async () => {
+            if (searchQuery) {
+                return await api.get(`/superadmin/orders/search?query=${searchQuery}&page=${page}`, token);
+            }
+            return await api.get(`/superadmin/orders?filter=${filter}&sortBy=${sortBy}&page=${page}`, token);
+        },
+        keepPreviousData: true
+    });
+
+    const summary = dashboardData?.data?.summary || {
+        totalOrders: 0,
+        pendingOrders: 0,
+        inTransitOrders: 0,
+        deliveredToday: 0,
+        cancelledOrders: 0
+    };
+    
+    const orders = dashboardData?.data?.latestOrders || dashboardData?.data?.data || [];
+    const totalPages = dashboardData?.data?.totalPages || (dashboardData?.data?.total ? Math.ceil(dashboardData?.data?.total / 20) : 1);
 
     const openModal = (order) => {
         setSelectedOrder(order);
@@ -60,7 +84,7 @@ const Orders = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-xl">
                     <StatCard
                         label="Total Orders"
-                        value="1,000,000"
+                        value={summary.totalOrders?.toLocaleString()}
                         subLabel="All-time"
                         icon={ShoppingBag}
                         color="text-white"
@@ -71,7 +95,7 @@ const Orders = () => {
                     />
                     <StatCard
                         label="Pending Orders"
-                        value="1,000,000"
+                        value={summary.pendingOrders?.toLocaleString()}
                         subLabel="Awaiting action"
                         icon={Clock}
                         color="text-white"
@@ -82,7 +106,7 @@ const Orders = () => {
                     />
                     <StatCard
                         label="In Transit"
-                        value="1,000,000"
+                        value={summary.inTransitOrders?.toLocaleString()}
                         subLabel="On the way"
                         icon={Truck}
                         color="text-white"
@@ -93,7 +117,7 @@ const Orders = () => {
                     />
                     <StatCard
                         label="Delivered Today"
-                        value="1,000,000"
+                        value={summary.deliveredToday?.toLocaleString()}
                         subLabel="Completed"
                         icon={CheckCircle2}
                         color="text-white"
@@ -110,7 +134,9 @@ const Orders = () => {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
                         <input
                             type="text"
-                            placeholder="Search name, phone, email"
+                            value={searchQuery}
+                            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                            placeholder="Search code, store, product..."
                             className="w-full pl-12 pr-6 py-4 bg-zinc-100 border-none rounded-3xl text-sm focus:ring-2 focus:ring-emerald-500/10 placeholder:text-zinc-500 outline-none transition-all"
                         />
                     </div>
@@ -126,17 +152,31 @@ const Orders = () => {
                     </div>
                     <div className="flex items-center gap-2">
                         <div className="relative">
-                            <select className="appearance-none bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2 pr-10 text-[10px] font-bold text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 cursor-pointer">
-                                <option>All</option>
-                                <option>Pending</option>
-                                <option>Delivered</option>
+                            <select 
+                                value={sortBy}
+                                onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
+                                className="appearance-none bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2 pr-10 text-[10px] font-bold text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 cursor-pointer"
+                            >
+                                <option value="all">All Status</option>
+                                <option value="pending">Pending</option>
+                                <option value="in_transit">In Transit</option>
+                                <option value="delivered">Delivered</option>
+                                <option value="cancelled">Cancelled</option>
                             </select>
                             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
                         </div>
                         <div className="relative">
-                            <select className="appearance-none bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2 pr-10 text-[10px] font-bold text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 cursor-pointer">
-                                <option>Last 7 Days</option>
-                                <option>Last 30 Days</option>
+                            <select 
+                                value={filter}
+                                onChange={(e) => { setFilter(e.target.value); setPage(1); }}
+                                className="appearance-none bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2 pr-10 text-[10px] font-bold text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 cursor-pointer"
+                            >
+                                <option value="all">All Time</option>
+                                <option value="today">Today</option>
+                                <option value="yesterday">Yesterday</option>
+                                <option value="last7days">Last 7 Days</option>
+                                <option value="last30days">Last 30 Days</option>
+                                <option value="thisMonth">This Month</option>
                             </select>
                             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
                         </div>
@@ -162,41 +202,95 @@ const Orders = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-100">
-                            {orders.map((order, idx) => (
-                                <tr key={idx} className="hover:bg-zinc-50/50 transition-colors group">
-                                    <td className="px-3 py-3.5 text-[9px] font-bold text-zinc-900">{order.id}</td>
-                                    <td className="px-3 py-3.5 text-[9px] font-medium text-zinc-500 truncate max-w-[100px]">{order.customerName}</td>
-                                    <td className="px-3 py-3.5 text-[9px] font-medium text-zinc-500 truncate max-w-[100px]">{order.vendor}</td>
-                                    <td className="px-3 py-3.5 text-[9px] font-medium text-zinc-500 truncate max-w-[100px]">{order.rider}</td>
-                                    <td className="px-3 py-3.5">
-                                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold border whitespace-nowrap ${order.status === 'Delivered'
-                                                ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                                                : order.status === 'Canceled'
-                                                    ? 'bg-rose-50 text-rose-600 border-rose-100'
-                                                    : order.status === 'In Transit'
-                                                        ? 'bg-blue-50 text-blue-600 border-blue-100'
-                                                        : 'bg-amber-50 text-amber-600 border-amber-100'
-                                            }`}>
-                                            {order.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-3 py-3.5 text-[9px] font-medium text-zinc-500 whitespace-nowrap">{order.time}</td>
-                                    <td className="px-3 py-3.5 text-[9px] font-medium text-zinc-500 whitespace-nowrap">{order.eta}</td>
-                                    <td className="px-3 py-3.5">
-                                        <div className="flex justify-center">
-                                            <button
-                                                onClick={() => openModal(order)}
-                                                className="p-1.5 bg-indigo-50 text-indigo-500 rounded-lg hover:bg-indigo-500 hover:text-white transition-all shadow-sm"
-                                            >
-                                                <Eye size={12} />
-                                            </button>
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan="8" className="py-20 text-center">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <Loader2 size={32} className="text-emerald-600 animate-spin" />
+                                            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Loading orders...</p>
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                            ) : error ? (
+                                <tr>
+                                    <td colSpan="8" className="py-20 text-center">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <AlertCircle size={32} className="text-rose-500" />
+                                            <p className="text-sm font-bold text-rose-500">Failed to load orders</p>
+                                            <button onClick={() => refetch()} className="text-[10px] font-bold text-zinc-500 underline uppercase mt-2">Try again</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : orders.length === 0 ? (
+                                <tr>
+                                    <td colSpan="8" className="py-20 text-center text-xs font-bold text-zinc-400 uppercase tracking-widest">No orders found</td>
+                                </tr>
+                            ) : (
+                                orders.map((order, idx) => (
+                                    <tr key={idx} className="hover:bg-zinc-50/50 transition-colors group">
+                                        <td className="px-3 py-3.5 text-[10px] font-bold text-zinc-800 uppercase">{order.orderCode || order.code}</td>
+                                        <td className="px-3 py-3.5 text-[10px] font-bold text-zinc-900 truncate max-w-[120px]">{order.customerName}</td>
+                                        <td className="px-3 py-3.5 text-[10px] font-medium text-zinc-600 truncate max-w-[120px]">{order.vendorStoreName}</td>
+                                        <td className="px-3 py-3.5 text-[10px] font-medium text-zinc-600">{order.riderName || 'Not Assigned'}</td>
+                                        <td className="px-3 py-3.5">
+                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border whitespace-nowrap uppercase tracking-tighter ${
+                                                order.status === 'DELIVERED'
+                                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                                    : order.status === 'CANCELLED'
+                                                        ? 'bg-rose-50 text-rose-600 border-rose-100'
+                                                        : order.status === 'OUT_FOR_DELIVERY' || order.status === 'IN_TRANSIT'
+                                                            ? 'bg-blue-50 text-blue-600 border-blue-100'
+                                                            : 'bg-amber-50 text-amber-600 border-amber-100'
+                                                }`}>
+                                                {order.status?.replace(/_/g, ' ')}
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-3.5 text-[10px] font-medium text-zinc-400 whitespace-nowrap">
+                                            {new Date(order.orderTime || order.placedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </td>
+                                        <td className="px-3 py-3.5 text-[10px] font-bold text-zinc-900 whitespace-nowrap">
+                                            {order.status === 'DELIVERED' 
+                                                ? new Date(order.etaOrDelivered || order.deliveredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                                : (order.etaOrDelivered || 'Calculating...')}
+                                        </td>
+                                        <td className="px-3 py-3.5">
+                                            <div className="flex justify-center">
+                                                <button
+                                                    onClick={() => openModal(order)}
+                                                    className="p-1.5 bg-indigo-50 text-indigo-500 rounded-lg hover:bg-indigo-500 hover:text-white transition-all shadow-sm"
+                                                >
+                                                    <Eye size={12} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </div>
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <div className="px-4 py-3 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between">
+                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Page {page} of {totalPages}</p>
+                        <div className="flex items-center gap-1">
+                            <button 
+                                disabled={page === 1}
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                className="p-2 hover:bg-zinc-100 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                <ChevronLeft size={16} className="text-zinc-500" />
+                            </button>
+                            <button 
+                                disabled={page === totalPages}
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                className="p-2 hover:bg-zinc-100 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                <ChevronRight size={16} className="text-zinc-500" />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <OrderModal

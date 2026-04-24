@@ -9,8 +9,10 @@ import {
     Store,
     MessageSquare,
     Search,
-    Lock
+    Lock,
+    Layers
 } from 'lucide-react';
+import VendorManagement from './VendorManagement';
 import OperatingHoursModal from '../../components/admin/OperatingHoursModal';
 import MaintenanceModeModal from '../../components/admin/MaintenanceModeModal';
 import DeliveryFeeModal from '../../components/admin/DeliveryFeeModal';
@@ -32,6 +34,7 @@ const Settings = () => {
         { id: 'General App Controls', icon: SettingsIcon },
         { id: 'User App Settings', icon: Users },
         { id: 'Vendor App Settings', icon: Store },
+        { id: 'Vendor Management', icon: Layers },
     ];
 
     const generalSettings = [
@@ -152,7 +155,13 @@ const Settings = () => {
                         </div>
                     ))}
 
-                    {activeTab !== 'General App Controls' && (
+                    {activeTab === 'Vendor Management' && (
+                        <div className="p-0">
+                            <VendorManagement />
+                        </div>
+                    )}
+
+                    {activeTab !== 'General App Controls' && activeTab !== 'Vendor Management' && (
                         <div className="py-20 flex flex-col items-center justify-center text-center space-y-3">
                             <div className="p-4 bg-zinc-50 rounded-full text-zinc-300">
                                 <SettingsIcon size={32} />

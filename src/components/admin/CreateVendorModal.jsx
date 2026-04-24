@@ -1,6 +1,6 @@
 import { X, ChevronDown, Loader2 } from 'lucide-react';
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
 
@@ -47,7 +47,7 @@ const CreateVendorModal = ({ isOpen, onClose }) => {
         ownerName: '',
         email: '',
         phonenumber: '',
-        shopTypeId: 'shop_123', // Placeholder, ideally should fetch from shop types API
+        shopTypeId: '', 
         storeAddress: '',
         latitude: 6.5,
         longitude: 3.4,
@@ -61,17 +61,21 @@ const CreateVendorModal = ({ isOpen, onClose }) => {
         accountNumber: ''
     });
 
+    const { data: shopTypesData } = useQuery({
+        queryKey: ['shop-types'],
+        queryFn: () => api.get('/shop-types/get-all', token)
+    });
+
+    const shopTypes = shopTypesData?.data || [];
+
     const createVendorMutation = useMutation({
         mutationFn: (data) => {
             const payload = {
                 ...data,
-                address: data.storeAddress, // Map storeAddress to address for API
                 latitude: Number(data.latitude),
                 longitude: Number(data.longitude),
                 minimumOrderAmount: Number(data.minimumOrderAmount)
             };
-            // Remove the internal storeAddress key to keep payload clean if needed
-            delete payload.storeAddress;
             return api.post('/superadmin/vendors', payload, token);
         },
         onSuccess: () => {
@@ -111,11 +115,10 @@ const CreateVendorModal = ({ isOpen, onClose }) => {
                                 value={formData.shopTypeId}
                                 onChange={handleInputChange}
                                 placeholder="Select store type..." 
-                                options={[
-                                    { label: 'Restaurant', value: 'shop_123' },
-                                    { label: 'Grocery', value: 'shop_456' },
-                                    { label: 'Supermarket', value: 'shop_789' }
-                                ]}
+                                options={shopTypes.map(st => ({ 
+                                    label: st.name.charAt(0).toUpperCase() + st.name.slice(1), 
+                                    value: st.id 
+                                }))}
                             />
                             <InputField label="Owner Name" name="ownerName" value={formData.ownerName} onChange={handleInputChange} placeholder="e.g Johnson" />
                             <InputField label="Phone" name="phonenumber" value={formData.phonenumber} onChange={handleInputChange} placeholder="Business phone (e.g. 0808...)" />

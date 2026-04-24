@@ -11,6 +11,8 @@ import {
     LogOut,
     PanelLeftClose,
     PanelLeftOpen,
+    Bell,
+    Layers,
     X
 } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
@@ -186,6 +188,7 @@ const Sidebar = () => {
                     <SidebarGroup title="Orders & Payments" collapsed={isSidebarCollapsed}>
                         <SidebarItem icon={ShoppingBag} label="Orders" to="/admin/orders" collapsed={isSidebarCollapsed} />
                         <SidebarItem icon={CreditCard} label="Payments" to="/admin/payments" collapsed={isSidebarCollapsed} />
+                        <SidebarItem icon={Bell} label="Push Notification" to="/admin/push-notifications" collapsed={isSidebarCollapsed} />
                         <SidebarItem icon={Settings} label="Settings" to="/admin/settings" collapsed={isSidebarCollapsed} />
                     </SidebarGroup>
 

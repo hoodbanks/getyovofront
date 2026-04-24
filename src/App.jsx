@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import AdminLayout from './components/admin/AdminLayout';
+import ProtectedRoute from './components/admin/ProtectedRoute';
 import Dashboard from './pages/admin/Dashboard';
 import Analytics from './pages/admin/Analytics';
 import Customers from './pages/admin/Customers';
@@ -8,6 +9,8 @@ import Riders from './pages/admin/Riders';
 import Orders from './pages/admin/Orders';
 import Payments from './pages/admin/Payments';
 import Settings from './pages/admin/Settings';
+import PushNotifications from './pages/admin/PushNotifications';
+import VendorManagement from './pages/admin/VendorManagement';
 
 import Login from './pages/admin/auth/Login';
 import ForgotPassword from './pages/admin/auth/ForgotPassword';
@@ -141,7 +144,14 @@ function App() {
       <Route path="/mobile/terms-and-conditions" element={<MobileTermsAndConditions />} />
 
  
-      <Route path="/admin" element={<AdminLayout />}>
+      <Route 
+        path="/admin" 
+        element={
+          <ProtectedRoute>
+            <AdminLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route index element={<Dashboard />} />
         <Route path="analytics" element={<Analytics />} />
         <Route path="customers" element={<Customers />} />
@@ -150,6 +160,7 @@ function App() {
         <Route path="orders" element={<Orders />} />
         <Route path="payments" element={<Payments />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="push-notifications" element={<PushNotifications />} />
         <Route path="*" element={<div className="flex h-screen items-center justify-center text-2xl font-bold bg-zinc-50 text-zinc-900">404 - Not Found</div>} />
       </Route>
 

@@ -9,8 +9,8 @@ const Footer = () => {
             <div className="max-w-[1440px] mx-auto relative z-10">
                 {/* Newsletter Section */}
                 <div className="text-center mb-20">
-                    <h2 className="text-2xl md:text-3xl font-bold mb-4">Stay in the loop</h2>
-                    <p className="text-white/80 max-w-xl mx-auto mb-8 text-sm md:text-base leading-relaxed">
+                    <h2 className="text-2xl md:text-3xl font-bold mb-4 text-left md:text-center">Stay in the loop</h2>
+                    <p className="text-white/80 max-w-xl mx-auto mb-8 text-left md:text-center text-sm md:text-base leading-relaxed">
                         Subscribe to receive exclusive offers from local vendors, early access to new features, and the latest Getyovo updates.
                     </p>
                     <div className="flex flex-col md:flex-row items-center justify-center gap-4 max-w-2xl mx-auto">

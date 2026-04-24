@@ -8,9 +8,15 @@ import {
     Building2,
     Calendar,
     ChevronRight,
+    ChevronLeft,
+    Loader2,
+    AlertCircle,
     Search as SearchIcon
 } from 'lucide-react';
 import PaymentModal from '../../components/admin/PaymentModal';
+import { useQuery } from '@tanstack/react-query';
+import api from '../../api/api';
+import { useAuthStore } from '../../store/useAuthStore';
 
 const StatCard = ({ label, value, subLabel, icon: Icon, color, bg, borderColor, cardBg, dotColor }) => (
     <div className={`relative overflow-hidden p-6 rounded-2xl ${cardBg} border ${borderColor} shadow-sm transition-all hover:shadow-md group flex-1 min-w-[280px]`}>
@@ -37,16 +43,30 @@ const StatCard = ({ label, value, subLabel, icon: Icon, color, bg, borderColor, 
 );
 
 const Payments = () => {
+    const token = useAuthStore((state) => state.accessToken);
     const [selectedVendor, setSelectedVendor] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [filter, setFilter] = useState('all');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [page, setPage] = useState(1);
 
-    const vendors = [
-        { name: 'Candles', unpaidCount: 12, paidCount: 2, lastPaid: '20 Jan, 2026 • 1:45 PM', amount: 146375, initials: 'C' },
-        { name: 'ChopLife', unpaidCount: 12, paidCount: 2, lastPaid: '20 Jan, 2026 • 1:45 PM', amount: 146375, initials: 'CL' },
-        { name: 'PharmaPlus', unpaidCount: 16, paidCount: 2, lastPaid: '20 Jan, 2026 • 1:45 PM', amount: 146375, initials: 'PP' },
-        { name: 'Roban Mart', unpaidCount: 11, paidCount: 2, lastPaid: '20 Jan, 2026 • 1:45 PM', amount: 146375, initials: 'RM' },
-        { name: 'FreshMart', unpaidCount: 9, paidCount: 2, lastPaid: '20 Jan, 2026 • 1:45 PM', amount: 146375, initials: 'F' },
-    ];
+    // Fetch Payment Dashboard
+    const { data: dashboardData, isLoading, error, refetch } = useQuery({
+        queryKey: ['payment-dashboard', filter, page, searchQuery],
+        queryFn: async () => {
+                 return await api.get(`/superadmin/payment?filter=${filter}&page=${page}`, token);
+        },
+        keepPreviousData: true
+    });
+
+    const summary = dashboardData?.data?.summary || {
+        totalOrders: 0,
+        totalAmountToPay: 0,
+        totalPaidAmount: 0
+    };
+
+    const vendors = dashboardData?.data?.vendors?.data || [];
+    const totalPages = dashboardData?.data?.vendors?.pagination?.totalPages || 1;
 
     const handleVendorClick = (vendor) => {
         setSelectedVendor(vendor);
@@ -60,7 +80,7 @@ const Payments = () => {
                 <div className="flex flex-wrap gap-4 p-4">
                     <StatCard
                         label="Pending to Pay Vendors"
-                        value="1,000,000 NGN"
+                        value={`₦${summary.totalAmountToPay?.toLocaleString()}`}
                         subLabel="Delivered orders only"
                         icon={Wallet}
                         color="text-white"
@@ -70,8 +90,8 @@ const Payments = () => {
                         dotColor="#f59e0b"
                     />
                     <StatCard
-                        label="Total Orders"
-                        value="1,000,000 NGN"
+                        label="Total Paid Amount"
+                        value={`₦${summary.totalPaidAmount?.toLocaleString()}`}
                         subLabel="Paid within selected range"
                         icon={ShoppingBag}
                         color="text-white"
@@ -88,7 +108,9 @@ const Payments = () => {
                         <SearchIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
                         <input
                             type="text"
-                            placeholder="Search vendors"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Filter by vendor name..."
                             className="w-full pl-14 pr-6 py-4 bg-zinc-100 border-none rounded-3xl text-sm focus:ring-2 focus:ring-emerald-500/10 placeholder:text-zinc-500 outline-none transition-all font-medium"
                         />
                     </div>
@@ -102,52 +124,106 @@ const Payments = () => {
                         <h3 className="text-base font-bold text-zinc-900">Payments</h3>
                         <p className="text-[11px] text-zinc-500 font-medium tracking-tight">Click a vendor row to see all orders + amount to pay</p>
                     </div>
-                    <div className="relative">
-                        <select className="appearance-none bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2 pr-10 text-[11px] font-bold text-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 cursor-pointer">
-                            <option>Last 7 Days</option>
-                            <option>Last 30 Days</option>
+                     <div className="relative">
+                        <select 
+                            value={filter}
+                            onChange={(e) => { setFilter(e.target.value); setPage(1); }}
+                            className="appearance-none bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2 pr-10 text-[11px] font-bold text-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 cursor-pointer"
+                        >
+                            <option value="all">All Time</option>
+                            <option value="today">Today</option>
+                            <option value="yesterday">Yesterday</option>
+                            <option value="last7days">Last 7 Days</option>
+                            <option value="last30days">Last 30 Days</option>
+                            <option value="thisMonth">This Month</option>
                         </select>
                         <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
                     </div>
                 </div>
 
-                <div className="divide-y divide-zinc-100">
-                    {vendors.map((vendor, idx) => (
-                        <button
-                            key={idx}
-                            onClick={() => handleVendorClick(vendor)}
-                            className="w-full p-5 flex items-center justify-between hover:bg-zinc-50 transition-all text-left group"
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 font-bold text-sm uppercase group-hover:scale-105 transition-transform">
-                                    {vendor.initials}
-                                </div>
-                                <div className="space-y-1.5">
-                                    <h4 className="text-[13px] font-bold text-zinc-900">{vendor.name}</h4>
-                                    <div className="flex items-center gap-2">
-                                        <span className="px-3 py-1 bg-amber-50 text-amber-700 border border-amber-300 rounded-full text-[9px] font-bold">
-                                            Unpaid Deliveries: {vendor.unpaidCount}
-                                        </span>
-                                        <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-full text-[9px] font-bold">
-                                            Paid orders: {vendor.paidCount}
-                                        </span>
-                                        <span className="text-[10px] text-zinc-400 font-medium ml-2">
-                                            Last paid: {vendor.lastPaid}
-                                        </span>
+                <div className="divide-y divide-zinc-100 min-h-[400px] relative">
+                    {isLoading ? (
+                        <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-[1px] z-10">
+                            <div className="flex flex-col items-center gap-2">
+                                <Loader2 className="text-emerald-600 animate-spin" size={32} />
+                                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Fetching Payments...</p>
+                            </div>
+                        </div>
+                    ) : error ? (
+                        <div className="flex flex-col items-center justify-center py-20 gap-3">
+                            <AlertCircle size={32} className="text-rose-500" />
+                            <p className="text-sm font-bold text-rose-500 uppercase tracking-tight">Failed to load payments</p>
+                            <button onClick={() => refetch()} className="text-[10px] font-bold text-zinc-500 underline uppercase">Retry</button>
+                        </div>
+                    ) : vendors.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-20">
+                          <p className="text-xs font-bold text-zinc-400 uppercase">No payment records found</p>
+                      </div>
+                    ) : (
+                        vendors
+                        .filter(v => v.storeName?.toLowerCase().includes(searchQuery.toLowerCase()))
+                        .map((vendor, idx) => (
+                            <button
+                                key={vendor.id || idx}
+                                onClick={() => handleVendorClick(vendor)}
+                                className="w-full p-5 flex items-center justify-between hover:bg-zinc-50 transition-all text-left group border-none outline-none"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-500 font-bold text-sm uppercase group-hover:scale-105 transition-transform overflow-hidden">
+                                        {vendor.storeName?.substring(0, 2)}
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <h4 className="text-[13px] font-bold text-zinc-900">{vendor.storeName}</h4>
+                                        <div className="flex items-center gap-2">
+                                            <span className="px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[9px] font-bold">
+                                                Unpaid: {vendor.unpaidOrdersCount || 0}
+                                            </span>
+                                            <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[9px] font-bold">
+                                                Paid: {vendor.paidOrdersCount || 0}
+                                            </span>
+                                            {vendor.lastPaidAt && (
+                                                <span className="text-[10px] text-zinc-400 font-medium ml-2">
+                                                    Last: {new Date(vendor.lastPaidAt).toLocaleDateString()}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="text-right flex items-center gap-4">
-                                <div>
-                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-tight">Amount to pay</p>
-                                    <h3 className="text-base font-bold text-zinc-900 leading-tight">₦{vendor.amount.toLocaleString()}</h3>
+                                <div className="text-right flex items-center gap-4">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-tight">Amount to pay</p>
+                                        <h3 className="text-base font-bold text-zinc-900 leading-tight">₦{(vendor.totalAmountToPay || 0).toLocaleString()}</h3>
+                                    </div>
+                                    <ChevronRight size={18} className="text-zinc-300 group-hover:translate-x-1 transition-transform" />
                                 </div>
-                                <ChevronRight size={18} className="text-zinc-300 group-hover:translate-x-1 transition-transform" />
-                            </div>
-                        </button>
-                    ))}
+                            </button>
+                        ))
+                    )}
                 </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <div className="px-6 py-4 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between">
+                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Page {page} of {totalPages}</p>
+                        <div className="flex items-center gap-1">
+                            <button 
+                                disabled={page === 1}
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                className="p-2 hover:bg-zinc-100 rounded-lg transition-colors disabled:opacity-30"
+                            >
+                                <ChevronLeft size={16} />
+                            </button>
+                            <button 
+                                disabled={page === totalPages}
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                className="p-2 hover:bg-zinc-100 rounded-lg transition-colors disabled:opacity-30"
+                            >
+                                <ChevronRight size={16} />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <PaymentModal

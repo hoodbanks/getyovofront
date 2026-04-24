@@ -11,7 +11,9 @@ import {
     ChevronRight,
     Briefcase,
     Wallet,
-    Eye
+    Eye,
+    Loader2,
+    X
 } from 'lucide-react';
 import {
     BarChart,
@@ -23,6 +25,13 @@ import {
     ResponsiveContainer,
     Cell
 } from 'recharts';
+import { useQuery } from '@tanstack/react-query';
+import api from '../../api/api';
+import { useAuthStore } from '../../store/useAuthStore';
+import OrderModal from '../../components/admin/OrderModal';
+import VendorModal from '../../components/admin/VendorModal';
+import RiderModal from '../../components/admin/RiderModal';
+import CustomerModal from '../../components/admin/CustomerModal';
 
 const data = [
     { name: 'Sun', value: 4000 },
@@ -83,30 +92,86 @@ const StatusBadge = ({ status }) => {
 };
 
 const Dashboard = () => {
+    const { accessToken } = useAuthStore();
     const [view, setView] = React.useState('revenue');
     const [showTimeDropdown, setShowTimeDropdown] = React.useState(false);
-    const [selectedTime, setSelectedTime] = React.useState('All time');
+    const [selectedTime, setSelectedTime] = React.useState('Last 7 days');
+
+    // Modal States
+    const [selectedOrder, setSelectedOrder] = React.useState(null);
+    const [selectedVendor, setSelectedVendor] = React.useState(null);
+    const [selectedRider, setSelectedRider] = React.useState(null);
+    const [selectedCustomer, setSelectedCustomer] = React.useState(null);
+
+    const { data: adminData, isLoading, error } = useQuery({
+        queryKey: ['adminDashboard'],
+        queryFn: () => api.get('/superadmin/dashboard', accessToken)
+    });
+
+    const dashboard = adminData?.data || {
+        summary: {},
+        orders: { data: [] },
+        topVendors: { data: [] },
+        topRiders: { data: [] },
+        riderActivity: {}
+    };
 
     const timeOptions = [
-        'All time',
         'Today',
         'Yesterday',
         'Last 7 days',
         'Last 30 days',
         'This month',
-        'Last month',
-        'Custom'
+        'Last month'
     ];
 
-    const chartData = [
-        { name: 'Sun', revenue: 4000, orders: 3000 },
-        { name: 'Mon', revenue: 10000, orders: 5000 },
-        { name: 'Tue', revenue: 12000, orders: 2000 },
-        { name: 'Wed', revenue: 8000, orders: 1000 },
-        { name: 'Thu', revenue: 15000, orders: 15000 },
-        { name: 'Fri', revenue: 9000, orders: 4000 },
-        { name: 'Sat', revenue: 6000, orders: 11000 },
-    ];
+    const mapFilter = (f) => {
+        const mapping = {
+            'Today': 'today',
+            'Yesterday': 'yesterday',
+            'Last 7 days': 'last7days',
+            'Last 30 days': 'last30days',
+            'This month': 'thisMonth',
+            'Last month': 'lastMonth'
+        };
+        return mapping[f] || 'last7days';
+    };
+
+    // Analytics Dashboard Query (for summary and default graphs)
+    const { data: analyticsDashboard } = useQuery({
+        queryKey: ['analyticsDashboard'],
+        queryFn: () => api.get('/superadmin/analytics', accessToken),
+    });
+
+    // Dynamic Graph Queries based on filter
+    const dynamicGraphQuery = useQuery({
+        queryKey: ['analyticsGraph', view, selectedTime],
+        queryFn: () => api.get(`/superadmin/analytics/graph?type=${view}&filter=${mapFilter(selectedTime)}`, accessToken),
+        enabled: !!accessToken && selectedTime !== 'Last 7 days'
+    });
+
+    // Handle initial vs filtered data
+    const getChartData = () => {
+        const isDefault = selectedTime === 'Last 7 days';
+        let rawData = [];
+
+        if (isDefault) {
+            rawData = view === 'revenue' 
+                ? analyticsDashboard?.data?.revenueGraph?.data 
+                : analyticsDashboard?.data?.ordersGraph?.data;
+        } else {
+            rawData = dynamicGraphQuery.data?.data?.data;
+        }
+
+        if (!rawData) return [];
+
+        return rawData.map(d => ({
+            name: new Date(d.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            [view]: d.total
+        }));
+    };
+
+    const chartData = getChartData();
 
     return (
         <div className="space-y-8 max-w-[1600px] mx-auto">
@@ -114,7 +179,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
                     label="Total Users"
-                    value="1,000,000"
+                    value={dashboard.summary.totalUsers?.toLocaleString() || '0'}
                     icon={Users}
                     color="text-white"
                     iconBg="bg-emerald-900"
@@ -123,7 +188,7 @@ const Dashboard = () => {
                 />
                 <StatCard
                     label="Total Vendors"
-                    value="1,000,000"
+                    value={dashboard.summary.totalVendors?.toLocaleString() || '0'}
                     icon={Store}
                     color="text-white"
                     iconBg="bg-blue-900"
@@ -132,7 +197,7 @@ const Dashboard = () => {
                 />
                 <StatCard
                     label="Total Riders"
-                    value="1,000,000"
+                    value={dashboard.summary.totalRiders?.toLocaleString() || '0'}
                     icon={Bike}
                     color="text-white"
                     iconBg="bg-purple-900"
@@ -141,7 +206,7 @@ const Dashboard = () => {
                 />
                 <StatCard
                     label="Total Orders"
-                    value="1,000,000"
+                    value={dashboard.summary.totalOrders?.toLocaleString() || '0'}
                     icon={ShoppingBag}
                     color="text-white"
                     iconBg="bg-orange-900"
@@ -150,7 +215,7 @@ const Dashboard = () => {
                 />
                 <StatCard
                     label="Orders Today"
-                    value="1,000,000"
+                    value={dashboard.summary.ordersToday?.toLocaleString() || '0'}
                     icon={ShoppingBag}
                     color="text-white"
                     iconBg="bg-rose-900"
@@ -159,7 +224,7 @@ const Dashboard = () => {
                 />
                 <StatCard
                     label="Revenue Generated"
-                    value="₦1,000,000"
+                    value={`₦${dashboard.summary.totalRevenue?.toLocaleString() || '0'}`}
                     icon={DollarSign}
                     color="text-white"
                     iconBg="bg-indigo-900"
@@ -168,7 +233,7 @@ const Dashboard = () => {
                 />
                 <StatCard
                     label="Platform Commission"
-                    value="₦1,000,000"
+                    value={`₦${dashboard.summary.platformCommission?.toLocaleString() || '0'}`}
                     icon={Briefcase}
                     color="text-white"
                     iconBg="bg-indigo-900"
@@ -177,7 +242,7 @@ const Dashboard = () => {
                 />
                 <StatCard
                     label="Vendor Payout"
-                    value="₦1,000,000"
+                    value={`₦${dashboard.summary.vendorPayout?.toLocaleString() || '0'}`}
                     icon={Wallet}
                     color="text-white"
                     iconBg="bg-orange-900"
@@ -223,30 +288,65 @@ const Dashboard = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-50">
-                                {[
-                                    { id: 'GY-023531', time: '12:21pm', customer: 'Michael', vendor: 'Michael', rider: 'Amira', status: 'Pending' },
-                                    { id: 'GY-023531', time: '12:21pm', customer: 'Michael', vendor: 'Michael', rider: 'Amira', status: 'Picked up' },
-                                    { id: 'GY-023531', time: '12:21pm', customer: 'Michael', vendor: 'Michael', rider: 'Amira', status: 'Cancelled' },
-                                    { id: 'GY-023531', time: '12:21pm', customer: 'Michael', vendor: 'Michael', rider: 'Amira', status: 'Accepted' },
-                                    { id: 'GY-023531', time: '12:21pm', customer: 'Michael', vendor: 'Michael', rider: 'Amira', status: 'Delivered' },
-                                ].map((row, i) => (
-                                    <tr key={i} className="hover:bg-zinc-50/50 transition-colors group">
-                                        <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{row.id}</td>
-                                        <td className="px-6 py-4 text-[11px] text-zinc-500">{row.time}</td>
-                                        <td className="px-6 py-4 text-[11px] text-zinc-500">{row.customer}</td>
-                                        <td className="px-6 py-4 text-[11px] text-zinc-500">{row.vendor}</td>
-                                        <td className="px-6 py-4 text-[11px] text-zinc-500">{row.rider}</td>
-                                        <td className="px-6 py-4"><StatusBadge status={row.status} /></td>
-                                        <td className="px-6 py-4 text-[11px] text-zinc-400">---</td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex justify-center">
-                                                <button className="p-2 bg-indigo-50 text-indigo-500 rounded-lg hover:bg-indigo-500 hover:text-white transition-all shadow-sm">
-                                                    <Eye size={14} />
-                                                </button>
+                                {isLoading ? (
+                                    <tr>
+                                        <td colSpan="8" className="py-20 text-center">
+                                            <div className="flex flex-col items-center gap-2">
+                                                <Loader2 className="animate-spin text-emerald-600" size={32} />
+                                                <p className="text-xs text-zinc-500 font-medium">Loading orders...</p>
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
+                                ) : dashboard.orders.data.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="8" className="py-20 text-center text-xs text-zinc-400 font-medium italic">No recent orders found.</td>
+                                    </tr>
+                                ) : (
+                                    dashboard.orders.data.map((row, i) => (
+                                        <tr key={i} className="hover:bg-zinc-50/50 transition-colors group">
+                                            <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{row.code}</td>
+                                            <td className="px-6 py-4 text-[11px] text-zinc-500">{new Date(row.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                                            <td className="px-6 py-4 text-[11px] text-zinc-500">
+                                                <button 
+                                                    onClick={() => setSelectedCustomer(row.customer)}
+                                                    className="hover:text-emerald-600 hover:underline font-bold text-left transition-colors"
+                                                >
+                                                    {row.customerName}
+                                                </button>
+                                            </td>
+                                            <td className="px-6 py-4 text-[11px] text-zinc-500">
+                                                <button 
+                                                    onClick={() => setSelectedVendor(row.vendor)}
+                                                    className="hover:text-emerald-600 hover:underline font-bold text-left transition-colors"
+                                                >
+                                                    {row.vendor?.storeName}
+                                                </button>
+                                            </td>
+                                            <td className="px-6 py-4 text-[11px] text-zinc-500">
+                                                {row.rider ? (
+                                                    <button 
+                                                        onClick={() => setSelectedRider(row.rider)}
+                                                        className="hover:text-emerald-600 hover:underline font-bold text-left transition-colors"
+                                                    >
+                                                        {row.rider.name}
+                                                    </button>
+                                                ) : '---'}
+                                            </td>
+                                            <td className="px-6 py-4"><StatusBadge status={row.status.charAt(0).toUpperCase() + row.status.slice(1).toLowerCase()} /></td>
+                                            <td className="px-6 py-4 text-[11px] text-zinc-400">{row.etaMin}-{row.etaMax} mins</td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex justify-center">
+                                                    <button 
+                                                        onClick={() => setSelectedOrder(row)}
+                                                        className="p-2 bg-indigo-50 text-indigo-500 rounded-lg hover:bg-indigo-500 hover:text-white transition-all shadow-sm"
+                                                    >
+                                                        <Eye size={14} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -274,9 +374,12 @@ const Dashboard = () => {
                         <div className="relative">
                             <button
                                 onClick={() => setShowTimeDropdown(!showTimeDropdown)}
-                                className="flex items-center gap-2 bg-[#F1F5F9] py-2.5 px-1 border-none text-[11px] text-zinc-600 font-medium rounded-full outline-none transition-all hover:bg-zinc-200"
+                                className="flex items-center gap-2 bg-[#F1F5F9] py-2.5 px-3 border-none text-[11px] text-zinc-600 font-bold rounded-full outline-none transition-all hover:bg-zinc-200"
                             >
-                                {selectedTime}
+                                <span className="flex items-center gap-2">
+                                    {dynamicGraphQuery.isFetching && <Loader2 size={12} className="animate-spin text-emerald-600" />}
+                                    {selectedTime}
+                                </span>
                                 <svg className={`w-4 h-4 transition-transform duration-300 ${showTimeDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                                 </svg>
@@ -336,6 +439,7 @@ const Dashboard = () => {
                                     contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
                                     labelStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#1f2937' }}
                                     itemStyle={{ fontSize: '11px', fontWeight: '600' }}
+                                    formatter={(value) => view === 'revenue' ? `₦${value?.toLocaleString()}` : value?.toLocaleString()}
                                 />
                                 <Bar
                                     dataKey={view}
@@ -369,27 +473,34 @@ const Dashboard = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-50">
-                                {[
-                                    { name: 'Wale Wilson', orders: 201, revenue: '500,000', status: 'Inactive' },
-                                    { name: 'Eleanor Russell', orders: 152, revenue: '350,000', status: 'Inactive' },
-                                    { name: 'Guy Hawkins', orders: 231, revenue: '400,000', status: 'Suspended' },
-                                    { name: 'Kristin Wilson', orders: 251, revenue: '450,000', status: 'Active' },
-                                    { name: 'Theresa Webb', orders: 231, revenue: '380,000', status: 'Active' },
-                                ].map((row, i) => (
-                                    <tr key={i} className="hover:bg-zinc-50/50 transition-colors">
-                                        <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{row.name}</td>
-                                        <td className="px-6 py-4 text-[11px] text-zinc-500 text-center font-medium">{row.orders}</td>
-                                        <td className="px-6 py-4 text-[11px] text-zinc-500 font-bold">{row.revenue}</td>
-                                        <td className="px-6 py-4 text-center"><StatusBadge status={row.status} /></td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex justify-center">
-                                                <button className="p-2 bg-indigo-50 text-indigo-500 rounded-lg hover:bg-indigo-500 hover:text-white transition-all shadow-sm">
-                                                    <Eye size={12} />
-                                                </button>
-                                            </div>
-                                        </td>
+                                {isLoading ? (
+                                    <tr>
+                                        <td colSpan="5" className="py-10 text-center text-xs text-zinc-400">Loading...</td>
                                     </tr>
-                                ))}
+                                ) : dashboard.topVendors.data.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="5" className="py-10 text-center text-xs text-zinc-400">No data available</td>
+                                    </tr>
+                                ) : (
+                                    dashboard.topVendors.data.map((row, i) => (
+                                        <tr key={i} className="hover:bg-zinc-50/50 transition-colors">
+                                            <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{row.name}</td>
+                                            <td className="px-6 py-4 text-[11px] text-zinc-500 text-center font-medium">{row.totalOrders}</td>
+                                            <td className="px-6 py-4 text-[11px] text-zinc-500 font-bold">₦{row.revenue?.toLocaleString()}</td>
+                                            <td className="px-6 py-4 text-center"><StatusBadge status={row.status.charAt(0).toUpperCase() + row.status.slice(1).toLowerCase()} /></td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex justify-center">
+                                                    <button 
+                                                        onClick={() => setSelectedVendor(row)}
+                                                        className="p-2 bg-indigo-50 text-indigo-500 rounded-lg hover:bg-indigo-500 hover:text-white transition-all shadow-sm"
+                                                    >
+                                                        <Eye size={12} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -408,7 +519,7 @@ const Dashboard = () => {
                                 </div>
                                 <span className="text-sm font-medium text-zinc-700">Online Riders</span>
                             </div>
-                            <span className="text-sm font-bold text-emerald-500">32</span>
+                            <span className="text-sm font-bold text-emerald-500">{dashboard.riderActivity.online || 0}</span>
                         </div>
 
                         <div className="flex items-center justify-between pb-4 border-b border-zinc-200">
@@ -418,7 +529,7 @@ const Dashboard = () => {
                                 </div>
                                 <span className="text-sm font-medium text-zinc-700">Offline Riders</span>
                             </div>
-                            <span className="text-sm font-bold text-zinc-900">32</span>
+                            <span className="text-sm font-bold text-zinc-900">{dashboard.riderActivity.offline || 0}</span>
                         </div>
 
                         <div className="flex items-center justify-between pb-4 border-b border-zinc-200">
@@ -428,7 +539,7 @@ const Dashboard = () => {
                                 </div>
                                 <span className="text-sm font-medium text-zinc-700">Avg. Delivery Time</span>
                             </div>
-                            <span className="text-sm font-bold text-zinc-900">12 mins</span>
+                            <span className="text-sm font-bold text-zinc-900">{dashboard.riderActivity.avgDeliveryTime || 0} mins</span>
                         </div>
                     </div>
                 </div>
@@ -454,27 +565,34 @@ const Dashboard = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-50">
-                                {[
-                                    { name: 'Robert Fox', delivered: 300, time: '12 mins', status: 'Offline' },
-                                    { name: 'Darlene Robertson', delivered: 301, time: '11 mins', status: 'Offline' },
-                                    { name: 'Ralph Edwards', delivered: 231, time: '12 mins', status: 'Suspended' },
-                                    { name: 'Jersey Wilson', delivered: 251, time: '11 mins', status: 'Online' },
-                                    { name: 'Annette Black', delivered: 231, time: '14 mins', status: 'Online' },
-                                ].map((row, i) => (
-                                    <tr key={i} className="hover:bg-zinc-50/50 transition-colors">
-                                        <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{row.name}</td>
-                                        <td className="px-6 py-4 text-[11px] text-zinc-500 text-center font-medium">{row.delivered}</td>
-                                        <td className="px-6 py-4 text-[11px] text-zinc-500 text-center font-medium">{row.time}</td>
-                                        <td className="px-6 py-4 text-center"><StatusBadge status={row.status} /></td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex justify-center">
-                                                <button className="p-2 bg-indigo-50 text-indigo-500 rounded-lg hover:bg-indigo-500 hover:text-white transition-all shadow-sm">
-                                                    <Eye size={12} />
-                                                </button>
-                                            </div>
-                                        </td>
+                                {isLoading ? (
+                                    <tr>
+                                        <td colSpan="5" className="py-10 text-center text-xs text-zinc-400">Loading...</td>
                                     </tr>
-                                ))}
+                                ) : dashboard.topRiders.data.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="5" className="py-10 text-center text-xs text-zinc-400">No data available</td>
+                                    </tr>
+                                ) : (
+                                    dashboard.topRiders.data.map((row, i) => (
+                                        <tr key={i} className="hover:bg-zinc-50/50 transition-colors">
+                                            <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{row.name}</td>
+                                            <td className="px-6 py-4 text-[11px] text-zinc-500 text-center font-medium">{row.deliveries}</td>
+                                            <td className="px-6 py-4 text-[11px] text-zinc-500 text-center font-medium">{row.avgTime} mins</td>
+                                            <td className="px-6 py-4 text-center"><StatusBadge status={row.status.charAt(0).toUpperCase() + row.status.slice(1).toLowerCase()} /></td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex justify-center">
+                                                    <button 
+                                                        onClick={() => setSelectedRider(row)}
+                                                        className="p-2 bg-indigo-50 text-indigo-500 rounded-lg hover:bg-indigo-500 hover:text-white transition-all shadow-sm"
+                                                    >
+                                                        <Eye size={12} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -504,6 +622,31 @@ const Dashboard = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Modals */}
+            <OrderModal 
+                isOpen={!!selectedOrder} 
+                onClose={() => setSelectedOrder(null)} 
+                order={selectedOrder} 
+            />
+
+            <VendorModal 
+                isOpen={!!selectedVendor} 
+                onClose={() => setSelectedVendor(null)} 
+                vendor={selectedVendor} 
+            />
+
+            <RiderModal 
+                isOpen={!!selectedRider} 
+                onClose={() => setSelectedRider(null)} 
+                rider={selectedRider} 
+            />
+
+            <CustomerModal 
+                isOpen={!!selectedCustomer} 
+                onClose={() => setSelectedCustomer(null)} 
+                customer={selectedCustomer} 
+            />
         </div >
     );
 };

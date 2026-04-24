@@ -37,6 +37,14 @@ const AdminLayout = () => {
             title: 'Payments',
             description: 'Track revenue, commissions, and payouts.'
         },
+        '/admin/push-notifications': {
+            title: 'Push Notification',
+            description: 'Send updates and alerts to your community.'
+        },
+        '/admin/vendor-management': {
+            title: 'Vendor Management',
+            description: 'Manage vendor store types and categories.'
+        },
         '/admin/settings': {
             title: 'Settings',
             description: 'Configure platform preferences and rules.'
