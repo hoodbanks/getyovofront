@@ -163,7 +163,7 @@ function App() {
         <Route path="push-notifications" element={<PushNotifications />} />
         <Route path="*" element={<div className="flex h-screen items-center justify-center text-2xl font-bold bg-zinc-50 text-zinc-900">404 - Not Found</div>} />
       </Route>
-
+ 
     </Routes>
   );
 }
