@@ -22,6 +22,7 @@ import PrivacyPolicy from './pages/legal/PrivacyPolicy';
 import TermsAndConditions from './pages/legal/TermsAndConditions';
 import MobilePrivacyPolicy from './pages/legal/MobilePrivacyPolicy';
 import MobileTermsAndConditions from './pages/legal/MobileTermsAndConditions';
+import { Toaster } from 'sonner';
 
 
 
@@ -72,99 +73,105 @@ import RiderProfileVerifyOtp from './pages/rider/profile/reset/RiderProfileVerif
 import RiderProfileResetPassword from './pages/rider/profile/reset/RiderProfileResetPassword';
 import RiderProfileSuccessState from './pages/rider/profile/reset/RiderProfileSuccessState';
 import RiderChangePassword from './pages/rider/profile/reset/RiderChangePassword';
+import RiderNotifications from './pages/rider/notifications/RiderNotifications';
 
 function App() {
   return (
-    <Routes>
-      {/* Admin Auth Routes */}
-      <Route path="/admin/login" element={<Login />} />
-      <Route path="/admin/forgot-password" element={<ForgotPassword />} />
-      <Route path="/admin/verify-email" element={<VerifyEmail />} />
-      <Route path="/admin/reset-password" element={<ResetPassword />} />
-      <Route path="/admin/reset-success" element={<ResetSuccess />} />
+    <>
+      <Routes>
+        {/* Admin Auth Routes */}
+        <Route path="/admin/login" element={<Login />} />
+        <Route path="/admin/forgot-password" element={<ForgotPassword />} />
+        <Route path="/admin/verify-email" element={<VerifyEmail />} />
+        <Route path="/admin/reset-password" element={<ResetPassword />} />
+        <Route path="/admin/reset-success" element={<ResetSuccess />} />
 
-      {/* Customer Onboarding & Auth Routes */}
-      <Route path="/customer/splash" element={<CustomerSplash />} />
-      <Route path="/customer/onboarding" element={<CustomerOnboarding />} />
-      <Route path="/customer/welcome" element={<CustomerWelcome />} />
-      <Route path="/customer/login" element={<CustomerLogin />} />
-      <Route path="/customer/register" element={<CustomerRegister />} />
-      <Route path="/customer/forgot-password" element={<CustomerForgotPassword />} />
-      <Route path="/customer/verify-otp" element={<CustomerVerifyOtp />} />
-      <Route path="/customer/reset-password" element={<CustomerResetPassword />} />
-      <Route path="/customer/success" element={<CustomerSuccessState />} />
+        {/* Customer Onboarding & Auth Routes */}
+        <Route path="/customer/splash" element={<CustomerSplash />} />
+        <Route path="/customer/onboarding" element={<CustomerOnboarding />} />
+        <Route path="/customer/welcome" element={<CustomerWelcome />} />
+        <Route path="/customer/login" element={<CustomerLogin />} />
+        <Route path="/customer/register" element={<CustomerRegister />} />
+        <Route path="/customer/forgot-password" element={<CustomerForgotPassword />} />
+        <Route path="/customer/verify-otp" element={<CustomerVerifyOtp />} />
+        <Route path="/customer/reset-password" element={<CustomerResetPassword />} />
+        <Route path="/customer/success" element={<CustomerSuccessState />} />
 
-      {/* Customer Independent/Detail Views */}
-      <Route path="/customer/store/:id" element={<CustomerStoreDetail />} />
-      <Route path="/customer/item/:id" element={<CustomerItemDetail />} />
-      <Route path="/customer/item/:id/reviews" element={<CustomerReviews />} />
-      <Route path="/customer/checkout" element={<CustomerCheckout />} />
-      <Route path="/customer/order-confirmed" element={<CustomerOrderConfirmed />} />
-      <Route path="/customer/profile/personal-data" element={<CustomerPersonalData />} />
-      <Route path="/customer/profile/addresses" element={<CustomerAddresses />} />
-      <Route path="/customer/profile/password" element={<CustomerPassword />} />
-      <Route path="/customer/notifications" element={<CustomerNotifications />} />
+        {/* Customer Independent/Detail Views */}
+        <Route path="/customer/store/:id" element={<CustomerStoreDetail />} />
+        <Route path="/customer/item/:id" element={<CustomerItemDetail />} />
+        <Route path="/customer/item/:id/reviews" element={<CustomerReviews />} />
+        <Route path="/customer/checkout" element={<CustomerCheckout />} />
+        <Route path="/customer/order-confirmed" element={<CustomerOrderConfirmed />} />
+        <Route path="/customer/profile/personal-data" element={<CustomerPersonalData />} />
+        <Route path="/customer/profile/addresses" element={<CustomerAddresses />} />
+        <Route path="/customer/profile/password" element={<CustomerPassword />} />
+        <Route path="/customer/notifications" element={<CustomerNotifications />} />
 
-      {/* Customer Main App Routes (Bottom Nav context) */}
-      <Route path="/customer/app" element={<CustomerLayout />}>
-        <Route path="home" element={<CustomerHome />} />
-        <Route path="search" element={<CustomerSearch />} />
-        <Route path="cart" element={<CustomerCart />} />
-        <Route path="profile" element={<CustomerProfile />} />
-      </Route>
+        {/* Customer Main App Routes (Bottom Nav context) */}
+        <Route path="/customer/app" element={<CustomerLayout />}>
+          <Route path="home" element={<CustomerHome />} />
+          <Route path="search" element={<CustomerSearch />} />
+          <Route path="cart" element={<CustomerCart />} />
+          <Route path="profile" element={<CustomerProfile />} />
+        </Route>
 
-      {/* Rider Onboarding & Auth Routes */}
-      <Route path="/rider/welcome" element={<RiderWelcome />} />
-      <Route path="/rider/login" element={<RiderLogin />} />
-      <Route path="/rider/forgot-password" element={<RiderForgotPassword />} />
-      <Route path="/rider/verify-otp" element={<RiderVerifyOtp />} />
-      <Route path="/rider/reset-password" element={<RiderResetPassword />} />
-      <Route path="/rider/success" element={<RiderSuccessState />} />
+        {/* Rider Onboarding & Auth Routes */}
+        <Route path="/rider/welcome" element={<RiderWelcome />} />
+        <Route path="/rider/login" element={<RiderLogin />} />
+        <Route path="/rider/forgot-password" element={<RiderForgotPassword />} />
+        <Route path="/rider/verify-otp" element={<RiderVerifyOtp />} />
+        <Route path="/rider/reset-password" element={<RiderResetPassword />} />
+        <Route path="/rider/success" element={<RiderSuccessState />} />
 
-      {/* Rider Main App Routes */}
-      <Route path="/rider/app" element={<RiderLayout />}>
-        <Route path="dashboard" element={<RiderDashboard />} />
-        <Route path="order/details" element={<OrderDetails />} />
-        <Route path="active-order" element={<ActiveOrder />} />
-        <Route path="history" element={<RiderHistory />} />
-        <Route path="profile" element={<RiderProfile />} />
-        <Route path="profile/reset/change-password" element={<RiderChangePassword />} />
-        <Route path="profile/reset/forgot-password" element={<RiderProfileForgotPassword />} />
-        <Route path="profile/reset/verify-otp" element={<RiderProfileVerifyOtp />} />
-        <Route path="profile/reset/new-password" element={<RiderProfileResetPassword />} />
-        <Route path="profile/reset/success" element={<RiderProfileSuccessState />} />
-      </Route>
+        {/* Rider Main App Routes */}
+        <Route path="/rider/app" element={<RiderLayout />}>
+          <Route path="dashboard" element={<RiderDashboard />} />
+          <Route path="order/details/:orderId" element={<OrderDetails />} />
+          <Route path="active-order/:orderId" element={<ActiveOrder />} />
+          <Route path="active-order" element={<ActiveOrder />} />
+          <Route path="history" element={<RiderHistory />} />
+          <Route path="notifications" element={<RiderNotifications />} />
+          <Route path="profile" element={<RiderProfile />} />
+          <Route path="profile/reset/change-password" element={<RiderChangePassword />} />
+          <Route path="profile/reset/forgot-password" element={<RiderProfileForgotPassword />} />
+          <Route path="profile/reset/verify-otp" element={<RiderProfileVerifyOtp />} />
+          <Route path="profile/reset/new-password" element={<RiderProfileResetPassword />} />
+          <Route path="profile/reset/success" element={<RiderProfileSuccessState />} />
+        </Route>
 
-      <Route path="/" element={<Home />} />
-      <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-      <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
 
-      {/* for mobile app */}
-      <Route path="/mobile/privacy-policy" element={<MobilePrivacyPolicy />} />
-      <Route path="/mobile/terms-and-conditions" element={<MobileTermsAndConditions />} />
+        {/* for mobile app */}
+        <Route path="/mobile/privacy-policy" element={<MobilePrivacyPolicy />} />
+        <Route path="/mobile/terms-and-conditions" element={<MobileTermsAndConditions />} />
 
- 
-      <Route 
-        path="/admin" 
-        element={
-          <ProtectedRoute>
-            <AdminLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<Dashboard />} />
-        <Route path="analytics" element={<Analytics />} />
-        <Route path="customers" element={<Customers />} />
-        <Route path="vendors" element={<Vendors />} />
-        <Route path="riders" element={<Riders />} />
-        <Route path="orders" element={<Orders />} />
-        <Route path="payments" element={<Payments />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="push-notifications" element={<PushNotifications />} />
-        <Route path="*" element={<div className="flex h-screen items-center justify-center text-2xl font-bold bg-zinc-50 text-zinc-900">404 - Not Found</div>} />
-      </Route>
- 
-    </Routes>
+   
+        <Route 
+          path="/admin" 
+          element={
+            <ProtectedRoute>
+              <AdminLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Dashboard />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="customers" element={<Customers />} />
+          <Route path="vendors" element={<Vendors />} />
+          <Route path="riders" element={<Riders />} />
+          <Route path="orders" element={<Orders />} />
+          <Route path="payments" element={<Payments />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="push-notifications" element={<PushNotifications />} />
+          <Route path="*" element={<div className="flex h-screen items-center justify-center text-2xl font-bold bg-zinc-50 text-zinc-900">404 - Not Found</div>} />
+        </Route>
+   
+      </Routes>
+      <Toaster richColors position="top-right" />
+    </>
   );
 }
 

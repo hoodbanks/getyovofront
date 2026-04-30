@@ -8,7 +8,7 @@ const TermsAndConditions = () => {
     }, []);
 
     return (
-        <div className="min-h-screen bg-white p-3 font-sans pb-0">
+        <div className="min-h-screen bg-white p-1 font-sans pb-0">
             <div className="max-w-[1440px] mx-auto">
                 <Hero 
                     title="Terms and Conditions"

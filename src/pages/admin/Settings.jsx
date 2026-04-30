@@ -80,10 +80,10 @@ const Settings = () => {
     ];
 
     return (
-        <div className="space-y-6 w-full mx-auto">
+        <div className="space-y-6 max-w-[440px] md:max-w-[1600px] mx-auto pb-10">
             {/* Header with Tabs */}
-            <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-zinc-100">
-                <div className="flex items-center gap-2 bg-zinc-50 p-1.5 rounded-3xl w-fit">
+            <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-zinc-100 overflow-hidden">
+                <div className="flex items-center gap-2 bg-zinc-50 p-1.5 rounded-3xl w-full overflow-x-auto no-scrollbar whitespace-nowrap">
                     {tabs.map((tab) => (
                         <button
                             key={tab.id}
@@ -105,7 +105,7 @@ const Settings = () => {
                     {activeTab === 'General App Controls' && generalSettings.map((item) => (
                         <div
                             key={item.id}
-                            className="group flex items-center justify-between p-6 bg-zinc-50/50 hover:bg-zinc-100/50 rounded-2xl border border-zinc-100 transition-all cursor-pointer"
+                            className="group flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 md:p-6 bg-zinc-50/50 hover:bg-zinc-100/50 rounded-2xl border border-zinc-100 transition-all cursor-pointer gap-4"
                             onClick={item.action}
                         >
                             <div className="flex items-center gap-5">
@@ -118,7 +118,7 @@ const Settings = () => {
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center justify-between w-full sm:w-auto gap-4">
                                 {item.hasToggle && (
                                     <div className="flex items-center gap-6">
                                         {/* Toggle Switch */}

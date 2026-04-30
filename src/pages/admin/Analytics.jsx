@@ -213,9 +213,9 @@ const Analytics = () => {
     }
 
     return (
-        <div className="space-y-6 w-full mx-auto pb-10">
+        <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
             {/* Stats Grid */}
-            <div className="flex flex-wrap gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard label="Orders Today" value={stats.ordersToday?.toLocaleString()} icon={ShoppingBag} color="bg-[#880055]" dotColor="#880055" />
                 <StatCard label="Revenue Generated" value={formatCurrency(stats.totalRevenue)} icon={Banknote} color="bg-[#00B074]" dotColor="#00B074" />
                 <StatCard label="Platform Commission" value={formatCurrency(stats.platformCommission)} icon={Percent} color="bg-[#880055]" dotColor="#880055" />
@@ -347,7 +347,7 @@ const Analytics = () => {
                         </div>
                         <FilterDropdown selected={splitFilter} onSelect={setSplitFilter} />
                     </div>
-                    <div className="h-[280px] w-full flex items-center gap-8">
+                    <div className="h-auto min-h-[400px] lg:min-h-[280px] w-full flex flex-col sm:flex-row items-center gap-8 px-4">
                         <div className="flex-1 h-full relative">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -375,7 +375,7 @@ const Analytics = () => {
                         </div>
 
                         {/* Legend */}
-                        <div className="w-[45%] space-y-4">
+                        <div className="w-full sm:w-[45%] space-y-4">
                             {formattedPieData.map((item, idx) => (
                                 <div key={idx} className="flex items-center gap-3">
                                     <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />

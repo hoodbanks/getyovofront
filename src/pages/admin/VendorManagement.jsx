@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
     Plus, 
     Search, 
@@ -14,12 +14,20 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
+import { toast } from 'sonner';
 
 const ShopTypeModal = ({ isOpen, onClose, shopType = null }) => {
     const { accessToken } = useAuthStore();
     const queryClient = useQueryClient();
     const [name, setName] = useState(shopType?.name || '');
     const [description, setDescription] = useState(shopType?.description || '');
+
+    useEffect(() => {
+        if (isOpen) {
+            setName(shopType?.name || '');
+            setDescription(shopType?.description || '');
+        }
+    }, [shopType, isOpen]);
 
     const mutation = useMutation({
         mutationFn: (data) => {
@@ -28,9 +36,13 @@ const ShopTypeModal = ({ isOpen, onClose, shopType = null }) => {
             }
             return api.post('/shop-types/create', data, accessToken);
         },
-        onSuccess: () => {
+        onSuccess: (response) => {
             queryClient.invalidateQueries(['shop-types']);
+            toast.success(response.message || `Shop type ${shopType ? 'updated' : 'created'} successfully`);
             onClose();
+        },
+        onError: (error) => {
+            toast.error(error.message || 'Failed to save shop type');
         }
     });
 
@@ -111,8 +123,12 @@ const VendorManagement = () => {
 
     const deleteMutation = useMutation({
         mutationFn: (id) => api.delete(`/shop-types/delete/${id}`, null, accessToken),
-        onSuccess: () => {
+        onSuccess: (response) => {
             queryClient.invalidateQueries(['shop-types']);
+            toast.success(response.message || 'Shop type deleted successfully');
+        },
+        onError: (error) => {
+            toast.error(error.message || 'Failed to delete shop type');
         }
     });
 
@@ -139,7 +155,7 @@ const VendorManagement = () => {
     return (
         <div className="space-y-6">
             {/* Header & Stats Placeholder */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
                 <div className="p-6 bg-white rounded-3xl border border-zinc-200 shadow-sm flex items-center gap-4 group hover:shadow-md transition-all">
                     <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600 transition-all group-hover:rotate-6">
                         <Layers size={24} />
@@ -152,8 +168,8 @@ const VendorManagement = () => {
             </div>
 
             {/* Actions & Filters */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="relative flex-1 max-w-md">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="relative flex-1 w-full sm:max-w-md">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
                     <input 
                         type="text" 
@@ -173,7 +189,7 @@ const VendorManagement = () => {
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm overflow-hidden min-h-[400px]">
+            <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm overflow-x-auto min-h-[400px]">
                 <table className="w-full text-left">
                     <thead>
                         <tr className="bg-zinc-50/50 border-b border-zinc-100">

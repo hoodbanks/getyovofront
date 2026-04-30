@@ -19,7 +19,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import CustomerModal from '../../components/admin/CustomerModal';
 
 const StatCard = ({ label, value, icon: Icon, color, bg, borderColor, cardBg, dotColor }) => (
-    <div className={`relative overflow-hidden p-4 pb-6 rounded-xl ${cardBg} border ${borderColor} shadow-sm transition-all hover:shadow-md group flex-1 min-w-[180px]`}>
+    <div className={`relative overflow-hidden p-4 pb-6 rounded-xl ${cardBg} border ${borderColor} shadow-sm transition-all hover:shadow-md group flex-1 min-w-0`}>
         {/* Grain/Texture Effect using Radial Gradients */}
         <div className={`absolute inset-0 opacity-[0.03] pointer-events-none`}
             style={{ backgroundImage: `radial-gradient(${dotColor} 1px, transparent 1px)`, backgroundSize: '4px 4px' }}></div>
@@ -99,10 +99,10 @@ const Customers = () => {
     };
 
     return (
-        <div className="space-y-6 w-full mx-auto">
+        <div className="space-y-6 max-w-[440px] md:max-w-[1600px] mx-auto pb-10">
             <div className='bg-white py-5 rounded-2xl'>
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-xl">
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 md:gap-4 p-4 rounded-xl">
                     <StatCard
                         label="Total Customers"
                         value={summary.totalUsers?.toLocaleString()}
@@ -146,7 +146,7 @@ const Customers = () => {
                 </div>
 
                 {/* Search Section */}
-                <div className="relative max-w-md p-4">
+                <div className="relative w-full sm:max-w-md p-4">
                     <Search className="absolute left-8 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
                     <input
                         type="text"
@@ -160,18 +160,18 @@ const Customers = () => {
 
             {/* Table Section */}
             <div className="bg-white rounded-[1.5rem] border border-zinc-200 overflow-hidden shadow-sm">
-                <div className="p-4 flex items-center justify-between border-b border-zinc-100 relative">
+                <div className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-zinc-100 relative gap-4">
                     <div>
-                        <h3 className="text-base font-medium text-zinc-900">Active customers</h3>
+                        <h3 className="text-sm md:text-base font-medium text-zinc-900">Active customers</h3>
                         <p className="text-[10px] text-zinc-500 font-medium">Customers active within the system</p>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
                         {/* Sort Dropdown */}
                         <div className="relative">
                             <button
                                 onClick={toggleSort}
-                                className="flex items-center gap-8 px-5 py-2.5 bg-zinc-100 rounded-xl text-[10px] font-bold text-zinc-500 hover:bg-zinc-200 transition-colors uppercase tracking-tight"
+                                className="flex items-center gap-2 md:gap-8 px-4 md:px-5 py-2.5 bg-zinc-100 rounded-xl text-[9px] md:text-[10px] font-bold text-zinc-500 hover:bg-zinc-200 transition-colors uppercase tracking-tight"
                             >
                                 {sortLabels[selectedSort] || 'Sort by'} <ChevronDown size={14} className={`transition-transform duration-300 ${showSortDropdown ? 'rotate-180' : ''}`} />
                             </button>
@@ -262,7 +262,7 @@ const Customers = () => {
                         <div className="relative">
                             <button
                                 onClick={toggleFilter}
-                                className="flex items-center gap-8 px-5 py-2.5 bg-zinc-100 rounded-xl text-[10px] font-bold text-zinc-500 hover:bg-zinc-200 transition-colors uppercase tracking-tight"
+                                className="flex items-center gap-2 md:gap-8 px-4 md:px-5 py-2.5 bg-zinc-100 rounded-xl text-[9px] md:text-[10px] font-bold text-zinc-500 hover:bg-zinc-200 transition-colors uppercase tracking-tight"
                             >
                                 {filterLabels[selectedFilter]} <ChevronDown size={14} className={`transition-transform duration-300 ${showFilterDropdown ? 'rotate-180' : ''}`} />
                             </button>

@@ -1,70 +1,147 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Navigation, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Navigation, X, Loader2, AlertCircle } from 'lucide-react';
 import RiderHeader from '../../../components/rider/RiderHeader';
+import api from '../../../api/api';
+import { useAuthStore } from '../../../store/useAuthStore';
+import { useRiderStore } from '../../../store/useRiderStore';
 
 const OrderDetails = () => {
     const navigate = useNavigate();
-    const [showAcceptModal, setShowAcceptModal] = useState(false);
+    const { orderId } = useParams();
+    const token = useAuthStore((state) => state.accessToken);
+    const activeOrdersCount = useRiderStore((state) => state.activeOrdersCount);
+    const deliveredOrdersCount = useRiderStore((state) => state.deliveredOrdersCount);
 
-    const orderData = {
-        id: '#01-A',
-        store: 'Restaurant',
-        name: 'Candles',
-        address: '18 Ogui Rd, Enugu',
-        items: '2x Jollof Rice, 1x Grilled Chicken',
-        customer: 'Ada',
-        customerPhone: '+234 80 511 2579 2',
-        dropOff: '36 Bisalla Rd, Enugu'
+    const [orderData, setOrderData] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [showAcceptModal, setShowAcceptModal] = useState(false);
+    const [isAccepting, setIsAccepting] = useState(false);
+    const [toast, setToast] = useState(null);
+
+    const showToast = (message, type = 'error') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 4000);
+    };
+
+    useEffect(() => {
+        const fetchOrderDetails = async () => {
+            if (!orderId) {
+                setIsLoading(false);
+                return;
+            }
+            setIsLoading(true);
+            try {
+                const res = await api.get(`/rider/orders/${orderId}`, token);
+                if (res?.data) setOrderData(res.data);
+            } catch (err) {
+                showToast(err.message || 'Failed to load order details');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchOrderDetails();
+    }, [orderId, token]);
+
+    const handleAcceptOrder = async () => {
+        if (!orderId || isAccepting) return;
+        setIsAccepting(true);
+        try {
+            await api.post(`/rider/orders/${orderId}/accept`, {}, token);
+            setShowAcceptModal(false);
+            navigate(`/rider/app/active-order/${orderId}`);
+        } catch (err) {
+            setShowAcceptModal(false);
+            showToast(err.message || 'Could not accept order');
+        } finally {
+            setIsAccepting(false);
+        }
     };
 
     return (
         <div className="min-h-screen bg-[#F9FAF7] flex flex-col font-sans">
-            <RiderHeader activeTab="Available" activeCount={1} historyCount={0} />
+            <RiderHeader activeTab="Available" activeCount={activeOrdersCount} historyCount={deliveredOrdersCount} />
+
+            {/* Toast */}
+            {toast && (
+                <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-sm animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-center gap-3 shadow-lg">
+                        <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white shrink-0">
+                            <AlertCircle size={16} />
+                        </div>
+                        <p className="text-[13px] font-bold text-red-900 flex-1">{toast.message}</p>
+                    </div>
+                </div>
+            )}
 
             {/* Content Area */}
             <div className="flex-1 px-4 py-6 space-y-4">
-                {/* Main Order Card */}
-                <div className="bg-white rounded-[24px] p-6 border border-zinc-100 shadow-sm">
-                    <div className="mb-6">
-                        <p className="text-[11px] font-bold text-zinc-400 mb-1">{orderData.id}</p>
-                        <p className="text-[13px] font-semibold text-zinc-800">{orderData.store}</p>
-                        <h3 className="text-[20px] font-bold text-[#1C5E20] leading-tight mt-1 mb-1">{orderData.name}</h3>
-                        <p className="text-[14px] text-zinc-500 font-medium mb-1">{orderData.address}</p>
-                        <p className="text-[13px] font-medium text-zinc-400">
-                            Items: <span className="text-[#1C5E20]">{orderData.items}</span>
-                        </p>
+                {isLoading ? (
+                    <div className="flex flex-col items-center justify-center py-32">
+                        <Loader2 size={32} className="text-[#1C5E20] animate-spin mb-3" />
+                        <p className="text-[13px] font-medium text-zinc-400">Loading order details...</p>
                     </div>
-
-                    <button className="w-full bg-[#F1F4F1] text-[#1C5E20] font-bold py-4 rounded-xl text-[14px] transition-colors hover:bg-zinc-200 mb-8">
-                        Open store in map
-                    </button>
-
-                    {/* Logistics Info Section */}
-                    <div className="space-y-4">
-                        <div className="bg-[#F8F9F8] rounded-[16px] p-5">
-                            <h4 className="text-[12px] font-bold text-zinc-400 mb-1">Customer</h4>
-                            <p className="text-[15px] font-bold text-zinc-800">{orderData.customer}</p>
-                            <p className="text-[14px] text-zinc-500 font-medium">{orderData.customerPhone}</p>
-                        </div>
-
-                        <div className="bg-[#F8F9F8] rounded-[16px] p-5">
-                            <h4 className="text-[12px] font-bold text-zinc-400 mb-1">Drop-off</h4>
-                            <p className="text-[15px] font-bold text-zinc-800">{orderData.dropOff}</p>
-                            <button className="flex items-center gap-1.5 text-[#1C5E20] font-bold text-[13px] mt-2 underline">
-                                <Navigation size={14} className="fill-current" />
-                                Navigate to Drop-off
-                            </button>
-                        </div>
-
+                ) : !orderData ? (
+                    <div className="flex flex-col items-center justify-center py-32 text-center px-10">
+                        <p className="text-[15px] font-bold text-zinc-500 mb-2">Order not found</p>
                         <button
-                            onClick={() => setShowAcceptModal(true)}
-                            className="w-full bg-[#1C5E20] text-white font-bold py-4.5 rounded-xl text-[15px] transition-all hover:bg-[#144416] shadow-md shadow-[#1C5E20]/20 mt-2"
+                            onClick={() => navigate(-1)}
+                            className="text-[#1C5E20] font-bold text-[13px] underline mt-2"
                         >
-                            Accept pick up
+                            Go back
                         </button>
                     </div>
-                </div>
+                ) : (
+                    <>
+                        {/* Main Order Card */}
+                        <div className="bg-white rounded-[24px] p-6 border border-zinc-100 shadow-sm">
+                            <div className="mb-6">
+                                <p className="text-[11px] font-bold text-zinc-400 mb-1">{orderData.orderId}</p>
+                                <p className="text-[13px] font-semibold text-zinc-800">{orderData.shopType || 'Order'}</p>
+                                <h3 className="text-[20px] font-bold text-[#1C5E20] leading-tight mt-1 mb-1">{orderData.vendorStoreName}</h3>
+                                <p className="text-[14px] text-zinc-500 font-medium mb-1">{orderData.storeAddress}</p>
+                                <p className="text-[13px] font-medium text-zinc-400">
+                                    Items: <span className="text-[#1C5E20]">{orderData.itemsString}</span>
+                                </p>
+                            </div>
+
+                            <button className="w-full bg-[#F1F4F1] text-[#1C5E20] font-bold py-4 rounded-xl text-[14px] transition-colors hover:bg-zinc-200 mb-8">
+                                Open store in map
+                            </button>
+
+                            {/* Logistics Info Section */}
+                            <div className="space-y-4">
+                                <div className="bg-[#F8F9F8] rounded-[16px] p-5">
+                                    <h4 className="text-[12px] font-bold text-zinc-400 mb-1">Customer</h4>
+                                    <p className="text-[15px] font-bold text-zinc-800">{orderData.customerName}</p>
+                                    <p className="text-[14px] text-zinc-500 font-medium">{orderData.customerPhone}</p>
+                                </div>
+
+                                <div className="bg-[#F8F9F8] rounded-[16px] p-5">
+                                    <h4 className="text-[12px] font-bold text-zinc-400 mb-1">Drop-off</h4>
+                                    <p className="text-[15px] font-bold text-zinc-800">{orderData.deliveryAddress}</p>
+                                    <button className="flex items-center gap-1.5 text-[#1C5E20] font-bold text-[13px] mt-2 underline">
+                                        <Navigation size={14} className="fill-current" />
+                                        Navigate to Drop-off
+                                    </button>
+                                </div>
+
+                                <div className="bg-[#F8F9F8] rounded-[16px] p-5">
+                                    <h4 className="text-[12px] font-bold text-zinc-400 mb-1">Order Total</h4>
+                                    <p className="text-[18px] font-bold text-zinc-900">₦{orderData.totalAmount?.toLocaleString()}</p>
+                                </div>
+
+                                <button
+                                    onClick={() => setShowAcceptModal(true)}
+                                    className="w-full bg-[#1C5E20] text-white font-bold py-4 rounded-xl text-[15px] transition-all hover:bg-[#144416] shadow-md shadow-[#1C5E20]/20 mt-2"
+                                >
+                                    Accept pick up
+                                </button>
+                            </div>
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Accept Pickup Modal */}
@@ -78,13 +155,11 @@ const OrderDetails = () => {
 
                         <div className="space-y-6">
                             <button
-                                onClick={() => {
-                                    setShowAcceptModal(false);
-                                    navigate('/rider/app/active-order');
-                                }}
-                                className="w-full bg-[#1C5E20] text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] text-[15px]"
+                                onClick={handleAcceptOrder}
+                                disabled={isAccepting}
+                                className="w-full bg-[#1C5E20] text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] text-[15px] disabled:opacity-60 flex items-center justify-center gap-2"
                             >
-                                Yes
+                                {isAccepting ? <><Loader2 size={18} className="animate-spin" /> Accepting...</> : 'Yes, Accept'}
                             </button>
                             <button
                                 onClick={() => setShowAcceptModal(false)}

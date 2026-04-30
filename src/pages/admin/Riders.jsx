@@ -20,7 +20,7 @@ import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
 
 const StatCard = ({ label, value, subLabel, icon: Icon, color, bg, borderColor, cardBg, dotColor }) => (
-    <div className={`relative overflow-hidden p-4 pb-6 rounded-xl ${cardBg} border ${borderColor} shadow-sm transition-all hover:shadow-md group flex-1 min-w-[200px]`}>
+    <div className={`relative overflow-hidden p-4 pb-6 rounded-xl ${cardBg} border ${borderColor} shadow-sm transition-all hover:shadow-md group flex-1 min-w-0`}>
         {/* Grain/Texture Effect using Radial Gradients */}
         <div className={`absolute inset-0 opacity-[0.03] pointer-events-none`}
             style={{ backgroundImage: `radial-gradient(${dotColor} 1px, transparent 1px)`, backgroundSize: '4px 4px' }}></div>
@@ -91,10 +91,10 @@ const Riders = () => {
     };
 
     return (
-        <div className="space-y-6 w-full mx-auto">
+        <div className="space-y-6 max-w-[440px] md:max-w-[1600px] mx-auto pb-10">
             <div className='bg-white py-5 rounded-2xl'>
                 {/* Stats Grid */}
-                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-xl">
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 md:gap-4 p-4 rounded-xl">
                     <StatCard
                         label="Total Riders"
                         value={summary.total?.toLocaleString() || '0'}
@@ -142,23 +142,23 @@ const Riders = () => {
                 </div>
 
                 {/* Tabs & Search */}
-                <div className="px-4 flex items-center justify-between mt-4">
-                    <div className="flex gap-1 bg-zinc-100 p-1 rounded-2xl">
+                <div className="px-4 flex flex-col sm:flex-row items-center justify-between mt-4 gap-4">
+                    <div className="flex gap-1 bg-zinc-100 p-1 rounded-2xl w-full sm:w-auto">
                         <button
                             onClick={() => setActiveTab('riders')}
-                            className={`px-6 py-2.5 rounded-xl text-[11px] font-bold transition-all ${activeTab === 'riders' ? 'bg-white text-emerald-800 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                            className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-[11px] font-bold transition-all ${activeTab === 'riders' ? 'bg-white text-emerald-800 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
                         >
                             All Riders
                         </button>
                         <button
                             onClick={() => setActiveTab('available_orders')}
-                            className={`px-6 py-2.5 rounded-xl text-[11px] font-bold transition-all ${activeTab === 'available_orders' ? 'bg-white text-emerald-800 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                            className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-[11px] font-bold transition-all ${activeTab === 'available_orders' ? 'bg-white text-emerald-800 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
                         >
                             Order Pool
                         </button>
                     </div>
 
-                    <div className="relative max-w-md w-full ml-4">
+                    <div className="relative w-full sm:max-w-md sm:ml-4">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
                         <input
                             type="text"
@@ -173,16 +173,16 @@ const Riders = () => {
 
             {/* Table Section */}
             <div className="bg-white rounded-[1.5rem] border border-zinc-200 overflow-hidden shadow-sm">
-                <div className="p-4 flex items-center justify-between border-b border-zinc-100">
+                <div className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-zinc-100 gap-4">
                     <div>
-                        <h3 className="text-base font-medium text-zinc-900">Riders</h3>
+                        <h3 className="text-sm md:text-base font-medium text-zinc-900">Riders</h3>
                         <p className="text-[10px] text-zinc-500 font-medium">All rider operations in one place.</p>
                     </div>
-                     <div className="flex items-center gap-2">
+                     <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
                         <select 
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value)}
-                            className="appearance-none px-3 py-2 bg-zinc-50 rounded-xl text-[9px] font-bold text-zinc-500 hover:bg-zinc-100 transition-colors uppercase tracking-tight outline-none border-none cursor-pointer"
+                            className="flex-1 sm:flex-none appearance-none px-3 py-2.5 md:py-2 bg-zinc-50 rounded-xl text-[9px] font-bold text-zinc-500 hover:bg-zinc-100 transition-colors uppercase tracking-tight outline-none border-none cursor-pointer"
                         >
                             <option value="date_newest">Newest First</option>
                             <option value="date_oldest">Oldest First</option>
@@ -192,7 +192,7 @@ const Riders = () => {
                         <select 
                             value={filter}
                             onChange={(e) => setFilter(e.target.value)}
-                            className="appearance-none px-3 py-2 bg-zinc-50 rounded-xl text-[9px] font-bold text-zinc-500 hover:bg-zinc-100 transition-colors uppercase tracking-tight outline-none border-none cursor-pointer"
+                            className="flex-1 sm:flex-none appearance-none px-3 py-2.5 md:py-2 bg-zinc-50 rounded-xl text-[9px] font-bold text-zinc-500 hover:bg-zinc-100 transition-colors uppercase tracking-tight outline-none border-none cursor-pointer"
                         >
                             <option value="all">All Status</option>
                             <option value="active">Active</option>
@@ -203,7 +203,7 @@ const Riders = () => {
                         </select>
                         <button
                             onClick={() => setIsCreateModalOpen(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-emerald-800 rounded-3xl text-[10px] font-bold text-white hover:bg-emerald-900 transition-all shadow-md shadow-emerald-900/10"
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 md:py-2 bg-emerald-800 rounded-3xl text-[10px] font-bold text-white hover:bg-emerald-900 transition-all shadow-md shadow-emerald-900/10 whitespace-nowrap"
                         >
                             Create Rider
                         </button>

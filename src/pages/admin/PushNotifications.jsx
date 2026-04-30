@@ -14,6 +14,7 @@ import {
 import { useMutation, useQuery } from '@tanstack/react-query';
 import api from '../../api/axios';
 import { useAuthStore } from '../../store/useAuthStore';
+import { toast } from 'sonner';
 
 const PushNotifications = () => {
     const { accessToken } = useAuthStore();
@@ -23,6 +24,8 @@ const PushNotifications = () => {
     const [title, setTitle] = useState('');
     const [body, setBody] = useState('');
     const [type, setType] = useState('PROMO');
+    const [payloadJson, setPayloadJson] = useState('');
+    const [idempotencyKey, setIdempotencyKey] = useState('');
     const [showSuccess, setShowSuccess] = useState(false);
 
     const broadcastMutation = useMutation({
@@ -32,6 +35,8 @@ const PushNotifications = () => {
             setTitle('');
             setBody('');
             setActorId('');
+            setPayloadJson('');
+            setIdempotencyKey('');
             setTimeout(() => setShowSuccess(false), 5000);
         }
     });
@@ -65,7 +70,7 @@ const PushNotifications = () => {
         if (!title.trim() || !body.trim()) return;
         if (audience === 'SINGLE' && !actorId.trim()) return;
         
-        const payload = {
+        const notificationData = {
             audience,
             title: title.trim(),
             body: body.trim(),
@@ -73,11 +78,24 @@ const PushNotifications = () => {
         };
 
         if (audience === 'SINGLE') {
-            payload.targetRole = targetRole;
-            payload.actorId = actorId.trim();
+            notificationData.targetRole = targetRole;
+            notificationData.actorId = actorId.trim();
         }
 
-        broadcastMutation.mutate(payload);
+        if (payloadJson.trim()) {
+            try {
+                notificationData.payload = JSON.parse(payloadJson);
+            } catch (err) {
+                toast.error('Invalid JSON format in payload field');
+                return;
+            }
+        }
+
+        if (idempotencyKey.trim()) {
+            notificationData.idempotencyKey = idempotencyKey.trim();
+        }
+
+        broadcastMutation.mutate(notificationData);
     };
 
     const categories = [
@@ -249,6 +267,38 @@ const PushNotifications = () => {
                                     className="w-full px-7 py-6 bg-zinc-50 border border-zinc-100 rounded-[2rem] text-sm font-medium text-zinc-800 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/30 outline-none transition-all placeholder:text-zinc-300 h-52 resize-none leading-relaxed"
                                 />
                             </div>
+
+                            {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between ml-1">
+                                        <label className="text-[11px] font-bold text-zinc-900 uppercase tracking-wider">Payload (JSON)</label>
+                                        <span className="text-[9px] text-zinc-400 font-bold uppercase">Optional</span>
+                                    </div>
+                                    <textarea 
+                                        value={payloadJson}
+                                        onChange={(e) => setPayloadJson(e.target.value)}
+                                        placeholder='{ "link": "/promo", "id": 123 }'
+                                        className="w-full px-7 py-5 bg-zinc-50 border border-zinc-100 rounded-[1.5rem] text-xs font-mono text-zinc-800 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/30 outline-none transition-all placeholder:text-zinc-300 h-32 resize-none"
+                                    />
+                                </div>
+
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between ml-1">
+                                        <label className="text-[11px] font-bold text-zinc-900 uppercase tracking-wider">Idempotency Key</label>
+                                        <span className="text-[9px] text-zinc-400 font-bold uppercase">Optional</span>
+                                    </div>
+                                    <input 
+                                        type="text"
+                                        value={idempotencyKey}
+                                        onChange={(e) => setIdempotencyKey(e.target.value)}
+                                        placeholder="promo-april-2026-v1"
+                                        className="w-full px-7 py-5 bg-zinc-50 border border-zinc-100 rounded-[1.5rem] text-xs font-medium text-zinc-800 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/30 outline-none transition-all placeholder:text-zinc-300"
+                                    />
+                                    <p className="text-[9px] text-zinc-400 font-medium px-2 leading-relaxed">
+                                        Prevents duplicate notifications if the same key is reused. If left blank, it will be auto-generated.
+                                    </p>
+                                </div>
+                            </div> */}
 
                             {showSuccess && (
                                 <div className="flex items-center gap-3 text-emerald-700 bg-emerald-50 p-5 rounded-[1.5rem] border border-emerald-200 animate-in fade-in slide-in-from-top-4 duration-500">

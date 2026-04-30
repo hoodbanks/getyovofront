@@ -1,10 +1,11 @@
 const BASE_URL = 'https://api.getyovo.app/api/v1';
 
 const api = {
-    post: async (endpoint, data, token) => {
+    post: async (endpoint, data, token, extraHeaders = {}) => {
         const headers = {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
+            ...extraHeaders
         };
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
@@ -21,7 +22,6 @@ const api = {
         if (!response.ok) {
             let errorMessage = result.error?.message || result.message || 'Something went wrong';
             
-            // If there are specific validation details, use the first one as the message
             if (result.error?.details && Array.isArray(result.error.details) && result.error.details.length > 0) {
                 errorMessage = result.error.details[0].message;
             }
@@ -34,9 +34,10 @@ const api = {
         return result;
     },
 
-    get: async (endpoint, token) => {
+    get: async (endpoint, token, extraHeaders = {}) => {
         const headers = {
             'Content-Type': 'application/json',
+            ...extraHeaders
         };
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
@@ -64,10 +65,11 @@ const api = {
         return result;
     },
 
-    patch: async (endpoint, data, token) => {
+    patch: async (endpoint, data, token, extraHeaders = {}) => {
         const headers = {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
+            ...extraHeaders
         };
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
@@ -96,10 +98,11 @@ const api = {
         return result;
     },
 
-    delete: async (endpoint, data, token) => {
+    delete: async (endpoint, data, token, extraHeaders = {}) => {
         const headers = {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
+            ...extraHeaders
         };
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;

@@ -17,7 +17,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const StatCard = ({ label, value, subLabel, icon: Icon, color, bg, borderColor, cardBg, dotColor }) => (
-    <div className={`relative overflow-hidden p-4 pb-6 rounded-xl ${cardBg} border ${borderColor} shadow-sm transition-all hover:shadow-md group flex-1 min-w-[200px]`}>
+    <div className={`relative overflow-hidden p-4 pb-6 rounded-xl ${cardBg} border ${borderColor} shadow-sm transition-all hover:shadow-md group flex-1 min-w-0`}>
         {/* Grain/Texture Effect using Radial Gradients */}
         <div className={`absolute inset-0 opacity-[0.03] pointer-events-none`}
             style={{ backgroundImage: `radial-gradient(${dotColor} 1px, transparent 1px)`, backgroundSize: '4px 4px' }}></div>
@@ -78,10 +78,10 @@ const Orders = () => {
     };
 
     return (
-        <div className="space-y-6 w-full mx-auto">
+        <div className="space-y-6 max-w-[440px] md:max-w-[1600px] mx-auto pb-10">
             <div className='bg-white py-5 rounded-2xl'>
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-xl">
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 md:gap-4 p-4 rounded-xl">
                     <StatCard
                         label="Total Orders"
                         value={summary.totalOrders?.toLocaleString()}
@@ -130,7 +130,7 @@ const Orders = () => {
 
                 {/* Search Bar Section */}
                 <div className="px-4">
-                    <div className="relative max-w-md">
+                    <div className="relative w-full sm:max-w-md">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
                         <input
                             type="text"
@@ -145,17 +145,17 @@ const Orders = () => {
 
             {/* Table Section */}
             <div className="bg-white rounded-[1.5rem] border border-zinc-200 overflow-hidden shadow-sm">
-                <div className="p-4 flex items-center justify-between border-b border-zinc-100">
+                <div className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-zinc-100 gap-4">
                     <div>
-                        <h3 className="text-base font-medium text-zinc-900">Orders</h3>
+                        <h3 className="text-sm md:text-base font-medium text-zinc-900">Orders</h3>
                         <p className="text-[10px] text-zinc-500 font-medium">All Order operations in one place.</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <div className="relative">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+                        <div className="relative flex-1 sm:flex-initial">
                             <select 
                                 value={sortBy}
                                 onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
-                                className="appearance-none bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2 pr-10 text-[10px] font-bold text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 cursor-pointer"
+                                className="w-full appearance-none bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2.5 md:py-2 pr-10 text-[10px] font-bold text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 cursor-pointer"
                             >
                                 <option value="all">All Status</option>
                                 <option value="pending">Pending</option>
@@ -165,11 +165,11 @@ const Orders = () => {
                             </select>
                             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
                         </div>
-                        <div className="relative">
+                        <div className="relative flex-1 sm:flex-initial">
                             <select 
                                 value={filter}
                                 onChange={(e) => { setFilter(e.target.value); setPage(1); }}
-                                className="appearance-none bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2 pr-10 text-[10px] font-bold text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 cursor-pointer"
+                                className="w-full appearance-none bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2.5 md:py-2 pr-10 text-[10px] font-bold text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 cursor-pointer"
                             >
                                 <option value="all">All Time</option>
                                 <option value="today">Today</option>
@@ -180,7 +180,7 @@ const Orders = () => {
                             </select>
                             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
                         </div>
-                        <button className="flex items-center gap-2 px-4 py-2 bg-emerald-800 rounded-3xl text-[10px] font-bold text-white hover:bg-emerald-900 transition-all shadow-md shadow-emerald-900/10">
+                        <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 md:py-2 bg-emerald-800 rounded-3xl text-[10px] font-bold text-white hover:bg-emerald-900 transition-all shadow-md shadow-emerald-900/10 whitespace-nowrap">
                             <Download size={14} />
                             Export CSV
                         </button>

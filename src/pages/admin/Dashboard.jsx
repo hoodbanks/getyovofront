@@ -33,16 +33,6 @@ import VendorModal from '../../components/admin/VendorModal';
 import RiderModal from '../../components/admin/RiderModal';
 import CustomerModal from '../../components/admin/CustomerModal';
 
-const data = [
-    { name: 'Sun', value: 4000 },
-    { name: 'Mon', value: 10000 },
-    { name: 'Tue', value: 12000 },
-    { name: 'Wed', value: 8000 },
-    { name: 'Thu', value: 15000 },
-    { name: 'Fri', value: 9000 },
-    { name: 'Sat', value: 6000 },
-];
-
 const StatCard = ({ label, value, icon: Icon, color, trend, iconBg, gradient }) => (
     <div className="relative overflow-hidden bg-white p-6 rounded-3xl border border-zinc-200/50 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 group">
         {/* Glow Effect Background */}
@@ -176,7 +166,7 @@ const Dashboard = () => {
     return (
         <div className="space-y-8 max-w-[1600px] mx-auto">
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 <StatCard
                     label="Total Users"
                     value={dashboard.summary.totalUsers?.toLocaleString() || '0'}
@@ -254,21 +244,21 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Table - Orders Overview */}
                 <div className="lg:col-span-2 bg-white rounded-3xl border border-zinc-200 overflow-hidden shadow-sm">
-                    <div className="p-6 flex items-center justify-between border-b border-zinc-100">
+                    <div className="p-4 md:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-zinc-100 gap-4">
                         <div>
                             <h3 className="text-sm font-medium text-zinc-900">Orders Overview</h3>
                             <p className="text-xs text-zinc-500">All order activity in one view.</p>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <div className="relative">
+                        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                            <div className="relative flex-1 sm:flex-initial">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" size={16} />
                                 <input
                                     type="text"
                                     placeholder="Search"
-                                    className="pl-9 pr-4 py-3 w-50 bg-zinc-100 border-transparent rounded-3xl text-xs focus:bg-white focus:ring-1 focus:ring-indigo-500/20 outline-none"
+                                    className="pl-9 pr-4 py-3 w-full sm:w-50 bg-zinc-100 border-transparent rounded-3xl text-xs focus:bg-white focus:ring-1 focus:ring-indigo-500/20 outline-none"
                                 />
                             </div>
-                            <button className="px-4 py-3 bg-green-900 text-white text-xs font-medium rounded-3xl hover:bg-zinc-800 transition-colors">
+                            <button className="flex-1 sm:flex-none px-4 py-3 bg-green-900 text-white text-[10px] sm:text-xs font-medium rounded-3xl hover:bg-zinc-800 transition-colors whitespace-nowrap">
                                 Open Orders
                             </button>
                         </div>
@@ -353,8 +343,8 @@ const Dashboard = () => {
                 </div>
 
                 {/* Revenue Chart */}
-                <div className="bg-white rounded-3xl border border-zinc-200 p-6 shadow-sm flex flex-col h-full relative">
-                    <div className="flex items-center justify-between gap-2 mb-8 relative z-[60]">
+                <div className="bg-white rounded-3xl border border-zinc-200 p-4 md:p-6 shadow-sm flex flex-col h-full relative">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 relative z-[10]">
                         <div className="flex bg-zinc-100 p-1 rounded-xl">
                             <button
                                 onClick={() => setView('revenue')}

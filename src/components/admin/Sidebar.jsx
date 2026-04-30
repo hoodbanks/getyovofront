@@ -23,31 +23,35 @@ import api from '../../api/api';
 import logo from '../../assets/images/GetYovo-Logo1.png';
 import LogoutModal from './LogoutModal';
 
-const SidebarItem = ({ icon: Icon, label, to, collapsed }) => (
-    <NavLink
-        to={to}
-        className={({ isActive }) => `group flex items-center px-4 py-2.5 rounded-xl transition-all duration-200 ${isActive
-            ? 'bg-[#00B074] text-white shadow-lg shadow-[#00B074]/20'
-            : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100'
-            } ${collapsed ? 'justify-center' : 'justify-between'}`}
-    >
-        {({ isActive }) => (
-            <>
-                <div className="flex items-center gap-3">
-                    <Icon size={20} className="shrink-0" strokeWidth={isActive ? 2.5 : 2} />
-                    {!collapsed && <span className="text-sm font-medium whitespace-nowrap overflow-hidden">{label}</span>}
-                </div>
-
-                {/* Tooltip for collapsed state */}
-                {collapsed && (
-                    <div className="fixed left-20 bg-zinc-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-[100] border border-zinc-800 whitespace-nowrap font-bold uppercase tracking-wider">
-                        {label}
+const SidebarItem = ({ icon: Icon, label, to, collapsed }) => {
+    const { setMobileMenuOpen } = useStore();
+    return (
+        <NavLink
+            to={to}
+            onClick={() => setMobileMenuOpen(false)}
+            className={({ isActive }) => `group flex items-center px-4 py-2.5 rounded-xl transition-all duration-200 ${isActive
+                ? 'bg-[#00B074] text-white shadow-lg shadow-[#00B074]/20'
+                : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100'
+                } ${collapsed ? 'justify-center' : 'justify-between'}`}
+        >
+            {({ isActive }) => (
+                <>
+                    <div className="flex items-center gap-3">
+                        <Icon size={20} className="shrink-0" strokeWidth={isActive ? 2.5 : 2} />
+                        {!collapsed && <span className="text-sm font-medium whitespace-nowrap overflow-hidden">{label}</span>}
                     </div>
-                )}
-            </>
-        )}
-    </NavLink>
-);
+
+                    {/* Tooltip for collapsed state */}
+                    {collapsed && (
+                        <div className="fixed left-20 bg-zinc-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-[100] border border-zinc-800 whitespace-nowrap font-bold uppercase tracking-wider">
+                            {label}
+                        </div>
+                    )}
+                </>
+            )}
+        </NavLink>
+    );
+};
 
 const SidebarGroup = ({ title, children, collapsed }) => (
     <div className="mb-6 border-t border-[#1F3655]">
@@ -113,13 +117,9 @@ const Sidebar = () => {
                             alt="GetYovo Logo"
                             className={`object-contain transition-all duration-300 ${isSidebarCollapsed ? 'w-10 h-10' : 'w-16 h-16'}`}
                         />
-                        {/* {!isSidebarCollapsed && (
-                            <div className="animate-in fade-in slide-in-from-left-2 duration-300">
-                                <h1 className="text-white font-bold leading-tight">GetYovo</h1>
-                                <p className="text-[10px] text-zinc-500 font-medium">ADMIN PANEL</p>
-                            </div>
-                        )} */}
                     </div>
+                    
+                    {/* Desktop Toggle */}
                     {!isSidebarCollapsed && (
                         <button
                             onClick={toggleSidebar}
@@ -128,6 +128,14 @@ const Sidebar = () => {
                             <PanelLeftClose size={18} />
                         </button>
                     )}
+
+                    {/* Mobile Close Button */}
+                    <button
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="lg:hidden p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-500 transition-colors"
+                    >
+                        <X size={20} />
+                    </button>
                 </div>
 
                 {/* Mini Toggle for Collapsed State */}
@@ -197,7 +205,10 @@ const Sidebar = () => {
                 {/* Logout */}
                 <div className="p-4 mt-auto">
                     <button
-                        onClick={() => setIsLogoutModalOpen(true)}
+                        onClick={() => {
+                            setIsLogoutModalOpen(true);
+                            setMobileMenuOpen(false);
+                        }}
                         className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-400 hover:bg-red-500/10 hover:text-red-400 transition-colors duration-200 font-medium text-sm ${isSidebarCollapsed ? 'justify-center' : ''}`}
                     >
                         <LogOut size={20} className="shrink-0" />

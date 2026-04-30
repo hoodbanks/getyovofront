@@ -4,31 +4,51 @@ import { ChevronRight, LogOut, X, User, RotateCcw, Loader2 } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query';
 import RiderSimpleHeader from '../../../components/rider/RiderSimpleHeader';
 import { useAuthStore } from '../../../store/useAuthStore';
+import { useRiderStore } from '../../../store/useRiderStore';
 import api from '../../../api/api';
 
 const RiderProfile = () => {
     const navigate = useNavigate();
-    const [isOnline, setIsOnline] = useState(true);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
-    
+    const [isToggling, setIsToggling] = useState(false);
+
     const { rider, accessToken, logout: clearAuth } = useAuthStore();
+
+    // Shared persisted rider state
+    const isOnline = useRiderStore((state) => state.isOnline);
+    const setOnline = useRiderStore((state) => state.setOnline);
 
     const logoutMutation = useMutation({
         mutationFn: () => api.post('/rider/auth/logout', {}, accessToken),
         onSuccess: () => {
             clearAuth();
+            setOnline(false); // reset online status on logout
             navigate('/rider/welcome');
         },
         onError: (err) => {
             console.error('Logout failed:', err);
-            // Still logout locally even if API fails
             clearAuth();
+            setOnline(false);
             navigate('/rider/login');
         }
     });
 
     const handleLogout = () => {
         logoutMutation.mutate();
+    };
+
+    const handleToggleStatus = async () => {
+        if (isToggling) return;
+        setIsToggling(true);
+        const newStatus = isOnline ? 'inActive' : 'Active';
+        try {
+            await api.patch('/rider/status', { status: newStatus }, accessToken);
+            setOnline(!isOnline);
+        } catch (err) {
+            console.error('Status toggle failed:', err);
+        } finally {
+            setIsToggling(false);
+        }
     };
 
     const userData = {
@@ -51,7 +71,9 @@ const RiderProfile = () => {
                             className="w-full h-full rounded-full object-cover grayscale-[0.2]"
                             alt="Profile"
                         />
-                        <div className="absolute bottom-1 right-1 w-4 h-4 bg-[#1C5E20] border-2 border-white rounded-full"></div>
+                        <div className="absolute bottom-1 right-1 w-4 h-4 border-2 border-white rounded-full transition-colors duration-300"
+                             style={{ backgroundColor: isOnline ? '#4ade80' : '#a1a1aa' }}
+                        />
                     </div>
                     <div>
                         <h2 className="text-[19px] font-bold text-[#103D2E] leading-tight text-capitalize">{userData.name}</h2>
@@ -96,10 +118,15 @@ const RiderProfile = () => {
                         <p className="text-[14px] text-zinc-500 font-medium">Go online to start receiving orders.</p>
                     </div>
                     <button
-                        onClick={() => setIsOnline(!isOnline)}
-                        className={`w-14 h-7 rounded-full relative transition-all duration-300 ${isOnline ? 'bg-[#103D2E]' : 'bg-zinc-200'}`}
+                        onClick={handleToggleStatus}
+                        disabled={isToggling}
+                        className={`w-14 h-7 rounded-full relative transition-all duration-300 ${isOnline ? 'bg-[#103D2E]' : 'bg-zinc-200'} ${isToggling ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
-                        <div className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow-sm transition-all duration-300 ${isOnline ? 'right-1' : 'left-1'}`}></div>
+                        {isToggling ? (
+                            <Loader2 size={14} className="absolute inset-0 m-auto text-white animate-spin" />
+                        ) : (
+                            <div className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow-sm transition-all duration-300 ${isOnline ? 'right-1' : 'left-1'}`} />
+                        )}
                     </button>
                 </div>
 

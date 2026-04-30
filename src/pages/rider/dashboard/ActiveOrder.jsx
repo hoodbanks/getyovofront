@@ -1,98 +1,154 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Navigation, Copy, X, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Navigation, Copy, X, AlertCircle, Loader2 } from 'lucide-react';
 import RiderHeader from '../../../components/rider/RiderHeader';
 import success from '../../../assets/images/account-verified-icon.png';
+import api from '../../../api/api';
+import { useAuthStore } from '../../../store/useAuthStore';
+import { useRiderStore } from '../../../store/useRiderStore';
 
 const ActiveOrder = () => {
     const navigate = useNavigate();
+    const { orderId } = useParams();
+    const token = useAuthStore((state) => state.accessToken);
+    const activeOrdersCount = useRiderStore((state) => state.activeOrdersCount);
+    const deliveredOrdersCount = useRiderStore((state) => state.deliveredOrdersCount);
+
+    const [orderData, setOrderData] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+
     const [showCodeModal, setShowCodeModal] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [showError, setShowError] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
     const [deliveryCode, setDeliveryCode] = useState('');
+    const [isConfirming, setIsConfirming] = useState(false);
 
-    const orderData = {
-        id: '#01-A',
-        vendorCode: 'CND-2874',
-        store: 'Restaurant',
-        name: 'Candles',
-        address: '18 Ogui Rd, Enugu',
-        items: '2x Jollof Rice, 1x Grilled Chicken',
-        customer: 'Ada',
-        customerPhone: '+234 80 511 2579 2',
-        dropOff: '36 Bisalla Rd, Enugu'
-    };
+    useEffect(() => {
+        const fetchOrder = async () => {
+            if (!orderId) {
+                setIsLoading(false);
+                return;
+            }
+            setIsLoading(true);
+            try {
+                const res = await api.get(`/rider/orders/${orderId}`, token);
+                if (res?.data) setOrderData(res.data);
+            } catch (err) {
+                console.error('Failed to fetch active order:', err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchOrder();
+    }, [orderId, token]);
 
-    const handleConfirmDelivery = () => {
-        if (deliveryCode === '8521') {
+    const handleConfirmDelivery = async () => {
+        if (!deliveryCode || isConfirming) return;
+        setIsConfirming(true);
+        setShowError(false);
+        try {
+            await api.post(`/rider/orders/${orderId}/confirm`, { deliveryCode }, token);
             setShowCodeModal(false);
             setShowSuccessModal(true);
-        } else {
+        } catch (err) {
+            setErrorMessage(err.message || 'Incorrect delivery code. Please try again.');
             setShowError(true);
-            setTimeout(() => setShowError(false), 3000);
+            setTimeout(() => setShowError(false), 4000);
+        } finally {
+            setIsConfirming(false);
+        }
+    };
+
+    const handleCopyCode = () => {
+        if (orderData?.vendorCode) {
+            navigator.clipboard.writeText(orderData.vendorCode).catch(() => {});
         }
     };
 
     return (
         <div className="min-h-screen bg-[#F9FAF7] flex flex-col font-sans">
-            <RiderHeader activeTab="Active" activeCount={1} historyCount={0} />
+            <RiderHeader activeTab="Active" activeCount={activeOrdersCount} historyCount={deliveredOrdersCount} />
 
             <div className="flex-1 px-4 py-8 overflow-y-auto pb-32">
-                {/* Main Active Order Card */}
-                <div className="bg-white rounded-[24px] p-6 shadow-sm border border-zinc-100 flex flex-col">
-                    <div className="mb-6">
-                        <p className="text-[11px] font-bold text-zinc-400 mb-1">{orderData.id}</p>
-                        <p className="text-[12px] font-bold text-zinc-900">{orderData.store}</p>
-                        <h2 className="text-[24px] font-bold text-[#103D2E] leading-tight mt-1 mb-1">{orderData.name}</h2>
-                        <p className="text-[14px] text-zinc-500 font-medium mb-1">{orderData.address}</p>
-                        <p className="text-[13px] font-medium text-zinc-400 mb-6">
-                            Items: <span className="text-[#1C5E20]">{orderData.items}</span>
-                        </p>
-
-                        <div className="bg-[#FFF9E5] rounded-[16px] p-5 mb-6 border border-[#FFD100]/20">
-                            <div className="flex justify-between items-center mb-1">
-                                <p className="text-[12px] font-bold text-zinc-400">Vendor Order Code</p>
-                                <button className="flex items-center gap-1.5 text-[#A1792B] font-bold text-[12px] bg-[#FEF4E3] px-3 py-2 rounded-lg">
-                                    <Copy size={16} />
-                                    Copy
-                                </button>
-                            </div>
-                            <p className="text-[18px] font-bold text-zinc-900 mb-4">{orderData.vendorCode}</p>
-
-                            <p className="text-[12px] font-bold text-zinc-400 mb-1">Items to pick:</p>
-                            <p className="text-[13px] font-medium text-[#1C5E20]">{orderData.items}</p>
-                        </div>
-
-                        <button className="w-full bg-[#F1F4F1] text-[#1C5E20] font-bold py-4 rounded-xl flex items-center justify-center gap-2 text-[14px] mb-8">
-                            Navigate to store
+                {isLoading ? (
+                    <div className="flex flex-col items-center justify-center py-32">
+                        <Loader2 size={32} className="text-[#1C5E20] animate-spin mb-3" />
+                        <p className="text-[13px] font-medium text-zinc-400">Loading active order...</p>
+                    </div>
+                ) : !orderData ? (
+                    <div className="flex flex-col items-center justify-center py-32 text-center px-10">
+                        <p className="text-[15px] font-bold text-zinc-500 mb-2">Order not found</p>
+                        <button
+                            onClick={() => navigate('/rider/app/dashboard')}
+                            className="text-[#1C5E20] font-bold text-[13px] underline mt-2"
+                        >
+                            Back to dashboard
                         </button>
                     </div>
+                ) : (
+                    /* Main Active Order Card */
+                    <div className="bg-white rounded-[24px] p-6 shadow-sm border border-zinc-100 flex flex-col">
+                        <div className="mb-6">
+                            <p className="text-[11px] font-bold text-zinc-400 mb-1">{orderData.orderId}</p>
+                            <p className="text-[12px] font-bold text-zinc-900">{orderData.shopType || 'Order'}</p>
+                            <h2 className="text-[24px] font-bold text-[#103D2E] leading-tight mt-1 mb-1">{orderData.vendorStoreName}</h2>
+                            <p className="text-[14px] text-zinc-500 font-medium mb-1">{orderData.storeAddress}</p>
+                            <p className="text-[13px] font-medium text-zinc-400 mb-6">
+                                Items: <span className="text-[#1C5E20]">{orderData.itemsString}</span>
+                            </p>
 
-                    {/* Logistics Section inside Card */}
-                    <div className="space-y-4">
-                        <div className="bg-[#F8F9F8] rounded-[16px] p-5">
-                            <label className="text-[11px] font-bold text-zinc-400 block mb-1">Customer</label>
-                            <p className="text-[15px] font-bold text-zinc-900 mb-0.5">{orderData.customer}</p>
-                            <p className="text-[14px] text-zinc-500 font-medium">{orderData.customerPhone}</p>
-                        </div>
+                            {/* Vendor Order Code */}
+                            {orderData.vendorCode && (
+                                <div className="bg-[#FFF9E5] rounded-[16px] p-5 mb-6 border border-[#FFD100]/20">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <p className="text-[12px] font-bold text-zinc-400">Vendor Order Code</p>
+                                        <button
+                                            onClick={handleCopyCode}
+                                            className="flex items-center gap-1.5 text-[#A1792B] font-bold text-[12px] bg-[#FEF4E3] px-3 py-2 rounded-lg"
+                                        >
+                                            <Copy size={16} />
+                                            Copy
+                                        </button>
+                                    </div>
+                                    <p className="text-[18px] font-bold text-zinc-900 mb-4">{orderData.vendorCode}</p>
 
-                        <div className="bg-[#F8F9F8] rounded-[16px] p-5">
-                            <label className="text-[11px] font-bold text-zinc-400 block mb-1">Drop-off</label>
-                            <p className="text-[15px] font-bold text-zinc-900 mb-1">{orderData.dropOff}</p>
-                            <button className="flex items-center gap-1.5 text-[#1C5E20] font-bold text-[13px] underline mt-1">
-                                <Navigation size={14} className="fill-current" />
-                                Navigate to Drop-off
+                                    <p className="text-[12px] font-bold text-zinc-400 mb-1">Items to pick:</p>
+                                    <p className="text-[13px] font-medium text-[#1C5E20]">{orderData.itemsString}</p>
+                                </div>
+                            )}
+
+                            <button className="w-full bg-[#F1F4F1] text-[#1C5E20] font-bold py-4 rounded-xl flex items-center justify-center gap-2 text-[14px] mb-8">
+                                Navigate to store
                             </button>
                         </div>
 
-                        <button
-                            onClick={() => setShowCodeModal(true)}
-                            className="w-full bg-[#1C5E20] text-white font-bold py-4.5 rounded-xl shadow-lg shadow-[#1C5E20]/20 text-[15px] mt-2 transition-all hover:bg-[#144416]"
-                        >
-                            Enter delivery code
-                        </button>
+                        {/* Logistics Section */}
+                        <div className="space-y-4">
+                            <div className="bg-[#F8F9F8] rounded-[16px] p-5">
+                                <label className="text-[11px] font-bold text-zinc-400 block mb-1">Customer</label>
+                                <p className="text-[15px] font-bold text-zinc-900 mb-0.5">{orderData.customerName}</p>
+                                <p className="text-[14px] text-zinc-500 font-medium">{orderData.customerPhone}</p>
+                            </div>
+
+                            <div className="bg-[#F8F9F8] rounded-[16px] p-5">
+                                <label className="text-[11px] font-bold text-zinc-400 block mb-1">Drop-off</label>
+                                <p className="text-[15px] font-bold text-zinc-900 mb-1">{orderData.deliveryAddress}</p>
+                                <button className="flex items-center gap-1.5 text-[#1C5E20] font-bold text-[13px] underline mt-1">
+                                    <Navigation size={14} className="fill-current" />
+                                    Navigate to Drop-off
+                                </button>
+                            </div>
+
+                            <button
+                                onClick={() => setShowCodeModal(true)}
+                                className="w-full bg-[#1C5E20] text-white font-bold py-4 rounded-xl shadow-lg shadow-[#1C5E20]/20 text-[15px] mt-2 transition-all hover:bg-[#144416]"
+                            >
+                                Enter delivery code
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* Error Toast */}
@@ -103,8 +159,8 @@ const ActiveOrder = () => {
                             <AlertCircle size={18} />
                         </div>
                         <div className="flex-1">
-                            <p className="text-[13px] font-bold text-red-900">Incorrect Delivery code</p>
-                            <p className="text-[11px] text-red-700 font-medium">Please check with the receiver and try again.</p>
+                            <p className="text-[13px] font-bold text-red-900">Incorrect Delivery Code</p>
+                            <p className="text-[11px] text-red-700 font-medium">{errorMessage}</p>
                         </div>
                         <button onClick={() => setShowError(false)} className="text-red-400 hover:text-red-600">
                             <X size={18} />
@@ -115,9 +171,11 @@ const ActiveOrder = () => {
 
             {/* Delivery Code Modal */}
             {showCodeModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60  px-8">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-8">
                     <div className="bg-white w-full max-w-sm rounded-xl p-6 text-center shadow-2xl relative animate-in fade-in zoom-in duration-300">
-                        <h2 className="text-md font-bold text-[#1C5E20] mb-2">Enter Delivery Code — Candles</h2>
+                        <h2 className="text-md font-bold text-[#1C5E20] mb-2">
+                            Enter Delivery Code — {orderData?.vendorStoreName}
+                        </h2>
                         <p className="text-[13px] text-zinc-500 mb-4 font-medium px-4 leading-relaxed text-left">
                             Ask the customer for their 4-digit code to confirm delivery.
                         </p>
@@ -125,6 +183,7 @@ const ActiveOrder = () => {
                         <div className="mb-6">
                             <input
                                 type="text"
+                                maxLength={6}
                                 placeholder="e.g. 8521"
                                 value={deliveryCode}
                                 onChange={(e) => setDeliveryCode(e.target.value)}
@@ -134,17 +193,17 @@ const ActiveOrder = () => {
 
                         <div className="flex gap-3">
                             <button
-                                onClick={() => setShowCodeModal(false)}
+                                onClick={() => { setShowCodeModal(false); setDeliveryCode(''); }}
                                 className="flex-1 bg-zinc-100 text-zinc-800 font-bold py-3 rounded-xl text-[14px]"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleConfirmDelivery}
-                                disabled={!deliveryCode}
-                                className="flex-1 bg-[#1C5E20] text-white font-bold py-3 rounded-xl text-[14px] disabled:opacity-50"
+                                disabled={!deliveryCode || isConfirming}
+                                className="flex-1 bg-[#1C5E20] text-white font-bold py-3 rounded-xl text-[14px] disabled:opacity-50 flex items-center justify-center gap-2"
                             >
-                                Confirm
+                                {isConfirming ? <><Loader2 size={16} className="animate-spin" /> Confirming...</> : 'Confirm'}
                             </button>
                         </div>
                     </div>

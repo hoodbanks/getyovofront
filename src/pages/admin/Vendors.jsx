@@ -21,7 +21,7 @@ import VendorModal from '../../components/admin/VendorModal';
 import CreateVendorModal from '../../components/admin/CreateVendorModal';
 
 const StatCard = ({ label, value, subLabel, icon: Icon, color, bg, borderColor, cardBg, dotColor }) => (
-    <div className={`relative overflow-hidden p-4 pb-6 rounded-xl ${cardBg} border ${borderColor} shadow-sm transition-all hover:shadow-md group flex-1 min-w-[180px]`}>
+    <div className={`relative overflow-hidden p-4 pb-6 rounded-xl ${cardBg} border ${borderColor} shadow-sm transition-all hover:shadow-md group flex-1 min-w-0`}>
         {/* Grain/Texture Effect using Radial Gradients */}
         <div className={`absolute inset-0 opacity-[0.03] pointer-events-none`}
             style={{ backgroundImage: `radial-gradient(${dotColor} 1px, transparent 1px)`, backgroundSize: '4px 4px' }}></div>
@@ -95,10 +95,10 @@ const Vendors = () => {
     };
 
     return (
-        <div className="space-y-6 w-full mx-auto">
+        <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
             <div className='bg-white py-5 rounded-2xl'>
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-xl">
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 md:gap-4 p-4 rounded-xl">
                     <StatCard
                         label="Total Vendors"
                         value={summary.totalVendors?.toLocaleString()}
@@ -146,7 +146,7 @@ const Vendors = () => {
                 </div>
 
                 {/* Search & Filter Section */}
-                <div className="relative max-w-md p-4">
+                <div className="relative w-full sm:max-w-md p-4">
                     <Search className="absolute left-8 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
                     <input
                         type="text"
@@ -161,16 +161,16 @@ const Vendors = () => {
 
             {/* Table Section */}
             <div className="bg-white rounded-[1.5rem] border border-zinc-200 overflow-hidden shadow-sm">
-                <div className="p-4 flex items-center justify-between border-b border-zinc-100">
+                <div className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-zinc-100 gap-4">
                     <div>
-                        <h3 className="text-base font-medium text-zinc-900">Vendors</h3>
+                        <h3 className="text-sm md:text-base font-medium text-zinc-900">Vendors</h3>
                         <p className="text-[10px] text-zinc-500 font-medium">All vendor operations in one place.</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
                         <div className="relative">
                             <button
                                 onClick={() => setShowSortDropdown(!showSortDropdown)}
-                                className="flex items-center gap-1.5 px-3 py-2 bg-zinc-50 rounded-xl text-[9px] font-bold text-zinc-500 hover:bg-zinc-100 transition-colors uppercase tracking-tight"
+                                className="flex items-center gap-1.5 px-3 py-2.5 md:py-2 bg-zinc-50 rounded-xl text-[9px] font-bold text-zinc-500 hover:bg-zinc-100 transition-colors uppercase tracking-tight"
                             >
                                 {sortLabels[selectedSort]} <ChevronDown size={14} className={`transition-transform duration-300 ${showSortDropdown ? 'rotate-180' : ''}`} />
                             </button>
@@ -192,7 +192,7 @@ const Vendors = () => {
                         <div className="relative">
                             <button
                                 onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                                className="flex items-center gap-1.5 px-3 py-2 bg-zinc-50 rounded-xl text-[9px] font-bold text-zinc-500 hover:bg-zinc-100 transition-colors uppercase tracking-tight"
+                                className="flex items-center gap-1.5 px-3 py-2.5 md:py-2 bg-zinc-50 rounded-xl text-[9px] font-bold text-zinc-500 hover:bg-zinc-100 transition-colors uppercase tracking-tight"
                             >
                                 {filterLabels[selectedFilter]} <ChevronDown size={14} className={`transition-transform duration-300 ${showFilterDropdown ? 'rotate-180' : ''}`} />
                             </button>
@@ -213,7 +213,7 @@ const Vendors = () => {
 
                         <button
                             onClick={() => setIsCreateModalOpen(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-emerald-800 rounded-3xl text-[10px] font-bold text-white hover:bg-emerald-900 transition-all shadow-md shadow-emerald-900/10"
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 md:py-2 bg-emerald-800 rounded-3xl text-[10px] font-bold text-white hover:bg-emerald-900 transition-all shadow-md shadow-emerald-900/10 whitespace-nowrap"
                         >
                             Create Vendor
                         </button>
