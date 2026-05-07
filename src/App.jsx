@@ -10,7 +10,6 @@ import Orders from './pages/admin/Orders';
 import Payments from './pages/admin/Payments';
 import Settings from './pages/admin/Settings';
 import PushNotifications from './pages/admin/PushNotifications';
-import VendorManagement from './pages/admin/VendorManagement';
 
 import Login from './pages/admin/auth/Login';
 import ForgotPassword from './pages/admin/auth/ForgotPassword';
@@ -26,34 +25,6 @@ import { Toaster } from 'sonner';
 
 
 
-// Customer Components (Onboarding & Auth)
-import CustomerSplash from './pages/customer/onboarding/Splash';
-import CustomerOnboarding from './pages/customer/onboarding/Onboarding';
-import CustomerWelcome from './pages/customer/onboarding/Welcome';
-import CustomerLogin from './pages/customer/auth/Login';
-import CustomerRegister from './pages/customer/auth/Register';
-import CustomerForgotPassword from './pages/customer/auth/ForgotPassword';
-import CustomerVerifyOtp from './pages/customer/auth/VerifyOtp';
-import CustomerResetPassword from './pages/customer/auth/ResetPassword';
-import CustomerSuccessState from './pages/customer/auth/SuccessState';
-
-// Customer Main App Components (Without Bottom Nav or Detail overlay layers)
-import CustomerStoreDetail from './pages/customer/home/StoreDetail';
-import CustomerItemDetail from './pages/customer/home/ItemDetail';
-import CustomerReviews from './pages/customer/home/Reviews';
-import CustomerCheckout from './pages/customer/cart/Checkout';
-import CustomerOrderConfirmed from './pages/customer/cart/OrderConfirmed';
-import CustomerPersonalData from './pages/customer/profile/PersonalData';
-import CustomerAddresses from './pages/customer/profile/Addresses';
-import CustomerPassword from './pages/customer/profile/Password';
-
-// Customer Core App Components (With Bottom Nav)
-import CustomerLayout from './components/customer/CustomerLayout';
-import CustomerHome from './pages/customer/home/Home';
-import CustomerSearch from './pages/customer/search/Search';
-import CustomerCart from './pages/customer/cart/Cart';
-import CustomerProfile from './pages/customer/profile/Profile';
-import CustomerNotifications from './pages/customer/notifications/Notifications';
 
 // Rider Pages
 import RiderWelcome from './pages/rider/onboarding/RiderWelcome';
@@ -63,6 +34,8 @@ import RiderVerifyOtp from './pages/rider/auth/RiderVerifyOtp';
 import RiderResetPassword from './pages/rider/auth/RiderResetPassword';
 import RiderSuccessState from './pages/rider/auth/RiderSuccessState';
 import RiderLayout from './components/rider/RiderLayout';
+import RiderProtectedRoute from './components/rider/RiderProtectedRoute';
+import RiderPublicRoute from './components/rider/RiderPublicRoute';
 import RiderDashboard from './pages/rider/dashboard/RiderDashboard';
 import OrderDetails from './pages/rider/dashboard/OrderDetails';
 import ActiveOrder from './pages/rider/dashboard/ActiveOrder';
@@ -86,46 +59,24 @@ function App() {
         <Route path="/admin/reset-password" element={<ResetPassword />} />
         <Route path="/admin/reset-success" element={<ResetSuccess />} />
 
-        {/* Customer Onboarding & Auth Routes */}
-        <Route path="/customer/splash" element={<CustomerSplash />} />
-        <Route path="/customer/onboarding" element={<CustomerOnboarding />} />
-        <Route path="/customer/welcome" element={<CustomerWelcome />} />
-        <Route path="/customer/login" element={<CustomerLogin />} />
-        <Route path="/customer/register" element={<CustomerRegister />} />
-        <Route path="/customer/forgot-password" element={<CustomerForgotPassword />} />
-        <Route path="/customer/verify-otp" element={<CustomerVerifyOtp />} />
-        <Route path="/customer/reset-password" element={<CustomerResetPassword />} />
-        <Route path="/customer/success" element={<CustomerSuccessState />} />
-
-        {/* Customer Independent/Detail Views */}
-        <Route path="/customer/store/:id" element={<CustomerStoreDetail />} />
-        <Route path="/customer/item/:id" element={<CustomerItemDetail />} />
-        <Route path="/customer/item/:id/reviews" element={<CustomerReviews />} />
-        <Route path="/customer/checkout" element={<CustomerCheckout />} />
-        <Route path="/customer/order-confirmed" element={<CustomerOrderConfirmed />} />
-        <Route path="/customer/profile/personal-data" element={<CustomerPersonalData />} />
-        <Route path="/customer/profile/addresses" element={<CustomerAddresses />} />
-        <Route path="/customer/profile/password" element={<CustomerPassword />} />
-        <Route path="/customer/notifications" element={<CustomerNotifications />} />
-
-        {/* Customer Main App Routes (Bottom Nav context) */}
-        <Route path="/customer/app" element={<CustomerLayout />}>
-          <Route path="home" element={<CustomerHome />} />
-          <Route path="search" element={<CustomerSearch />} />
-          <Route path="cart" element={<CustomerCart />} />
-          <Route path="profile" element={<CustomerProfile />} />
-        </Route>
 
         {/* Rider Onboarding & Auth Routes */}
-        <Route path="/rider/welcome" element={<RiderWelcome />} />
-        <Route path="/rider/login" element={<RiderLogin />} />
-        <Route path="/rider/forgot-password" element={<RiderForgotPassword />} />
-        <Route path="/rider/verify-otp" element={<RiderVerifyOtp />} />
-        <Route path="/rider/reset-password" element={<RiderResetPassword />} />
-        <Route path="/rider/success" element={<RiderSuccessState />} />
+        <Route path="/rider/welcome" element={<RiderPublicRoute><RiderWelcome /></RiderPublicRoute>} />
+        <Route path="/rider/login" element={<RiderPublicRoute><RiderLogin /></RiderPublicRoute>} />
+        <Route path="/rider/forgot-password" element={<RiderPublicRoute><RiderForgotPassword /></RiderPublicRoute>} />
+        <Route path="/rider/verify-otp" element={<RiderPublicRoute><RiderVerifyOtp /></RiderPublicRoute>} />
+        <Route path="/rider/reset-password" element={<RiderPublicRoute><RiderResetPassword /></RiderPublicRoute>} />
+        <Route path="/rider/success" element={<RiderPublicRoute><RiderSuccessState /></RiderPublicRoute>} />
 
         {/* Rider Main App Routes */}
-        <Route path="/rider/app" element={<RiderLayout />}>
+        <Route 
+          path="/rider/app" 
+          element={
+            <RiderProtectedRoute>
+              <RiderLayout />
+            </RiderProtectedRoute>
+          }
+        >
           <Route path="dashboard" element={<RiderDashboard />} />
           <Route path="order/details/:orderId" element={<OrderDetails />} />
           <Route path="active-order/:orderId" element={<ActiveOrder />} />

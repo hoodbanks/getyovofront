@@ -15,6 +15,7 @@ const ActiveOrder = () => {
     const deliveredOrdersCount = useRiderStore((state) => state.deliveredOrdersCount);
 
     const [orderData, setOrderData] = useState(null);
+    const [activeOrdersList, setActiveOrdersList] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
     const [showCodeModal, setShowCodeModal] = useState(false);
@@ -23,17 +24,26 @@ const ActiveOrder = () => {
     const [errorMessage, setErrorMessage] = useState('');
     const [deliveryCode, setDeliveryCode] = useState('');
     const [isConfirming, setIsConfirming] = useState(false);
+    
+    const [activeMapUrl, setActiveMapUrl] = useState('');
+    const [mapType, setMapType] = useState('');
+    const [isMapLoading, setIsMapLoading] = useState(false);
 
     useEffect(() => {
         const fetchOrder = async () => {
-            if (!orderId) {
-                setIsLoading(false);
-                return;
-            }
             setIsLoading(true);
             try {
-                const res = await api.get(`/rider/orders/${orderId}`, token);
-                if (res?.data) setOrderData(res.data);
+                if (orderId) {
+                    const res = await api.get(`/rider/orders/${orderId}`, token);
+                    if (res?.data) setOrderData(res.data);
+                } else {
+                    const res = await api.get('/rider/orders/active', token);
+                    if (res?.data?.data) {
+                        setActiveOrdersList(res.data.data);
+                    } else {
+                        setActiveOrdersList([]);
+                    }
+                }
             } catch (err) {
                 console.error('Failed to fetch active order:', err);
             } finally {
@@ -44,11 +54,12 @@ const ActiveOrder = () => {
     }, [orderId, token]);
 
     const handleConfirmDelivery = async () => {
-        if (!deliveryCode || isConfirming) return;
+        const currentOrderId = orderId || orderData?.orderId;
+        if (!deliveryCode || isConfirming || !currentOrderId) return;
         setIsConfirming(true);
         setShowError(false);
         try {
-            await api.post(`/rider/orders/${orderId}/confirm`, { deliveryCode }, token);
+            await api.post(`/rider/orders/${currentOrderId}/confirm`, { deliveryCode }, token);
             setShowCodeModal(false);
             setShowSuccessModal(true);
         } catch (err) {
@@ -66,6 +77,44 @@ const ActiveOrder = () => {
         }
     };
 
+    const handleNavigateToStore = () => {
+        setIsMapLoading(true);
+        setMapType('store');
+        navigator.geolocation.getCurrentPosition((position) => {
+            const riderLat = position.coords.latitude;
+            const riderLng = position.coords.longitude;
+            const vendorLat = orderData.vendorLatitude;
+            const vendorLng = orderData.vendorLongitude;
+            const storeAddress = orderData.storeAddress;
+
+            if (vendorLat && vendorLng) {
+                setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${vendorLat},${vendorLng}&output=embed`);
+            } else {
+                setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${encodeURIComponent(storeAddress)}&output=embed`);
+            }
+            setIsMapLoading(false);
+        }, () => setIsMapLoading(false));
+    };
+
+    const handleNavigateToDropoff = () => {
+        setIsMapLoading(true);
+        setMapType('dropoff');
+        navigator.geolocation.getCurrentPosition((position) => {
+            const riderLat = position.coords.latitude;
+            const riderLng = position.coords.longitude;
+            const deliveryLat = orderData.deliveryLatitude;
+            const deliveryLng = orderData.deliveryLongitude;
+            const deliveryAddress = orderData.deliveryAddress;
+
+            if (deliveryLat && deliveryLng) {
+                setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${deliveryLat},${deliveryLng}&output=embed`);
+            } else {
+                setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${encodeURIComponent(deliveryAddress)}&output=embed`);
+            }
+            setIsMapLoading(false);
+        }, () => setIsMapLoading(false));
+    };
+
     return (
         <div className="min-h-screen bg-[#F9FAF7] flex flex-col font-sans">
             <RiderHeader activeTab="Active" activeCount={activeOrdersCount} historyCount={deliveredOrdersCount} />
@@ -74,16 +123,49 @@ const ActiveOrder = () => {
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center py-32">
                         <Loader2 size={32} className="text-[#1C5E20] animate-spin mb-3" />
-                        <p className="text-[13px] font-medium text-zinc-400">Loading active order...</p>
+                        <p className="text-[13px] font-medium text-zinc-400">Loading...</p>
                     </div>
+                ) : !orderId ? (
+                    activeOrdersList && activeOrdersList.length > 0 ? (
+                        <div className="space-y-4">
+                            {activeOrdersList.map(order => (
+                                <div key={order.orderId} className="bg-white rounded-xl p-6 border border-zinc-100 shadow-sm">
+                                    <p className="text-[11px] font-bold text-zinc-400 mb-1">{order.orderId}</p>
+                                    <p className="text-[13px] font-semibold text-zinc-800">{order.shopType || 'Order'}</p>
+                                    <h3 className="text-[20px] font-bold text-[#1C5E20] leading-tight mt-1 mb-1">{order.vendorStoreName}</h3>
+                                    <p className="text-[14px] text-zinc-500 font-medium mb-1">{order.storeAddress}</p>
+                                    <p className="text-[13px] font-medium text-zinc-400 mb-6">
+                                        Drop-off: <span className="text-zinc-600">{order.deliveryAddress}</span>
+                                    </p>
+                                    <button
+                                        onClick={() => navigate(`/rider/app/active-order/${order.orderId}`)}
+                                        className="w-full bg-[#1C5E20] text-white font-medium py-4 rounded-xl text-[14px] transition-all hover:bg-[#144416] shadow-md shadow-[#1C5E20]/20 active:scale-[0.98]"
+                                    >
+                                        View active order
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-32 text-center px-10">
+                            <p className="text-[15px] font-bold text-zinc-500 mb-2">No active orders</p>
+                            <p className="text-[13px] text-zinc-400">You don't have any orders currently in progress.</p>
+                            <button
+                                onClick={() => navigate('/rider/app/dashboard')}
+                                className="text-[#1C5E20] font-bold text-[13px] underline mt-4"
+                            >
+                                Back to dashboard
+                            </button>
+                        </div>
+                    )
                 ) : !orderData ? (
                     <div className="flex flex-col items-center justify-center py-32 text-center px-10">
                         <p className="text-[15px] font-bold text-zinc-500 mb-2">Order not found</p>
                         <button
-                            onClick={() => navigate('/rider/app/dashboard')}
+                            onClick={() => navigate('/rider/app/active-order')}
                             className="text-[#1C5E20] font-bold text-[13px] underline mt-2"
                         >
-                            Back to dashboard
+                            Back to active orders
                         </button>
                     </div>
                 ) : (
@@ -118,9 +200,20 @@ const ActiveOrder = () => {
                                 </div>
                             )}
 
-                            <button className="w-full bg-[#F1F4F1] text-[#1C5E20] font-bold py-4 rounded-xl flex items-center justify-center gap-2 text-[14px] mb-8">
+                            <button 
+                                onClick={handleNavigateToStore}
+                                disabled={isMapLoading}
+                                className="w-full bg-[#F1F4F1] text-[#1C5E20] font-bold py-4 rounded-xl flex items-center justify-center gap-2 text-[14px] mb-4 disabled:opacity-70"
+                            >
+                                {isMapLoading && mapType === 'store' ? <Loader2 size={16} className="animate-spin" /> : null}
                                 Navigate to store
                             </button>
+
+                            {mapType === 'store' && activeMapUrl && (
+                                <div className="mb-8 overflow-hidden rounded-xl border border-zinc-200">
+                                    <iframe title="Store Map" width="100%" height="300" src={activeMapUrl} style={{ border: 0 }} allowFullScreen="" loading="lazy"></iframe>
+                                </div>
+                            )}
                         </div>
 
                         {/* Logistics Section */}
@@ -134,10 +227,24 @@ const ActiveOrder = () => {
                             <div className="bg-[#F8F9F8] rounded-[16px] p-5">
                                 <label className="text-[11px] font-bold text-zinc-400 block mb-1">Drop-off</label>
                                 <p className="text-[15px] font-bold text-zinc-900 mb-1">{orderData.deliveryAddress}</p>
-                                <button className="flex items-center gap-1.5 text-[#1C5E20] font-bold text-[13px] underline mt-1">
-                                    <Navigation size={14} className="fill-current" />
+                                <button 
+                                    onClick={handleNavigateToDropoff}
+                                    disabled={isMapLoading}
+                                    className="flex items-center gap-1.5 text-[#1C5E20] font-bold text-[13px] underline mt-1 disabled:opacity-70"
+                                >
+                                    {isMapLoading && mapType === 'dropoff' ? (
+                                        <Loader2 size={14} className="animate-spin" />
+                                    ) : (
+                                        <Navigation size={14} className="fill-current" />
+                                    )}
                                     Navigate to Drop-off
                                 </button>
+                                
+                                {mapType === 'dropoff' && activeMapUrl && (
+                                    <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200">
+                                        <iframe title="Dropoff Map" width="100%" height="300" src={activeMapUrl} style={{ border: 0 }} allowFullScreen="" loading="lazy"></iframe>
+                                    </div>
+                                )}
                             </div>
 
                             <button
@@ -177,14 +284,13 @@ const ActiveOrder = () => {
                             Enter Delivery Code — {orderData?.vendorStoreName}
                         </h2>
                         <p className="text-[13px] text-zinc-500 mb-4 font-medium px-4 leading-relaxed text-left">
-                            Ask the customer for their 4-digit code to confirm delivery.
+                            Ask the customer for their code to confirm delivery.
                         </p>
 
                         <div className="mb-6">
                             <input
                                 type="text"
-                                maxLength={6}
-                                placeholder="e.g. 8521"
+                                placeholder="e.g. AE-YTR778"
                                 value={deliveryCode}
                                 onChange={(e) => setDeliveryCode(e.target.value)}
                                 className="w-full bg-zinc-100 border-none rounded-2xl px-6 py-5 text-[15px] font-bold text-zinc-900 placeholder:text-zinc-300 focus:ring-2 focus:ring-[#1C5E20] outline-none"

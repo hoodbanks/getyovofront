@@ -18,6 +18,10 @@ const OrderDetails = () => {
     const [showAcceptModal, setShowAcceptModal] = useState(false);
     const [isAccepting, setIsAccepting] = useState(false);
     const [toast, setToast] = useState(null);
+    
+    const [activeMapUrl, setActiveMapUrl] = useState('');
+    const [mapType, setMapType] = useState('');
+    const [isMapLoading, setIsMapLoading] = useState(false);
 
     const showToast = (message, type = 'error') => {
         setToast({ message, type });
@@ -57,6 +61,44 @@ const OrderDetails = () => {
         } finally {
             setIsAccepting(false);
         }
+    };
+
+    const handleNavigateToStore = () => {
+        setIsMapLoading(true);
+        setMapType('store');
+        navigator.geolocation.getCurrentPosition((position) => {
+            const riderLat = position.coords.latitude;
+            const riderLng = position.coords.longitude;
+            const vendorLat = orderData.vendorLatitude;
+            const vendorLng = orderData.vendorLongitude;
+            const storeAddress = orderData.storeAddress;
+
+            if (vendorLat && vendorLng) {
+                setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${vendorLat},${vendorLng}&output=embed`);
+            } else {
+                setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${encodeURIComponent(storeAddress)}&output=embed`);
+            }
+            setIsMapLoading(false);
+        }, () => setIsMapLoading(false));
+    };
+
+    const handleNavigateToDropoff = () => {
+        setIsMapLoading(true);
+        setMapType('dropoff');
+        navigator.geolocation.getCurrentPosition((position) => {
+            const riderLat = position.coords.latitude;
+            const riderLng = position.coords.longitude;
+            const deliveryLat = orderData.deliveryLatitude;
+            const deliveryLng = orderData.deliveryLongitude;
+            const deliveryAddress = orderData.deliveryAddress;
+
+            if (deliveryLat && deliveryLng) {
+                setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${deliveryLat},${deliveryLng}&output=embed`);
+            } else {
+                setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${encodeURIComponent(deliveryAddress)}&output=embed`);
+            }
+            setIsMapLoading(false);
+        }, () => setIsMapLoading(false));
     };
 
     return (
@@ -106,9 +148,20 @@ const OrderDetails = () => {
                                 </p>
                             </div>
 
-                            <button className="w-full bg-[#F1F4F1] text-[#1C5E20] font-bold py-4 rounded-xl text-[14px] transition-colors hover:bg-zinc-200 mb-8">
+                            <button 
+                                onClick={handleNavigateToStore}
+                                disabled={isMapLoading}
+                                className="w-full bg-[#F1F4F1] text-[#1C5E20] font-bold py-4 rounded-xl flex items-center justify-center gap-2 text-[14px] transition-colors hover:bg-zinc-200 mb-4 disabled:opacity-70"
+                            >
+                                {isMapLoading && mapType === 'store' ? <Loader2 size={16} className="animate-spin" /> : null}
                                 Open store in map
                             </button>
+
+                            {mapType === 'store' && activeMapUrl && (
+                                <div className="mb-8 overflow-hidden rounded-xl border border-zinc-200">
+                                    <iframe title="Store Map" width="100%" height="300" src={activeMapUrl} style={{ border: 0 }} allowFullScreen="" loading="lazy"></iframe>
+                                </div>
+                            )}
 
                             {/* Logistics Info Section */}
                             <div className="space-y-4">
@@ -121,10 +174,24 @@ const OrderDetails = () => {
                                 <div className="bg-[#F8F9F8] rounded-[16px] p-5">
                                     <h4 className="text-[12px] font-bold text-zinc-400 mb-1">Drop-off</h4>
                                     <p className="text-[15px] font-bold text-zinc-800">{orderData.deliveryAddress}</p>
-                                    <button className="flex items-center gap-1.5 text-[#1C5E20] font-bold text-[13px] mt-2 underline">
-                                        <Navigation size={14} className="fill-current" />
+                                    <button 
+                                        onClick={handleNavigateToDropoff}
+                                        disabled={isMapLoading}
+                                        className="flex items-center gap-1.5 text-[#1C5E20] font-bold text-[13px] mt-2 underline disabled:opacity-70"
+                                    >
+                                        {isMapLoading && mapType === 'dropoff' ? (
+                                            <Loader2 size={14} className="animate-spin" />
+                                        ) : (
+                                            <Navigation size={14} className="fill-current" />
+                                        )}
                                         Navigate to Drop-off
                                     </button>
+                                    
+                                    {mapType === 'dropoff' && activeMapUrl && (
+                                        <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200">
+                                            <iframe title="Dropoff Map" width="100%" height="300" src={activeMapUrl} style={{ border: 0 }} allowFullScreen="" loading="lazy"></iframe>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="bg-[#F8F9F8] rounded-[16px] p-5">

@@ -54,7 +54,7 @@ const Payments = () => {
     const { data: dashboardData, isLoading, error, refetch } = useQuery({
         queryKey: ['payment-dashboard', filter, page, searchQuery],
         queryFn: async () => {
-                 return await api.get(`/superadmin/payment?filter=${filter}&page=${page}`, token);
+                 return await api.get(`/superadmin/payment?filter=${filter}&page=${page}&limit=20`, token);
         },
         keepPreviousData: true
     });
@@ -161,25 +161,25 @@ const Payments = () => {
                       </div>
                     ) : (
                         vendors
-                        .filter(v => v.storeName?.toLowerCase().includes(searchQuery.toLowerCase()))
+                        .filter(v => v.vendorStoreName?.toLowerCase().includes(searchQuery.toLowerCase()))
                         .map((vendor, idx) => (
                             <button
-                                key={vendor.id || idx}
+                                key={vendor.vendorId || idx}
                                 onClick={() => handleVendorClick(vendor)}
                                 className="w-full p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-zinc-50 transition-all text-left group border-none outline-none gap-4"
                             >
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-500 font-bold text-sm uppercase group-hover:scale-105 transition-transform overflow-hidden">
-                                        {vendor.storeName?.substring(0, 2)}
+                                        {vendor.vendorStoreName?.substring(0, 2)}
                                     </div>
                                     <div className="space-y-1.5">
-                                        <h4 className="text-[13px] font-bold text-zinc-900">{vendor.storeName}</h4>
+                                        <h4 className="text-[13px] font-bold text-zinc-900">{vendor.vendorStoreName}</h4>
                                         <div className="flex items-center gap-2">
                                             <span className="px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[9px] font-bold">
-                                                Unpaid: {vendor.unpaidOrdersCount || 0}
+                                                Unpaid: {vendor.unpaidDeliveriesCount || 0}
                                             </span>
                                             <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[9px] font-bold">
-                                                Paid: {vendor.paidOrdersCount || 0}
+                                                Paid: {vendor.paidDeliveriesCount || 0}
                                             </span>
                                             {vendor.lastPaidAt && (
                                                 <span className="text-[10px] text-zinc-400 font-medium ml-2">
@@ -193,7 +193,7 @@ const Payments = () => {
                                 <div className="text-right flex items-center gap-4">
                                     <div>
                                         <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-tight">Amount to pay</p>
-                                        <h3 className="text-base font-bold text-zinc-900 leading-tight">₦{(vendor.totalAmountToPay || 0).toLocaleString()}</h3>
+                                        <h3 className="text-base font-bold text-zinc-900 leading-tight">₦{(vendor.amountToPay || 0).toLocaleString()}</h3>
                                     </div>
                                     <ChevronRight size={18} className="text-zinc-300 group-hover:translate-x-1 transition-transform" />
                                 </div>
@@ -206,20 +206,48 @@ const Payments = () => {
                 {totalPages > 1 && (
                     <div className="px-6 py-4 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between">
                         <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Page {page} of {totalPages}</p>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-2">
                             <button 
                                 disabled={page === 1}
                                 onClick={() => setPage(p => Math.max(1, p - 1))}
-                                className="p-2 hover:bg-zinc-100 rounded-lg transition-colors disabled:opacity-30"
+                                className="flex items-center gap-1 px-3 py-1.5 bg-zinc-50 rounded-lg text-[11px] font-bold text-zinc-500 hover:bg-zinc-100 disabled:opacity-50 transition-colors"
                             >
-                                <ChevronLeft size={16} />
+                                <ChevronLeft size={14} /> Previous
                             </button>
+
+                            <div className="hidden sm:flex items-center gap-1 mx-2">
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).reduce((acc, p) => {
+                                    if (p === 1 || p === totalPages || Math.abs(p - page) <= 1) {
+                                        acc.push(p);
+                                    } else if (acc[acc.length - 1] !== '...') {
+                                        acc.push('...');
+                                    }
+                                    return acc;
+                                }, []).map((p, index) => (
+                                    p === '...' ? (
+                                        <span key={`dots-${index}`} className="text-zinc-400 text-[11px] px-1">...</span>
+                                    ) : (
+                                        <button
+                                            key={p}
+                                            onClick={() => setPage(p)}
+                                            className={`min-w-[28px] h-7 px-2 flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
+                                                page === p 
+                                                    ? 'bg-emerald-600 text-white shadow-sm' 
+                                                    : 'text-zinc-500 hover:bg-zinc-100'
+                                            }`}
+                                        >
+                                            {p}
+                                        </button>
+                                    )
+                                ))}
+                            </div>
+
                             <button 
                                 disabled={page === totalPages}
                                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                className="p-2 hover:bg-zinc-100 rounded-lg transition-colors disabled:opacity-30"
+                                className="flex items-center gap-1 px-3 py-1.5 bg-zinc-50 rounded-lg text-[11px] font-bold text-zinc-500 hover:bg-zinc-100 disabled:opacity-50 transition-colors"
                             >
-                                <ChevronRight size={16} />
+                                Next <ChevronRight size={14} />
                             </button>
                         </div>
                     </div>

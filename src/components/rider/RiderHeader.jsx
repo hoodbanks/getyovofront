@@ -3,14 +3,25 @@ import { useNavigate } from 'react-router-dom';
 import { MapPin, Bell } from 'lucide-react';
 import logo from '../../assets/images/GetYovo-Logo1.png';
 import { useRiderStore } from '../../store/useRiderStore';
+import { useAuthStore } from '../../store/useAuthStore';
 
 const RiderHeader = ({ activeTab, activeCount = 0, historyCount = 0 }) => {
     const navigate = useNavigate();
     const isOnline = useRiderStore((state) => state.isOnline);
+    const rider = useAuthStore((state) => state.rider);
+
+    const getInitials = (name) => {
+        if (!name) return 'R';
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[1][0]).toUpperCase();
+        }
+        return parts[0].substring(0, 2).toUpperCase();
+    };
 
     const tabs = [
         { label: 'Available', key: 'Available', path: '/rider/app/dashboard' },
-        { label: `Active (${activeCount})`, key: 'Active', path: '/rider/app/dashboard' },
+        { label: `Active (${activeCount})`, key: 'Active', path: '/rider/app/active-order' },
         { label: `History (${historyCount})`, key: 'History', path: '/rider/app/history' }
     ];
 
@@ -45,12 +56,10 @@ const RiderHeader = ({ activeTab, activeCount = 0, historyCount = 0 }) => {
                         onClick={() => navigate('/rider/app/profile')}
                         className="relative outline-none"
                     >
-                        <div className="w-11 h-11 rounded-full bg-[#FFD100] border-2 border-white/20 overflow-hidden shadow-md">
-                            <img
-                                src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=60"
-                                className="w-full h-full object-cover"
-                                alt="Profile"
-                            />
+                        <div className="w-11 h-11 rounded-full bg-[#FFD100] border-2 border-white/20 overflow-hidden shadow-md flex items-center justify-center">
+                            <span className="text-[#103D2E] font-bold text-[15px] tracking-wide">
+                                {getInitials(rider?.name || 'Rider')}
+                            </span>
                         </div>
                         {/* Online indicator — reflects real store state */}
                         <div className={`absolute bottom-0 right-0 w-3 h-3 border-2 border-[#1C5E20] rounded-full transition-colors duration-300 ${isOnline ? 'bg-green-400' : 'bg-zinc-400'}`} />

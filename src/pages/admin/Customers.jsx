@@ -71,9 +71,9 @@ const Customers = () => {
         queryKey: ['users', selectedFilter, selectedSort, page, searchQuery],
         queryFn: async () => {
             if (searchQuery) {
-                return await api.get(`/superadmin/users/search?query=${searchQuery}&page=${page}`, token);
+                return await api.get(`/superadmin/users/search?query=${searchQuery}&page=${page}&limit=20`, token);
             }
-            return await api.get(`/superadmin/users?filter=${selectedFilter}&sortBy=${selectedSort}&page=${page}`, token);
+            return await api.get(`/superadmin/users?filter=${selectedFilter}&sortBy=${selectedSort}&page=${page}&limit=20`, token);
         },
         keepPreviousData: true
     });
@@ -379,16 +379,44 @@ const Customers = () => {
                             <button
                                 disabled={page === 1}
                                 onClick={() => setPage(p => Math.max(1, p - 1))}
-                                className="p-2 bg-zinc-50 rounded-lg text-zinc-400 hover:text-zinc-600 disabled:opacity-50 transition-colors"
+                                className="flex items-center gap-1 px-3 py-1.5 bg-zinc-50 rounded-lg text-[11px] font-bold text-zinc-500 hover:bg-zinc-100 disabled:opacity-50 transition-colors"
                             >
-                                <ChevronLeft size={16} />
+                                <ChevronLeft size={14} /> Previous
                             </button>
+
+                            <div className="hidden sm:flex items-center gap-1 mx-2">
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).reduce((acc, p) => {
+                                    if (p === 1 || p === totalPages || Math.abs(p - page) <= 1) {
+                                        acc.push(p);
+                                    } else if (acc[acc.length - 1] !== '...') {
+                                        acc.push('...');
+                                    }
+                                    return acc;
+                                }, []).map((p, index) => (
+                                    p === '...' ? (
+                                        <span key={`dots-${index}`} className="text-zinc-400 text-[11px] px-1">...</span>
+                                    ) : (
+                                        <button
+                                            key={p}
+                                            onClick={() => setPage(p)}
+                                            className={`min-w-[28px] h-7 px-2 flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
+                                                page === p 
+                                                    ? 'bg-emerald-600 text-white shadow-sm' 
+                                                    : 'text-zinc-500 hover:bg-zinc-100'
+                                            }`}
+                                        >
+                                            {p}
+                                        </button>
+                                    )
+                                ))}
+                            </div>
+
                             <button
                                 disabled={page === totalPages}
                                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                className="p-2 bg-zinc-50 rounded-lg text-zinc-400 hover:text-zinc-600 disabled:opacity-50 transition-colors"
+                                className="flex items-center gap-1 px-3 py-1.5 bg-zinc-50 rounded-lg text-[11px] font-bold text-zinc-500 hover:bg-zinc-100 disabled:opacity-50 transition-colors"
                             >
-                                <ChevronRight size={16} />
+                                Next <ChevronRight size={14} />
                             </button>
                         </div>
                     </div>

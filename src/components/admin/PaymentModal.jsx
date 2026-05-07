@@ -28,14 +28,14 @@ const PaymentModal = ({ isOpen, onClose, vendor }) => {
 
     // Fetch Vendor Overview
     const { data: overviewData, isLoading, error } = useQuery({
-        queryKey: ['vendor-payment-overview', vendor?.id, activeTab, page],
-        queryFn: () => api.get(`/superadmin/payment/vendor/${vendor.id}/overview?status=${activeTab}&page=${page}`, token),
-        enabled: !!isOpen && !!vendor?.id
+        queryKey: ['vendor-payment-overview', vendor?.vendorId, activeTab, page],
+        queryFn: () => api.get(`/superadmin/payment/vendor/${vendor.vendorId}/overview?status=${activeTab}&page=${page}`, token),
+        enabled: !!isOpen && !!vendor?.vendorId
     });
 
     // Create Snapshot Mutation
     const snapshotMutation = useMutation({
-        mutationFn: () => api.post(`/superadmin/payment/vendor/${vendor.id}/snapshot`, {}, token),
+        mutationFn: () => api.post(`/superadmin/payment/vendor/${vendor.vendorId}/snapshot`, {}, token),
         onSuccess: (res) => {
             setSnapshotData(res.data);
             setIsRecordModalOpen(true);
@@ -82,10 +82,10 @@ const PaymentModal = ({ isOpen, onClose, vendor }) => {
                     <div className="p-4 bg-white border-b border-zinc-100 flex items-center justify-between shrink-0">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 font-bold text-xs uppercase border border-zinc-200">
-                                {vendorInfo.storeName?.substring(0, 2) || vendor.storeName?.substring(0, 2)}
+                                {vendorInfo.storeName?.substring(0, 2) || vendor.vendorStoreName?.substring(0, 2)}
                             </div>
                             <div>
-                                <h2 className="text-sm font-bold text-zinc-900">{vendorInfo.storeName || vendor.storeName}</h2>
+                                <h2 className="text-sm font-bold text-zinc-900">{vendorInfo.storeName || vendor.vendorStoreName}</h2>
                                 <p className="text-[10px] text-zinc-500 font-medium tracking-tight">Status: <span className="text-emerald-600 font-bold uppercase underline">Connected</span></p>
                             </div>
                         </div>
@@ -224,7 +224,7 @@ const PaymentModal = ({ isOpen, onClose, vendor }) => {
             <RecordPayoutModal
                 isOpen={isRecordModalOpen}
                 onClose={() => setIsRecordModalOpen(false)}
-                vendor={vendorInfo}
+                vendor={vendorInfo?.id ? vendorInfo : { id: vendor.vendorId, storeName: vendor.vendorStoreName }}
                 amount={snapshotData?.amount || stats.pending}
                 payoutBatchId={snapshotData?.payoutBatchId}
                 onConfirm={handleConfirmPaid}

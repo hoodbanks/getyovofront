@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, LogOut, X, User, RotateCcw, Loader2 } from 'lucide-react';
+import { ChevronRight, LogOut, X, User, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import RiderSimpleHeader from '../../../components/rider/RiderSimpleHeader';
 import { useAuthStore } from '../../../store/useAuthStore';
@@ -11,6 +11,12 @@ const RiderProfile = () => {
     const navigate = useNavigate();
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const [isToggling, setIsToggling] = useState(false);
+    const [toast, setToast] = useState(null);
+
+    const showToast = (message) => {
+        setToast(message);
+        setTimeout(() => setToast(null), 4000);
+    };
 
     const { rider, accessToken, logout: clearAuth } = useAuthStore();
 
@@ -46,6 +52,7 @@ const RiderProfile = () => {
             setOnline(!isOnline);
         } catch (err) {
             console.error('Status toggle failed:', err);
+            showToast(err.message || 'Could not update status');
         } finally {
             setIsToggling(false);
         }
@@ -57,20 +64,39 @@ const RiderProfile = () => {
         phone: rider?.phonenumber || 'N/A'
     };
 
+    const getInitials = (name) => {
+        if (!name) return 'R';
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[1][0]).toUpperCase();
+        }
+        return parts[0].substring(0, 2).toUpperCase();
+    };
+
     return (
         <div className="min-h-screen bg-[#F9FAF7] flex flex-col font-sans">
             {/* Header */}
             <RiderSimpleHeader title="Profile" icon={User} />
 
+            {/* Toast */}
+            {toast && (
+                <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-sm animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-center gap-3 shadow-lg">
+                        <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white shrink-0">
+                            <AlertCircle size={16} />
+                        </div>
+                        <p className="text-[13px] font-bold text-red-900 flex-1">{toast}</p>
+                    </div>
+                </div>
+            )}
+
             <div className="flex-1 px-5 py-8 overflow-y-auto pb-32">
                 {/* User Info Section */}
                 <div className="flex items-center gap-4 mb-10 ml-1">
-                    <div className="w-20 h-20 bg-[#F3E5D8] rounded-full p-2 relative shadow-sm">
-                        <img
-                            src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=60"
-                            className="w-full h-full rounded-full object-cover grayscale-[0.2]"
-                            alt="Profile"
-                        />
+                    <div className="w-20 h-20 bg-[#F3E5D8] rounded-full p-1 relative shadow-sm">
+                        <div className="w-full h-full rounded-full bg-[#1C5E20] flex items-center justify-center text-white text-2xl font-bold tracking-wider">
+                            {getInitials(userData.name)}
+                        </div>
                         <div className="absolute bottom-1 right-1 w-4 h-4 border-2 border-white rounded-full transition-colors duration-300"
                              style={{ backgroundColor: isOnline ? '#4ade80' : '#a1a1aa' }}
                         />

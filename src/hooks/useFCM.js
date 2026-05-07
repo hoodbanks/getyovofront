@@ -49,14 +49,19 @@ const useFCM = (accessToken, onForegroundMessage) => {
                 registeredToken.current = token;
 
                 // 4. Register token with backend
-                await fetch(`${BASE_URL}/rider/auth/fcm-token`, {
+                const response = await fetch(`${BASE_URL}/device-token/rider`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         Authorization: `Bearer ${accessToken}`,
+                        role: 'RIDER', // Backend requirement for rider actions
                     },
                     body: JSON.stringify({ fcmToken: token }),
                 });
+
+                if (!response.ok) {
+                    throw new Error(`Server responded with ${response.status}`);
+                }
 
                 console.info('[FCM] Token registered successfully.');
             } catch (err) {

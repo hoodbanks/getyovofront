@@ -292,7 +292,7 @@ const Dashboard = () => {
                                         <td colSpan="8" className="py-20 text-center text-xs text-zinc-400 font-medium italic">No recent orders found.</td>
                                     </tr>
                                 ) : (
-                                    dashboard.orders.data.map((row, i) => (
+                                    dashboard.orders.data.slice(0, 5).map((row, i) => (
                                         <tr key={i} className="hover:bg-zinc-50/50 transition-colors group">
                                             <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{row.code}</td>
                                             <td className="px-6 py-4 text-[11px] text-zinc-500">{new Date(row.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
@@ -472,7 +472,7 @@ const Dashboard = () => {
                                         <td colSpan="5" className="py-10 text-center text-xs text-zinc-400">No data available</td>
                                     </tr>
                                 ) : (
-                                    dashboard.topVendors.data.map((row, i) => (
+                                    dashboard.topVendors.data.slice(0, 5).map((row, i) => (
                                         <tr key={i} className="hover:bg-zinc-50/50 transition-colors">
                                             <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{row.name}</td>
                                             <td className="px-6 py-4 text-[11px] text-zinc-500 text-center font-medium">{row.totalOrders}</td>
@@ -564,7 +564,7 @@ const Dashboard = () => {
                                         <td colSpan="5" className="py-10 text-center text-xs text-zinc-400">No data available</td>
                                     </tr>
                                 ) : (
-                                    dashboard.topRiders.data.map((row, i) => (
+                                    dashboard.topRiders.data.slice(0, 5).map((row, i) => (
                                         <tr key={i} className="hover:bg-zinc-50/50 transition-colors">
                                             <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{row.name}</td>
                                             <td className="px-6 py-4 text-[11px] text-zinc-500 text-center font-medium">{row.deliveries}</td>

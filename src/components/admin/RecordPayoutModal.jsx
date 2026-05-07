@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 
 const RecordPayoutModal = ({ isOpen, onClose, vendor, amount, payoutBatchId, onConfirm }) => {
     const token = useAuthStore((state) => state.accessToken);
-    const [paymentMethod, setPaymentMethod] = useState('Transfer');
+    const [paymentMethod, setPaymentMethod] = useState('bank_transfer');
     const [reference, setReference] = useState('');
     const [notes, setNotes] = useState('');
     const [proof, setProof] = useState(null);
@@ -97,10 +97,10 @@ const RecordPayoutModal = ({ isOpen, onClose, vendor, amount, payoutBatchId, onC
                     {/* Summary */}
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-sm uppercase">
-                            {vendor.initials || vendor.name?.substring(0, 2)}
+                            {vendor.initials || vendor.storeName?.substring(0, 2)}
                         </div>
                         <div>
-                            <h3 className="text-sm font-bold text-zinc-900">{vendor.name}</h3>
+                            <h3 className="text-sm font-bold text-zinc-900">{vendor.storeName}</h3>
                             <p className="text-[11px] text-zinc-500 font-medium">Amount to pay now: <span className="text-zinc-900 font-bold tracking-tight">₦{amount}</span></p>
                         </div>
                     </div>
@@ -115,9 +115,9 @@ const RecordPayoutModal = ({ isOpen, onClose, vendor, amount, payoutBatchId, onC
                                     onChange={(e) => setPaymentMethod(e.target.value)}
                                     className="w-full appearance-none bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 text-[11px] font-medium text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 cursor-pointer"
                                 >
-                                    <option>Transfer</option>
-                                    <option>Cash</option>
-                                    <option>Bank Deposit</option>
+                                    <option value="bank_transfer">Bank Transfer</option>
+                                    <option value="mobile_banking_app_transfer">Mobile App Transfer</option>
+                                    <option value="cheque">Cheque</option>
                                 </select>
                                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
                             </div>
