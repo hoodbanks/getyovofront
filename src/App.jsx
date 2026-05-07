@@ -21,6 +21,8 @@ import PrivacyPolicy from './pages/legal/PrivacyPolicy';
 import TermsAndConditions from './pages/legal/TermsAndConditions';
 import MobilePrivacyPolicy from './pages/legal/MobilePrivacyPolicy';
 import MobileTermsAndConditions from './pages/legal/MobileTermsAndConditions';
+import DeleteAccount from './pages/account/DeleteAccount';
+import MobileDeleteAccount from './pages/account/MobileDeleteAccount';
 import { Toaster } from 'sonner';
 
 
@@ -94,10 +96,12 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+        <Route path="/delete-account" element={<DeleteAccount />} />
 
         {/* for mobile app */}
         <Route path="/mobile/privacy-policy" element={<MobilePrivacyPolicy />} />
         <Route path="/mobile/terms-and-conditions" element={<MobileTermsAndConditions />} />
+        <Route path="/delete-account-mobile" element={<MobileDeleteAccount />} />
 
    
         <Route 
