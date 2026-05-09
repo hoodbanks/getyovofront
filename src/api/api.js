@@ -34,6 +34,38 @@ const api = {
         return result;
     },
 
+    postForm: async (endpoint, formData, token, extraHeaders = {}) => {
+        const headers = {
+            'Accept': 'application/json',
+            ...extraHeaders
+        };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`${BASE_URL}${endpoint}`, {
+            method: 'POST',
+            headers,
+            body: formData,
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            let errorMessage = result.error?.message || result.message || 'Something went wrong';
+            
+            if (result.error?.details && Array.isArray(result.error.details) && result.error.details.length > 0) {
+                errorMessage = result.error.details[0].message;
+            }
+
+            const error = new Error(errorMessage);
+            error.status = response.status;
+            throw error;
+        }
+
+        return result;
+    },
+
     get: async (endpoint, token, extraHeaders = {}) => {
         const headers = {
             'Content-Type': 'application/json',

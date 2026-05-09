@@ -23,6 +23,7 @@ const PaymentModal = ({ isOpen, onClose, vendor }) => {
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState('all'); // all, paid, unpaid
     const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [page, setPage] = useState(1);
     const [snapshotData, setSnapshotData] = useState(null);
 
@@ -59,7 +60,7 @@ const PaymentModal = ({ isOpen, onClose, vendor }) => {
             toast.error('No pending amount to pay');
             return;
         }
-        snapshotMutation.mutate();
+        setShowConfirmModal(true);
     };
 
     const handleConfirmPaid = () => {
@@ -229,6 +230,43 @@ const PaymentModal = ({ isOpen, onClose, vendor }) => {
                 payoutBatchId={snapshotData?.payoutBatchId}
                 onConfirm={handleConfirmPaid}
             />
+
+            {/* Confirmation Modal */}
+            {showConfirmModal && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+                    <div 
+                        className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
+                        onClick={() => setShowConfirmModal(false)}
+                    />
+                    <div className="relative w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl animate-scale-up border border-zinc-100">
+                        <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-500 mb-4 border border-amber-100">
+                            <AlertCircle size={24} />
+                        </div>
+                        <h3 className="text-lg font-bold text-zinc-900 mb-2">Proceed with Payout?</h3>
+                        <p className="text-sm text-zinc-600 leading-relaxed mb-6">
+                            You are about to process a payout for <span className="font-bold text-zinc-900">{vendorInfo.storeName || vendor.vendorStoreName}</span>. <br/><br/>
+                            <span className="text-rose-600 font-bold uppercase tracking-wider text-xs">Warning:</span> Once you continue, this payout session is locked in and <span className="font-bold">cannot be terminated or reversed</span>.
+                        </p>
+                        <div className="flex gap-3">
+                            <button 
+                                onClick={() => setShowConfirmModal(false)}
+                                className="flex-1 py-3 bg-zinc-100 text-zinc-700 rounded-xl text-sm font-bold hover:bg-zinc-200 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    setShowConfirmModal(false);
+                                    snapshotMutation.mutate();
+                                }}
+                                className="flex-1 py-3 bg-emerald-800 text-white rounded-xl text-sm font-bold hover:bg-emerald-900 transition-colors shadow-md shadow-emerald-900/10"
+                            >
+                                Continue
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 };

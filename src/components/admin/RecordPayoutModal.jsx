@@ -24,7 +24,7 @@ const RecordPayoutModal = ({ isOpen, onClose, vendor, amount, payoutBatchId, onC
     // Execute Payout Mutation
     const executeMutation = useMutation({
         mutationFn: async (formData) => {
-            return await api.post(`/superadmin/payment/vendor/${vendor.id}/execute`, formData, token, true);
+            return await api.postForm(`/superadmin/payment/vendor/${vendor.id}/execute`, formData, token, true);
         },
         onSuccess: (res) => {
             toast.success(`Successfully paid ₦${amount}. Total orders: ${res.data.ordersPaid}`);
@@ -135,7 +135,7 @@ const RecordPayoutModal = ({ isOpen, onClose, vendor, amount, payoutBatchId, onC
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-[11px] font-bold text-zinc-900">Reference/Narration *</label>
+                        <label className="text-[11px] font-bold text-zinc-900">Note *</label>
                         <textarea
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
