@@ -59,7 +59,7 @@ const AdminLayout = () => {
     return (
         <div className="min-h-screen bg-[#E2E8F0A6] flex">
             <Sidebar />
-            <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
+            <div className={`flex-1 min-w-0 flex flex-col transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
                 {/* Header */}
                 <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-zinc-200">
                     <div className="max-w-[1600px] mx-auto">

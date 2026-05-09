@@ -99,7 +99,7 @@ const Customers = () => {
     };
 
     return (
-        <div className="space-y-6 max-w-[440px] md:max-w-[1600px] mx-auto pb-10">
+        <div className="space-y-6 w-full max-w-[1600px] mx-auto pb-10">
             <div className='bg-white py-5 rounded-2xl'>
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 md:gap-4 p-4 rounded-xl">
