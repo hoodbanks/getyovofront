@@ -333,11 +333,11 @@ const Riders = () => {
                                             <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-400 truncate max-w-[120px] lowercase">{rider.email}</td>
                                             <td className="px-3 py-3.5">
                                                 <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border whitespace-nowrap uppercase tracking-tighter ${
-                                                    (rider.isSuspended ?? (rider.status?.toUpperCase() === 'SUSPENDED')) 
+                                                    (rider.isSuspended || (rider.status && rider.status.toUpperCase() === 'SUSPENDED')) 
                                                         ? 'bg-rose-50 text-rose-600 border-rose-100' 
                                                         : (rider.status === 'PENDING' ? 'bg-zinc-100 text-zinc-500 border-zinc-200' : 'bg-emerald-50 text-emerald-600 border-emerald-100')
                                                 }`}>
-                                                    {(rider.isSuspended ?? (rider.status?.toUpperCase() === 'SUSPENDED')) ? 'Suspended' : (rider.status === 'PENDING' ? 'Pending' : 'Active')}
+                                                    {(rider.isSuspended || (rider.status && rider.status.toUpperCase() === 'SUSPENDED')) ? 'Suspended' : (rider.status === 'PENDING' ? 'Pending' : 'Active')}
                                                 </span>
                                             </td>
                                             <td className="px-3 py-3.5">
@@ -352,7 +352,7 @@ const Riders = () => {
                                                     <button 
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            const isSuspended = !!(rider.isSuspended ?? (rider.status?.toUpperCase() === 'SUSPENDED'));
+                                                            const isSuspended = !!(rider.isSuspended || (rider.status && rider.status.toUpperCase() === 'SUSPENDED'));
                                                             const rId = rider.id || rider._id || rider.riderId || rider.uid;
                                                             
                                                             if (!isSuspended && !window.confirm('Are you sure you want to suspend this rider?')) return;
@@ -361,14 +361,14 @@ const Riders = () => {
                                                         }}
                                                         disabled={suspensionMutation.isPending}
                                                         className={`p-1.5 rounded-lg transition-all shadow-sm ${
-                                                            (rider.isSuspended ?? (rider.status?.toUpperCase() === 'SUSPENDED')) 
+                                                            (rider.isSuspended || (rider.status && rider.status.toUpperCase() === 'SUSPENDED')) 
                                                                 ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white' 
                                                                 : 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white'
                                                         }`}
-                                                        title={(rider.isSuspended ?? (rider.status?.toUpperCase() === 'SUSPENDED')) ? 'Activate Rider' : 'Suspend Rider'}
+                                                        title={(rider.isSuspended || (rider.status && rider.status.toUpperCase() === 'SUSPENDED')) ? 'Activate Rider' : 'Suspend Rider'}
                                                     >
                                                         {suspensionMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : (
-                                                            (rider.isSuspended ?? (rider.status?.toUpperCase() === 'SUSPENDED')) ? <CheckCircle2 size={12} /> : <ShieldAlert size={12} />
+                                                            (rider.isSuspended || (rider.status && rider.status.toUpperCase() === 'SUSPENDED')) ? <CheckCircle2 size={12} /> : <ShieldAlert size={12} />
                                                         )}
                                                     </button>
                                                 </div>
