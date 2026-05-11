@@ -635,7 +635,7 @@ const Dashboard = () => {
                                             <td className="px-6 py-4 text-center">
                                                 <StatusBadge 
                                                     status={
-                                                        row.isSuspended ? 'Suspended' : (row.status?.toUpperCase() === 'PENDING' ? 'Pending' : 'Active')
+                                                        (row.isSuspended ?? (row.status?.toUpperCase() === 'SUSPENDED')) ? 'Suspended' : (row.status?.toUpperCase() === 'PENDING' ? 'Pending' : 'Active')
                                                     } 
                                                 />
                                             </td>
@@ -651,7 +651,7 @@ const Dashboard = () => {
                                                     <button 
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            const isSuspended = !!row.isSuspended;
+                                                            const isSuspended = !!(row.isSuspended ?? (row.status?.toUpperCase() === 'SUSPENDED'));
                                                             const rId = row.id || row._id || row.riderId || row.uid;
                                                             
                                                             if (!isSuspended && !window.confirm('Are you sure you want to suspend this rider?')) return;
@@ -660,14 +660,14 @@ const Dashboard = () => {
                                                         }}
                                                         disabled={suspensionMutation.isPending}
                                                         className={`p-2 rounded-lg transition-all shadow-sm ${
-                                                            row.isSuspended
+                                                            (row.isSuspended ?? (row.status?.toUpperCase() === 'SUSPENDED'))
                                                                 ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white'
                                                                 : 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white'
                                                         }`}
-                                                        title={row.isSuspended ? 'Activate Rider' : 'Suspend Rider'}
+                                                        title={(row.isSuspended ?? (row.status?.toUpperCase() === 'SUSPENDED')) ? 'Activate Rider' : 'Suspend Rider'}
                                                     >
                                                         {suspensionMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : (
-                                                            row.isSuspended ? <CheckCircle2 size={14} /> : <ShieldAlert size={14} />
+                                                            (row.isSuspended ?? (row.status?.toUpperCase() === 'SUSPENDED')) ? <CheckCircle2 size={14} /> : <ShieldAlert size={14} />
                                                         )}
                                                     </button>
                                                 </div>
