@@ -38,7 +38,7 @@ body {
     .custom-scrollbar::-webkit-scrollbar-thumb:hover {
         background: #d4d4d8;
     }
-}
+
 
 @keyframes slideIn {
     from {
