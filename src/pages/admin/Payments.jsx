@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Search,
     ChevronDown,
@@ -41,6 +41,61 @@ const StatCard = ({ label, value, subLabel, icon: Icon, color, bg, borderColor, 
         </div>
     </div>
 );
+
+const FilterDropdown = ({ selected, onSelect, options = ['all', 'today', 'yesterday', 'last7days', 'last30days', 'thisMonth', 'lastMonth'] }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = React.useRef(null);
+
+    const labels = {
+        'all': 'All Time',
+        'today': 'Today',
+        'yesterday': 'Yesterday',
+        'last7days': 'Last 7 Days',
+        'last30days': 'Last 30 Days',
+        'thisMonth': 'This Month',
+        'lastMonth': 'Last Month'
+    };
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div className="relative w-full sm:w-auto" ref={dropdownRef}>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full flex items-center justify-between gap-2 px-4 py-2 bg-zinc-50 border border-zinc-100 rounded-xl text-[11px] font-bold text-zinc-600 group hover:bg-zinc-100 transition-all outline-none"
+            >
+                {labels[selected] || selected}
+                <ChevronDown size={14} className={`text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isOpen && (
+                <div className="absolute right-0 mt-2 w-40 bg-white border border-zinc-100 rounded-2xl shadow-xl z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
+                    {options.map((opt) => (
+                        <button
+                            key={opt}
+                            onClick={() => {
+                                onSelect(opt);
+                                setIsOpen(false);
+                            }}
+                            className={`w-full text-left px-4 py-2 text-[11px] font-bold transition-colors ${selected === opt ? 'bg-zinc-50 text-emerald-600' : 'text-zinc-600 hover:bg-zinc-50'
+                                }`}
+                        >
+                            {labels[opt] || opt}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
 
 const Payments = () => {
     const token = useAuthStore((state) => state.accessToken);
@@ -124,21 +179,10 @@ const Payments = () => {
                         <h3 className="text-sm md:text-base font-bold text-zinc-900">Payments</h3>
                         <p className="text-[10px] text-zinc-500 font-medium tracking-tight">Click a vendor row to see all orders + amount to pay</p>
                     </div>
-                     <div className="relative w-full sm:w-auto">
-                        <select 
-                            value={filter}
-                            onChange={(e) => { setFilter(e.target.value); setPage(1); }}
-                            className="w-full appearance-none bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2.5 md:py-2 pr-10 text-[11px] font-bold text-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 cursor-pointer"
-                        >
-                            <option value="all">All Time</option>
-                            <option value="today">Today</option>
-                            <option value="yesterday">Yesterday</option>
-                            <option value="last7days">Last 7 Days</option>
-                            <option value="last30days">Last 30 Days</option>
-                            <option value="thisMonth">This Month</option>
-                        </select>
-                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
-                    </div>
+                     <FilterDropdown 
+                        selected={filter} 
+                        onSelect={(val) => { setFilter(val); setPage(1); }} 
+                    />
                 </div>
 
                 <div className="divide-y divide-zinc-100 min-h-[400px] relative">

@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Search,
     ChevronDown,
     ChevronRight,
     ChevronLeft,
-    MoreHorizontal,
     Eye,
     Users,
     UserPlus,
@@ -16,6 +15,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
+import { formatName, formatDate, getInitials } from '../../utils/formatters';
 import CustomerModal from '../../components/admin/CustomerModal';
 
 const StatCard = ({ label, value, icon: Icon, color, bg, borderColor, cardBg, dotColor }) => (
@@ -78,9 +78,17 @@ const Customers = () => {
         keepPreviousData: true
     });
 
-    const summary = usersData?.data?.summary || { totalUsers: 0, activeUsers: 0, suspendedUsers: 0, newThisWeek: 0 };
+    const lastSummaryRef = useRef({ totalUsers: 0, activeUsers: 0, suspendedUsers: 0, newThisWeek: 0 });
+
+    if (usersData?.data?.summary) {
+        lastSummaryRef.current = usersData.data.summary;
+    }
+
+    const summary = usersData?.data?.summary || lastSummaryRef.current;
     const customers = usersData?.data?.users?.data || usersData?.data?.data || [];
-    const totalPages = usersData?.data?.users?.totalPages || Math.ceil((usersData?.data?.users?.total || usersData?.data?.total || 0) / 20) || 1;
+    const totalItems = usersData?.data?.users?.total || usersData?.data?.total || 0;
+    const totalPages = usersData?.data?.users?.totalPages || Math.ceil(totalItems / 20) || 1;
+
 
     const openModal = (customer) => {
         setSelectedCustomer(customer);
@@ -293,6 +301,7 @@ const Customers = () => {
                                 </>
                             )}
                         </div>
+
                     </div>
                 </div>
 
@@ -338,14 +347,14 @@ const Customers = () => {
                                         <td className="px-3 py-3.5">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-[8px] font-bold text-zinc-500 shrink-0">
-                                                    {(cust.firstname?.[0] || '') + (cust.lastname?.[0] || '')}
+                                                    {getInitials(`${cust.firstname || ''} ${cust.lastname || ''}`)}
                                                 </div>
-                                                <span className="text-[12px] font-bold text-zinc-700 max-w-[80px]">{cust.firstname} {cust.lastname}</span>
+                                                <span className="text-[12px] font-bold text-zinc-700 max-w-[80px]">{formatName(`${cust.firstname || ''} ${cust.lastname || ''}`)}</span>
                                             </div>
                                         </td>
                                         <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 whitespace-nowrap">{cust.phonenumber}</td>
                                         <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 truncate max-w-[100px]">{cust.email}</td>
-                                        <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 whitespace-nowrap">{new Date(cust.createdAt).toLocaleDateString()}</td>
+                                        <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 whitespace-nowrap">{formatDate(cust.createdAt)}</td>
                                         <td className="px-3 py-3.5">
                                             <span className={`px-2 py-0.5 rounded-full text-[12px] font-bold border ${!cust.isSuspended
                                                 ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
@@ -373,8 +382,10 @@ const Customers = () => {
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                    <div className="p-4 border-t border-zinc-100 flex items-center justify-between">
-                        <p className="text-[10px] text-zinc-500 font-medium">Page {page} of {totalPages}</p>
+                    <div className="p-4 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
+                            Showing {Math.min((page - 1) * 20 + 1, totalItems)} to {Math.min(page * 20, totalItems)} of {totalItems} items
+                        </p>
                         <div className="flex items-center gap-2">
                             <button
                                 disabled={page === 1}

@@ -13,7 +13,10 @@ import {
     Wallet,
     Eye,
     Loader2,
-    X
+    X,
+    ShieldAlert,
+    CheckCircle2,
+    AlertTriangle
 } from 'lucide-react';
 import {
     BarChart,
@@ -25,13 +28,17 @@ import {
     ResponsiveContainer,
     Cell
 } from 'recharts';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
 import OrderModal from '../../components/admin/OrderModal';
 import VendorModal from '../../components/admin/VendorModal';
 import RiderModal from '../../components/admin/RiderModal';
 import CustomerModal from '../../components/admin/CustomerModal';
+import CreateVendorModal from '../../components/admin/CreateVendorModal';
+import CreateRiderModal from '../../components/admin/CreateRiderModal';
+import { formatName, formatDate, capitalizeFirst } from '../../utils/formatters';
 
 const StatCard = ({ label, value, icon: Icon, color, trend, iconBg, gradient }) => (
     <div className="relative overflow-hidden bg-white p-6 rounded-3xl border border-zinc-200/50 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 group">
@@ -92,6 +99,8 @@ const Dashboard = () => {
     const [selectedVendor, setSelectedVendor] = React.useState(null);
     const [selectedRider, setSelectedRider] = React.useState(null);
     const [selectedCustomer, setSelectedCustomer] = React.useState(null);
+    const [isCreateVendorOpen, setIsCreateVendorOpen] = React.useState(false);
+    const [isCreateRiderOpen, setIsCreateRiderOpen] = React.useState(false);
 
     const { data: adminData, isLoading, error } = useQuery({
         queryKey: ['adminDashboard'],
@@ -140,6 +149,60 @@ const Dashboard = () => {
         enabled: !!accessToken && selectedTime !== 'Last 7 days'
     });
 
+    const queryClient = useQueryClient();
+    const suspensionMutation = useMutation({
+        mutationFn: ({ id, suspend }) => api.patch(`/superadmin/riders/${id}/suspension`, { suspend }, accessToken),
+        onSuccess: (res) => {
+            toast.success(res.message || 'Rider status updated');
+            queryClient.invalidateQueries({ queryKey: ['adminDashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['riders'] });
+            queryClient.invalidateQueries({ queryKey: ['rider-overview'] });
+        },
+        onError: (err) => {
+            toast.error(err.response?.data?.message || 'Failed to update status');
+        }
+    });
+
+    // Sync modal states with fresh dashboard data when it updates
+    React.useEffect(() => {
+        if (adminData?.data) {
+            const getEntityId = (entity) => entity?.id || entity?._id || entity?.riderId || entity?.vendorId || entity?.orderId || entity?.uid;
+
+            // Sync selected rider if it exists in dashboard data
+            if (selectedRider) {
+                const rId = getEntityId(selectedRider);
+                // Check topRiders
+                const freshRider = adminData.data.topRiders?.data?.find(r => getEntityId(r) === rId);
+                if (freshRider) {
+                    setSelectedRider(freshRider);
+                } else {
+                    // Check riders in recent orders
+                    const orderWithRider = adminData.data.orders?.data?.find(o => o.rider && getEntityId(o.rider) === rId);
+                    if (orderWithRider) setSelectedRider(orderWithRider.rider);
+                }
+            }
+
+            // Sync selected vendor
+            if (selectedVendor) {
+                const vId = getEntityId(selectedVendor);
+                const freshVendor = adminData.data.topVendors?.data?.find(v => getEntityId(v) === vId);
+                if (freshVendor) {
+                    setSelectedVendor(freshVendor);
+                } else {
+                    const orderWithVendor = adminData.data.orders?.data?.find(o => o.vendor && getEntityId(o.vendor) === vId);
+                    if (orderWithVendor) setSelectedVendor(orderWithVendor.vendor);
+                }
+            }
+
+            // Sync selected order
+            if (selectedOrder) {
+                const oId = getEntityId(selectedOrder);
+                const freshOrder = adminData.data.orders?.data?.find(o => getEntityId(o) === oId);
+                if (freshOrder) setSelectedOrder(freshOrder);
+            }
+        }
+    }, [adminData]);
+
     // Handle initial vs filtered data
     const getChartData = () => {
         const isDefault = selectedTime === 'Last 7 days';
@@ -156,7 +219,7 @@ const Dashboard = () => {
         if (!rawData) return [];
 
         return rawData.map(d => ({
-            name: new Date(d.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            name: formatDate(d.day),
             [view]: d.total
         }));
     };
@@ -295,13 +358,13 @@ const Dashboard = () => {
                                     dashboard.orders.data.slice(0, 5).map((row, i) => (
                                         <tr key={i} className="hover:bg-zinc-50/50 transition-colors group">
                                             <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{row.code}</td>
-                                            <td className="px-6 py-4 text-[11px] text-zinc-500">{new Date(row.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                                            <td className="px-6 py-4 text-[11px] text-zinc-500">{formatDate(row.createdAt)}</td>
                                             <td className="px-6 py-4 text-[11px] text-zinc-500">
                                                 <button 
                                                     onClick={() => setSelectedCustomer(row.customer)}
                                                     className="hover:text-emerald-600 hover:underline font-bold text-left transition-colors"
                                                 >
-                                                    {row.customerName}
+                                                    {formatName(row.customerName)}
                                                 </button>
                                             </td>
                                             <td className="px-6 py-4 text-[11px] text-zinc-500">
@@ -309,7 +372,7 @@ const Dashboard = () => {
                                                     onClick={() => setSelectedVendor(row.vendor)}
                                                     className="hover:text-emerald-600 hover:underline font-bold text-left transition-colors"
                                                 >
-                                                    {row.vendor?.storeName}
+                                                    {formatName(row.vendor?.storeName)}
                                                 </button>
                                             </td>
                                             <td className="px-6 py-4 text-[11px] text-zinc-500">
@@ -318,12 +381,12 @@ const Dashboard = () => {
                                                         onClick={() => setSelectedRider(row.rider)}
                                                         className="hover:text-emerald-600 hover:underline font-bold text-left transition-colors"
                                                     >
-                                                        {row.rider.name}
+                                                        {formatName(row.rider.name)}
                                                     </button>
                                                 ) : '---'}
                                             </td>
                                             <td className="px-6 py-4"><StatusBadge status={row.status.charAt(0).toUpperCase() + row.status.slice(1).toLowerCase()} /></td>
-                                            <td className="px-6 py-4 text-[11px] text-zinc-400">{row.etaMin}-{row.etaMax} mins</td>
+                                            <td className="px-6 py-4 text-[11px] text-zinc-400">{Number(row.etaMin || 0).toFixed(2)}-{Number(row.etaMax || 0).toFixed(2)} mins</td>
                                             <td className="px-6 py-4">
                                                 <div className="flex justify-center">
                                                     <button 
@@ -474,10 +537,10 @@ const Dashboard = () => {
                                 ) : (
                                     dashboard.topVendors.data.slice(0, 5).map((row, i) => (
                                         <tr key={i} className="hover:bg-zinc-50/50 transition-colors">
-                                            <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{row.name}</td>
+                                            <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{formatName(row.name)}</td>
                                             <td className="px-6 py-4 text-[11px] text-zinc-500 text-center font-medium">{row.totalOrders}</td>
                                             <td className="px-6 py-4 text-[11px] text-zinc-500 font-bold">₦{row.revenue?.toLocaleString()}</td>
-                                            <td className="px-6 py-4 text-center"><StatusBadge status={row.status.charAt(0).toUpperCase() + row.status.slice(1).toLowerCase()} /></td>
+                                            <td className="px-6 py-4 text-center"><StatusBadge status={capitalizeFirst(row.status)} /></td>
                                             <td className="px-6 py-4">
                                                 <div className="flex justify-center">
                                                     <button 
@@ -529,7 +592,7 @@ const Dashboard = () => {
                                 </div>
                                 <span className="text-sm font-medium text-zinc-700">Avg. Delivery Time</span>
                             </div>
-                            <span className="text-sm font-bold text-zinc-900">{dashboard.riderActivity.avgDeliveryTime || 0} mins</span>
+                            <span className="text-sm font-bold text-zinc-900">{Number(dashboard.riderActivity.avgDeliveryTime || 0).toFixed(2)} mins</span>
                         </div>
                     </div>
                 </div>
@@ -566,17 +629,46 @@ const Dashboard = () => {
                                 ) : (
                                     dashboard.topRiders.data.slice(0, 5).map((row, i) => (
                                         <tr key={i} className="hover:bg-zinc-50/50 transition-colors">
-                                            <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{row.name}</td>
+                                            <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{formatName(row.name)}</td>
                                             <td className="px-6 py-4 text-[11px] text-zinc-500 text-center font-medium">{row.deliveries}</td>
-                                            <td className="px-6 py-4 text-[11px] text-zinc-500 text-center font-medium">{row.avgTime} mins</td>
-                                            <td className="px-6 py-4 text-center"><StatusBadge status={row.status.charAt(0).toUpperCase() + row.status.slice(1).toLowerCase()} /></td>
+                                            <td className="px-6 py-4 text-[11px] text-zinc-500 text-center font-medium">{Number(row.avgTime || 0).toFixed(2)} mins</td>
+                                            <td className="px-6 py-4 text-center">
+                                                <StatusBadge 
+                                                    status={
+                                                        row.isSuspended ? 'Suspended' : (row.status?.toUpperCase() === 'PENDING' ? 'Pending' : 'Active')
+                                                    } 
+                                                />
+                                            </td>
                                             <td className="px-6 py-4">
-                                                <div className="flex justify-center">
+                                                <div className="flex justify-center gap-2">
                                                     <button 
                                                         onClick={() => setSelectedRider(row)}
                                                         className="p-2 bg-indigo-50 text-indigo-500 rounded-lg hover:bg-indigo-500 hover:text-white transition-all shadow-sm"
+                                                        title="View Details"
                                                     >
-                                                        <Eye size={12} />
+                                                        <Eye size={14} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const isSuspended = !!row.isSuspended;
+                                                            const rId = row.id || row._id || row.riderId || row.uid;
+                                                            
+                                                            if (!isSuspended && !window.confirm('Are you sure you want to suspend this rider?')) return;
+                                                            
+                                                            suspensionMutation.mutate({ id: rId, suspend: !isSuspended });
+                                                        }}
+                                                        disabled={suspensionMutation.isPending}
+                                                        className={`p-2 rounded-lg transition-all shadow-sm ${
+                                                            row.isSuspended
+                                                                ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white'
+                                                                : 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white'
+                                                        }`}
+                                                        title={row.isSuspended ? 'Activate Rider' : 'Suspend Rider'}
+                                                    >
+                                                        {suspensionMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : (
+                                                            row.isSuspended ? <CheckCircle2 size={14} /> : <ShieldAlert size={14} />
+                                                        )}
                                                     </button>
                                                 </div>
                                             </td>
@@ -596,12 +688,16 @@ const Dashboard = () => {
 
                     <div className="space-y-2">
                         {[
-                            { title: 'Create Vendor', desc: 'Add a new vendor to the platform' },
-                            { title: 'Add Rider', desc: 'Register a rider and assign availability' },
-                            { title: 'Approve vendors', desc: 'Review and activate pending vendors' },
-                            { title: 'Resolve support issues', desc: 'Handle and close customer or vendor complaints' },
+                            { title: 'Create Vendor', desc: 'Add a new vendor to the platform', action: () => setIsCreateVendorOpen(true) },
+                            { title: 'Add Rider', desc: 'Register a rider and assign availability', action: () => setIsCreateRiderOpen(true) },
+                            { title: 'Approve vendors', desc: 'Review and activate pending vendors', action: () => {} },
+                            { title: 'Resolve support issues', desc: 'Handle and close customer or vendor complaints', action: () => {} },
                         ].map((action, i) => (
-                            <button key={i} className="w-full flex items-center justify-between px-2 py-2 bg-white hover:bg-zinc-50 rounded-2xl border border-transparent hover:border-zinc-200 transition-all group text-left">
+                            <button 
+                                key={i} 
+                                onClick={action.action}
+                                className="w-full flex items-center justify-between px-2 py-2 bg-white hover:bg-zinc-50 rounded-2xl border border-transparent hover:border-zinc-200 transition-all group text-left"
+                            >
                                 <div>
                                     <h4 className="text-sm font-medium text-zinc-800 group-hover:text-indigo-600 transition-colors uppercase pr-4">{action.title}</h4>
                                     <p className="text-[10px] text-zinc-400 font-medium">{action.desc}</p>
@@ -636,6 +732,16 @@ const Dashboard = () => {
                 isOpen={!!selectedCustomer} 
                 onClose={() => setSelectedCustomer(null)} 
                 customer={selectedCustomer} 
+            />
+
+            <CreateVendorModal
+                isOpen={isCreateVendorOpen}
+                onClose={() => setIsCreateVendorOpen(false)}
+            />
+
+            <CreateRiderModal
+                isOpen={isCreateRiderOpen}
+                onClose={() => setIsCreateRiderOpen(false)}
             />
         </div >
     );

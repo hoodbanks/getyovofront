@@ -13,6 +13,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
+import { formatName, formatDate, getInitials } from '../../utils/formatters';
 
 const ConfirmationModal = ({ isOpen, onClose, type, vendor, onConfirm }) => {
     const [reason, setReason] = useState('');
@@ -155,6 +156,59 @@ const ConfirmationModal = ({ isOpen, onClose, type, vendor, onConfirm }) => {
     );
 };
 
+const FilterDropdown = ({ selected, onSelect, options = ['all', 'today', 'yesterday', 'last7days', 'last30days'] }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    const labels = {
+        'all': 'All Time',
+        'today': 'Today',
+        'yesterday': 'Yesterday',
+        'last7days': 'Last 7 Days',
+        'last30days': 'Last 30 Days'
+    };
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div className="relative" ref={dropdownRef}>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 rounded-xl text-[10px] font-bold text-zinc-500 group hover:bg-zinc-200 transition-all outline-none"
+            >
+                {labels[selected] || selected}
+                <ChevronDown size={14} className={`text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isOpen && (
+                <div className="absolute right-0 mt-2 w-40 bg-white border border-zinc-100 rounded-2xl shadow-xl z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
+                    {options.map((opt) => (
+                        <button
+                            key={opt}
+                            onClick={() => {
+                                onSelect(opt);
+                                setIsOpen(false);
+                            }}
+                            className={`w-full text-left px-4 py-2 text-[10px] font-medium transition-colors ${selected === opt ? 'bg-zinc-50 text-emerald-600 font-bold' : 'text-zinc-600 hover:bg-zinc-50'
+                                }`}
+                        >
+                            {labels[opt] || opt}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const VendorModal = ({ isOpen, onClose, vendor }) => {
     const token = useAuthStore((state) => state.accessToken);
     const queryClient = useQueryClient();
@@ -233,10 +287,10 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
                         <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 font-bold text-sm overflow-hidden">
-                                    {overview.logo ? <img src={overview.logo} alt="Store logo" className="w-full h-full object-cover" /> : (vendor?.storeName?.[0] || 'V')}
+                                    {overview.logo ? <img src={overview.logo} alt="Store logo" className="w-full h-full object-cover" /> : getInitials(overview.storeName || vendor?.storeName || 'Store')}
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold text-zinc-900">{overview.storeName || vendor?.storeName || 'Store'}</h2>
+                                    <h2 className="text-xl font-bold text-zinc-900">{formatName(overview.storeName || vendor?.storeName || 'Store')}</h2>
                                     <p className="text-xs text-zinc-400 font-medium tracking-wide uppercase">{vendor?.id}</p>
                                 </div>
                             </div>
@@ -249,17 +303,10 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
                             {/* Stats Grid */}
                             <div className="flex items-center justify-between gap-4">
                                 <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Metrics</label>
-                                <select 
-                                    value={filter}
-                                    onChange={(e) => setFilter(e.target.value)}
-                                    className="text-[10px] font-bold text-zinc-500 bg-zinc-100 px-3 py-1.5 rounded-xl border-none outline-none"
-                                >
-                                    <option value="all">All Time</option>
-                                    <option value="today">Today</option>
-                                    <option value="yesterday">Yesterday</option>
-                                    <option value="last7days">Last 7 Days</option>
-                                    <option value="last30days">Last 30 Days</option>
-                                </select>
+                                <FilterDropdown 
+                                    selected={filter} 
+                                    onSelect={setFilter} 
+                                />
                             </div>
                             
                             <div className="grid grid-cols-2 gap-4">
@@ -298,7 +345,7 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
                                 <div className="grid grid-cols-2 gap-y-6">
                                     <div>
                                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Store owner</label>
-                                        <p className="text-sm font-bold text-zinc-800">{overview.ownerName || vendor?.ownerName || 'N/A'}</p>
+                                        <p className="text-sm font-bold text-zinc-800">{formatName(overview.ownerName || vendor?.ownerName || 'N/A')}</p>
                                     </div>
                                     <div>
                                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Store Type</label>
@@ -319,7 +366,7 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
                                     <div className="col-span-2">
                                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Date Joined</label>
                                         <p className="text-sm font-bold text-zinc-800">
-                                            {overview.joinedAt ? `${overview.joinedAt.date}/${overview.joinedAt.month}/${overview.joinedAt.year}` : 'N/A'}
+                                            {formatDate(overview.joinedAt || vendor?.createdAt)}
                                         </p>
                                     </div>
                                 </div>

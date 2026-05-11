@@ -20,14 +20,15 @@ import { useStore } from '../../store/useStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useMutation } from '@tanstack/react-query';
 import api from '../../api/api';
-import logo from '../../assets/images/GetYovo-Logo1.png';
+import logo from '../../assets/images/GetYovo-Logo2.png';
 import LogoutModal from './LogoutModal';
 
-const SidebarItem = ({ icon: Icon, label, to, collapsed }) => {
+const SidebarItem = ({ icon: Icon, label, to, collapsed, end }) => {
     const { setMobileMenuOpen } = useStore();
     return (
         <NavLink
             to={to}
+            end={end}
             onClick={() => setMobileMenuOpen(false)}
             className={({ isActive }) => `group flex items-center px-4 py-2.5 rounded-xl transition-all duration-200 ${isActive
                 ? 'bg-[#00B074] text-white shadow-lg shadow-[#00B074]/20'
@@ -69,7 +70,7 @@ const SidebarGroup = ({ title, children, collapsed }) => (
 const Sidebar = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { accessToken, logout: storeLogout } = useAuthStore();
+    const { accessToken, logout: storeLogout, superAdmin } = useAuthStore();
     const {
         isSidebarCollapsed,
         toggleSidebar,
@@ -91,6 +92,12 @@ const Sidebar = () => {
     const handleLogout = () => {
         logoutMutation.mutate();
     };
+
+    const adminName = superAdmin?.firstname ? `${superAdmin.firstname} ${superAdmin.lastname}` : 'GetYovo Admin';
+    const adminEmail = superAdmin?.email || 'admin@getyovo.com';
+    const initials = superAdmin?.firstname 
+        ? `${superAdmin.firstname[0]}${superAdmin.lastname?.[0] || ''}`.toUpperCase()
+        : 'GA';
 
     const sidebarClasses = `
     fixed left-0 top-0 bottom-0 bg-[#0F172B] text-zinc-400 flex flex-col border-r border-zinc-800/50 z-50 transition-all duration-300 ease-in-out
@@ -154,17 +161,15 @@ const Sidebar = () => {
                 <div className="px-4 mb-8">
                     <div className={`flex items-center gap-3 p-3 transition-all ${isSidebarCollapsed ? 'justify-center' : ''}`}>
                         <div className="relative shrink-0">
-                            <img
-                                src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
-                                alt="Admin"
-                                className="w-10 h-10 rounded-full bg-zinc-800 object-cover"
-                            />
+                            <div className="w-10 h-10 rounded-full bg-emerald-900/80 text-emerald-400 flex items-center justify-center font-bold text-sm border border-emerald-800/50">
+                                {initials}
+                            </div>
                             <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-[#0a0f1e] rounded-full" />
                         </div>
                         {!isSidebarCollapsed && (
                             <div className="overflow-hidden">
-                                <h4 className="text-sm font-bold text-white truncate">GetYovo Admin</h4>
-                                <p className="text-[10px] text-zinc-500 truncate">admin@getyovo.com</p>
+                                <h4 className="text-sm font-bold text-white uppercase truncate">{adminName}</h4>
+                                <p className="text-[10px] text-zinc-500 truncate">{adminEmail}</p>
                             </div>
                         )}
                     </div>
@@ -178,6 +183,7 @@ const Sidebar = () => {
                             label="Dashboard"
                             to="/admin"
                             collapsed={isSidebarCollapsed}
+                            end={true}
                         />
                         <SidebarItem
                             icon={BarChart3}

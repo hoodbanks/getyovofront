@@ -174,13 +174,17 @@ const Analytics = () => {
     const revenueData = (revenueFilter === 'Last 7 days' ? dashboard?.data?.revenueGraph?.data : revenueQuery.data?.data?.data) || [];
     const formattedRevenue = revenueData.map(d => ({ name: formatDate(d.day), revenue: d.total }));
 
-    const splitData = (splitFilter === 'Last 7 days' ? dashboard?.data?.revenueSplit?.data : splitQuery.data?.data) || {
+    // Try both shapes: { data: {...} } and the object directly
+    const rawSplit = splitFilter === 'Last 7 days'
+        ? (dashboard?.data?.revenueSplit?.data ?? dashboard?.data?.revenueSplit)
+        : (splitQuery.data?.data?.data ?? splitQuery.data?.data);
+    const splitData = rawSplit || {
         totalRevenue: 0, platformCommission: 0, vendorPayout: 0, platformCommissionPercent: 0, vendorPayoutPercent: 0
     };
 
     const formattedPieData = [
-        { name: 'Vendor Payout', value: splitData.vendorPayoutPercent, amount: splitData.vendorPayout, color: '#00B074' },
-        { name: 'Platform Commission', value: splitData.platformCommissionPercent, amount: splitData.platformCommission, color: '#880055' },
+        { name: 'Platform Commission', value: Number(splitData.platformCommissionPercent || 0), amount: splitData.platformCommission, color: '#880055' },
+        { name: 'Vendor Payout', value: Number(splitData.vendorPayoutPercent || 0), amount: splitData.vendorPayout, color: '#00B074' }
     ];
 
     if (isLoading) {
@@ -347,9 +351,9 @@ const Analytics = () => {
                         </div>
                         <FilterDropdown selected={splitFilter} onSelect={setSplitFilter} />
                     </div>
-                    <div className="h-auto min-h-[400px] lg:min-h-[280px] w-full flex flex-col sm:flex-row items-center gap-8 px-4">
-                        <div className="flex-1 h-full relative">
-                            <ResponsiveContainer width="100%" height="100%">
+                    <div className="w-full flex flex-col sm:flex-row items-center gap-8 px-4">
+                        <div className="relative w-full sm:flex-1" style={{ height: 280 }}>
+                            <ResponsiveContainer width="100%" height={280}>
                                 <PieChart>
                                     <Pie
                                         data={formattedPieData}
@@ -365,7 +369,7 @@ const Analytics = () => {
                                             <Cell key={`cell-${index}`} fill={entry.color} />
                                         ))}
                                     </Pie>
-                                    <Tooltip formatter={(value) => `${value}%`} />
+                                    <Tooltip formatter={(value) => `${Number(value).toFixed(2)}%`} />
                                 </PieChart>
                             </ResponsiveContainer>
                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none w-full px-4">
@@ -382,9 +386,9 @@ const Analytics = () => {
                                     <div className="flex-1 flex items-center justify-between gap-2 overflow-hidden">
                                         <div className="min-w-0">
                                             <p className="text-[10px] font-bold text-zinc-600 leading-tight truncate">{item.name}</p>
-                                            <p className="text-[9px] font-medium text-zinc-400 truncate">{formatCurrency(item.amount)} / {item.value}%</p>
+                                            <p className="text-[9px] font-medium text-zinc-400 truncate">{formatCurrency(item.amount)} / {Number(item.value).toFixed(2)}%</p>
                                         </div>
-                                        <span className="text-[10px] font-bold text-zinc-900 shrink-0">{item.value}%</span>
+                                        <span className="text-[10px] font-bold text-zinc-900 shrink-0">{Number(item.value).toFixed(2)}%</span>
                                     </div>
                                 </div>
                             ))}

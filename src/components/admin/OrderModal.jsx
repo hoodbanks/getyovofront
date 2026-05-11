@@ -14,27 +14,55 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
+import { formatName, formatDate, getInitials } from '../../utils/formatters';
 
 const OrderModal = ({ isOpen, onClose, order }) => {
     const token = useAuthStore((state) => state.accessToken);
 
+    const orderId = order?.id || order?._id || order?.orderId;
     const { data: detailData, isLoading, error } = useQuery({
-        queryKey: ['order-detail', order?.id],
-        queryFn: () => api.get(`/superadmin/orders/${order.id}/overview`, token),
-        enabled: !!isOpen && !!order?.id
+        queryKey: ['order-detail', orderId],
+        queryFn: () => api.get(`/superadmin/orders/${orderId}/overview`, token),
+        enabled: !!isOpen && !!orderId
     });
 
     if (!isOpen || !order) return null;
 
-    const orderDetails = detailData?.data?.order || {};
-    const items = orderDetails.itemsStructured || [];
+    const orderDetails = detailData?.data?.order || detailData?.data || {};
+    const items = orderDetails.itemsStructured || orderDetails.items || [];
     
     // Timeline Logic
+    const currentStatus = (orderDetails.status || order?.status || '').toUpperCase().replace(/\s+/g, '_');
+    
+    const statusSequence = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED'];
+    const currentIdx = statusSequence.indexOf(currentStatus);
+
+    const isPreparing = currentIdx >= statusSequence.indexOf('ACCEPTED');
+    const isReady = currentIdx >= statusSequence.indexOf('READY');
+    const isOut = currentIdx >= statusSequence.indexOf('PICKED_UP');
+    const isDelivered = currentIdx >= statusSequence.indexOf('DELIVERED');
+
     const timeline = [
-        { status: "Order Placed", time: orderDetails.placedAt ? new Date(orderDetails.placedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-', completed: !!orderDetails.placedAt },
-        { status: "Accepted", time: orderDetails.acceptedAt ? new Date(orderDetails.acceptedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-', completed: !!orderDetails.acceptedAt },
-        { status: "Out for delivery", time: orderDetails.outForDeliveryAt ? new Date(orderDetails.outForDeliveryAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-', completed: !!orderDetails.outForDeliveryAt },
-        { status: "Delivered", time: orderDetails.deliveredAt ? new Date(orderDetails.deliveredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-', completed: !!orderDetails.deliveredAt }
+        { 
+            status: "Preparing", 
+            time: orderDetails.acceptedAt ? new Date(orderDetails.acceptedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (isPreparing ? 'Done' : '-'), 
+            completed: isPreparing 
+        },
+        { 
+            status: "Ready", 
+            time: orderDetails.readyAt ? new Date(orderDetails.readyAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (isReady ? 'Done' : '-'), 
+            completed: isReady 
+        },
+        { 
+            status: "Out for delivery", 
+            time: (orderDetails.outForDeliveryAt || orderDetails.pickedUpAt) ? new Date(orderDetails.outForDeliveryAt || orderDetails.pickedUpAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (isOut ? 'Done' : '-'), 
+            completed: isOut 
+        },
+        { 
+            status: "Delivered", 
+            time: (orderDetails.deliveredAt || orderDetails.etaOrDelivered) ? formatDate(orderDetails.deliveredAt || orderDetails.etaOrDelivered) : (isDelivered ? 'Done' : '-'), 
+            completed: isDelivered 
+        }
     ];
 
     return (
@@ -58,31 +86,31 @@ const OrderModal = ({ isOpen, onClose, order }) => {
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-4 relative">
-                    {isLoading && (
-                        <div className="absolute inset-0 z-50 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
+                    {isLoading ? (
+                        <div className="flex-1 flex items-center justify-center py-24">
                             <Loader2 className="text-emerald-600 animate-spin" size={32} />
                         </div>
-                    )}
-
+                    ) : (
+                    <>
                     {/* Top Order Summary Card */}
                     <div className="bg-white p-5 rounded-2xl border border-zinc-100 space-y-3">
                         <div className="flex items-center justify-between">
                             <span className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-tight border ${
-                                orderDetails.status === 'DELIVERED' 
+                                (orderDetails.status || order?.status) === 'DELIVERED' 
                                     ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
                                     : 'bg-blue-50 text-blue-600 border-blue-100'
                             }`}>
-                                {orderDetails.status?.replace(/_/g, ' ') || 'Processing'}
+                                {(orderDetails.status || order?.status)?.replace(/_/g, ' ') || 'Processing'}
                             </span>
                         </div>
                         <div className="flex items-center justify-between">
-                            <div>
-                                <h3 className="text-sm font-bold text-zinc-900 uppercase">Order: {orderDetails.code || order.id}</h3>
-                                <p className="text-[10px] text-zinc-400 font-medium">Placed on: {orderDetails.placedAt ? new Date(orderDetails.placedAt).toLocaleString() : '-'}</p>
+                             <div>
+                                <h3 className="text-sm font-bold text-zinc-900 uppercase">Order: {orderDetails.orderCode || orderDetails.code || order.orderCode || order.code}</h3>
+                                <p className="text-[10px] text-zinc-400 font-medium">Placed on: {formatDate(orderDetails.orderTime || orderDetails.placedAt || order.orderTime || order.placedAt)}</p>
                             </div>
                             <div className="text-right">
-                                <h3 className="text-sm font-bold text-zinc-900">₦{(orderDetails.totalAmountPaid || 0).toLocaleString()}</h3>
-                                <p className="text-[10px] text-zinc-400 font-medium">{orderDetails.paymentStatus} ({orderDetails.shopType})</p>
+                                <h3 className="text-sm font-bold text-zinc-900">₦{(orderDetails.totalAmount || orderDetails.totalAmountPaid || order.totalAmount || 0).toLocaleString()}</h3>
+                                <p className="text-[10px] text-zinc-400 font-medium">{orderDetails.paymentStatus || order.paymentStatus} ({orderDetails.shopType || order.shopType || 'Order'})</p>
                             </div>
                         </div>
                     </div>
@@ -90,13 +118,13 @@ const OrderModal = ({ isOpen, onClose, order }) => {
                     {/* Order Details (Vendor) */}
                     <div className="bg-white p-5 rounded-2xl border border-zinc-100 space-y-4">
                         <h4 className="text-[11px] font-bold text-zinc-900 border-b border-zinc-50 pb-2">Vendor Information</h4>
-                        <div className="flex items-center gap-3">
+                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 font-bold text-xs uppercase border border-zinc-200">
-                                {orderDetails.vendorStoreName?.substring(0, 2) || 'V'}
+                                {getInitials(orderDetails.vendorStoreName || order.vendorStoreName || 'Vendor')}
                             </div>
                             <div>
-                                <h5 className="text-[12px] font-bold text-zinc-900">{orderDetails.vendorStoreName}</h5>
-                                <p className="text-[10px] text-zinc-500 font-medium truncate max-w-[150px]">Contact: <span className="text-zinc-900">{orderDetails.vendorPhone}</span></p>
+                                <h5 className="text-[12px] font-bold text-zinc-900">{formatName(orderDetails.vendorStoreName || order.vendorStoreName)}</h5>
+                                <p className="text-[10px] text-zinc-500 font-medium truncate max-w-[150px]">Contact: <span className="text-zinc-900">{orderDetails.vendorPhone || order.vendorPhone || 'N/A'}</span></p>
                             </div>
                         </div>
 
@@ -115,9 +143,15 @@ const OrderModal = ({ isOpen, onClose, order }) => {
                                 ))}
                             </div>
                             <div className="pt-2 border-t border-zinc-100 flex items-center justify-between">
-                                <span className="text-[11px] font-bold text-zinc-900 uppercase">Subtotal</span>
-                                <span className="text-[11px] font-bold text-zinc-900">₦{orderDetails.itemsSubtotal?.toLocaleString()}</span>
+                                 <span className="text-[11px] font-bold text-zinc-900 uppercase">Subtotal</span>
+                                <span className="text-[11px] font-bold text-zinc-900">₦{(orderDetails.itemsSubtotal || 0).toLocaleString()}</span>
                             </div>
+                            {orderDetails.deliveryFee > 0 && (
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[11px] font-bold text-zinc-500 uppercase">Delivery Fee</span>
+                                    <span className="text-[11px] font-bold text-zinc-500">₦{orderDetails.deliveryFee.toLocaleString()}</span>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -128,10 +162,10 @@ const OrderModal = ({ isOpen, onClose, order }) => {
                             <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden shrink-0">
                                 <User size={20} className="text-orange-600" />
                             </div>
-                            <div>
-                                <h5 className="text-[12px] font-bold text-zinc-900">{orderDetails.customerName}</h5>
-                                <p className="text-[10px] text-zinc-500 font-medium mt-1">Phone: <span className="text-zinc-900">{orderDetails.customerPhone}</span></p>
-                                <p className="text-[10px] text-zinc-500 font-medium mt-0.5">Delivery address: <span className="text-zinc-900">{orderDetails.deliveryAddress}</span></p>
+                             <div>
+                                <h5 className="text-[12px] font-bold text-zinc-900">{formatName(orderDetails.customerName || order.customerName)}</h5>
+                                <p className="text-[10px] text-zinc-500 font-medium mt-1">Phone: <span className="text-zinc-900">{orderDetails.customerPhone || order.customerPhone}</span></p>
+                                <p className="text-[10px] text-zinc-500 font-medium mt-0.5">Delivery address: <span className="text-zinc-900">{orderDetails.deliveryAddress || orderDetails.address || order.deliveryAddress || order.address || 'N/A'}</span></p>
                             </div>
                         </div>
                     </div>
@@ -143,8 +177,8 @@ const OrderModal = ({ isOpen, onClose, order }) => {
                             <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-col shrink-0 border border-blue-200">
                                 <Bike size={18} className="text-blue-600" />
                             </div>
-                            <div className="flex-1">
-                                <p className="text-[10px] text-zinc-500 font-medium">Assigned Rider: <span className="text-zinc-900 font-bold">{orderDetails.riderName || 'N/A'}</span></p>
+                             <div className="flex-1">
+                                <p className="text-[10px] text-zinc-500 font-medium">Assigned Rider: <span className="text-zinc-900 font-bold">{orderDetails.riderName || order.riderName ? formatName(orderDetails.riderName || order.riderName) : 'Not Assigned'}</span></p>
                                 <p className="text-[10px] text-zinc-500 font-medium mt-0.5">Contact: <span className="text-zinc-900 font-bold">{orderDetails.riderPhone || 'N/A'}</span></p>
                             </div>
                         </div>
@@ -190,6 +224,8 @@ const OrderModal = ({ isOpen, onClose, order }) => {
                             </div>
                         </div>
                     </div>
+                    </>
+                    )}
                 </div>
             </div>
         </div>

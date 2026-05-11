@@ -23,6 +23,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
 import { toast } from 'sonner';
+import { formatName, capitalizeFirst, formatPlate, formatDate, getInitials } from '../../utils/formatters';
 
 const ConfirmationModal = ({ isOpen, onClose, type, rider, onConfirm }) => {
     const [reason, setReason] = useState('');
@@ -62,7 +63,7 @@ const ConfirmationModal = ({ isOpen, onClose, type, rider, onConfirm }) => {
             <div className="relative bg-white rounded-[2rem] w-full max-w-sm overflow-hidden shadow-2xl animate-fade-in transition-all duration-300">
                 <div className="p-6 flex flex-col items-center text-center">
                     <div className="flex justify-between w-full mb-4">
-                        <span className="text-sm font-bold text-zinc-900 capitalize">{type === 'unsuspend' ? 'Unsuspend' : type} account</span>
+                        <span className="text-sm font-bold text-zinc-900 capitalize">{isActivate ? 'Activate' : type} account</span>
                         <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 transition-colors">
                             <X size={20} />
                         </button>
@@ -73,7 +74,7 @@ const ConfirmationModal = ({ isOpen, onClose, type, rider, onConfirm }) => {
                             <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mb-6">
                                 <CheckCircle2 size={40} className="text-emerald-600" />
                             </div>
-                            <h3 className="text-xl font-bold text-zinc-900 mb-2">Confirm Account Unsuspension</h3>
+                            <h3 className="text-xl font-bold text-zinc-900 mb-2">Confirm Account Activation</h3>
                             <p className="text-xs text-zinc-400 font-medium leading-relaxed mb-8 px-4">
                                 This will allow the rider to access the platform and start receiving orders again.
                             </p>
@@ -156,11 +157,64 @@ const ConfirmationModal = ({ isOpen, onClose, type, rider, onConfirm }) => {
                                     : 'bg-rose-600 hover:bg-rose-700 shadow-rose-900/10'
                                 }`}
                         >
-                            {isActivate ? 'Unsuspend' : (isDelete ? 'Delete' : 'Suspend')}
+                            {isActivate ? 'Activate' : (isDelete ? 'Delete' : 'Suspend')}
                         </button>
                     </div>
                 </div>
             </div>
+        </div>
+    );
+};
+
+const FilterDropdown = ({ selected, onSelect, options = ['today', 'last7days', 'last30days', 'thisMonth', 'lastMonth'] }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    const labels = {
+        'today': 'Today',
+        'last7days': 'Last 7 Days',
+        'last30days': 'Last 30 Days',
+        'thisMonth': 'This Month',
+        'lastMonth': 'Last Month'
+    };
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div className="relative" ref={dropdownRef}>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-xl text-[10px] font-bold text-zinc-600 group hover:bg-zinc-100 transition-all outline-none"
+            >
+                {labels[selected] || selected}
+                <ChevronDown size={14} className={`text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isOpen && (
+                <div className="absolute right-0 mt-2 w-40 bg-white border border-zinc-100 rounded-2xl shadow-xl z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
+                    {options.map((opt) => (
+                        <button
+                            key={opt}
+                            onClick={() => {
+                                onSelect(opt);
+                                setIsOpen(false);
+                            }}
+                            className={`w-full text-left px-4 py-2 text-[10px] font-medium transition-colors ${selected === opt ? 'bg-zinc-50 text-emerald-600 font-bold' : 'text-zinc-600 hover:bg-zinc-50'
+                                }`}
+                        >
+                            {labels[opt] || opt}
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };
@@ -174,29 +228,34 @@ const RiderModal = ({ isOpen, onClose, rider }) => {
     
     // Custom Confirmation Modal State
     const [showConfirm, setShowConfirm] = useState(false);
-    const [confirmType, setConfirmType] = useState(''); // 'suspend', 'unsuspend', 'delete'
+    const [confirmType, setConfirmType] = useState(''); // 'suspend', 'activate', 'delete'
+
+    // Robust ID detection: check top-level, nested, and common variants
+    const riderData = rider?.rider || rider;
+    const riderId = riderData?.id || riderData?._id || riderData?.riderId || riderData?.uid || riderData?.rider_id || rider?.id || rider?._id;
 
     // Fetch Overview Data
     const { data: overviewData, isLoading: isLoadingOverview } = useQuery({
-        queryKey: ['rider-overview', rider?.id, filter],
-        queryFn: () => api.get(`/superadmin/riders/${rider.id}/overview?filter=${filter}`, token),
-        enabled: !!isOpen && !!rider?.id && activeTab === 'overview'
+        queryKey: ['rider-overview', riderId, filter],
+        queryFn: () => api.get(`/superadmin/riders/${riderId}/overview?filter=${filter}`, token),
+        enabled: !!isOpen && !!riderId && activeTab === 'overview'
     });
 
     // Fetch Deliveries Data
     const { data: deliveriesData, isLoading: isLoadingDeliveries } = useQuery({
-        queryKey: ['rider-deliveries', rider?.id, page],
-        queryFn: () => api.get(`/superadmin/riders/${rider.id}/deliveries?page=${page}`, token),
-        enabled: !!isOpen && !!rider?.id && activeTab === 'deliveries'
+        queryKey: ['rider-deliveries', riderId, page],
+        queryFn: () => api.get(`/superadmin/riders/${riderId}/deliveries?page=${page}`, token),
+        enabled: !!isOpen && !!riderId && activeTab === 'deliveries'
     });
 
     // Suspension Mutation
     const suspensionMutation = useMutation({
-        mutationFn: (data) => api.patch(`/superadmin/riders/${rider.id}/suspension`, data, token),
+        mutationFn: (data) => api.patch(`/superadmin/riders/${riderId}/suspension`, data, token),
         onSuccess: (res) => {
-            toast.success(res.message || 'Suspension status updated');
+            toast.success(res.message || 'Rider status updated');
             queryClient.invalidateQueries({ queryKey: ['riders'] });
-            queryClient.invalidateQueries({ queryKey: ['rider-overview', rider.id] });
+            queryClient.invalidateQueries({ queryKey: ['adminDashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['rider-overview', riderId] });
         },
         onError: (err) => {
             toast.error(err.response?.data?.message || 'Failed to update suspension');
@@ -205,10 +264,11 @@ const RiderModal = ({ isOpen, onClose, rider }) => {
 
     // Delete Mutation
     const deleteMutation = useMutation({
-        mutationFn: () => api.delete('/superadmin/riders', { riderId: rider.id }, token),
+        mutationFn: () => api.delete('/superadmin/riders', { riderId: riderId }, token),
         onSuccess: (res) => {
             toast.success(res.message || 'Rider deleted successfully');
             queryClient.invalidateQueries({ queryKey: ['riders'] });
+            queryClient.invalidateQueries({ queryKey: ['adminDashboard'] });
             onClose();
         },
         onError: (err) => {
@@ -218,9 +278,16 @@ const RiderModal = ({ isOpen, onClose, rider }) => {
 
     if (!isOpen || !rider) return null;
 
-    const metrics = overviewData?.data?.metrics || { totalKm: 0, completedOrders: 0, cancelledOrders: 0, avgKmPerOrder: 0 };
-    const summary = overviewData?.data?.summary || { totalOrders: 0, deliveredOrders: 0, cancelledOrders: 0 };
-    const riderInfo = overviewData?.data?.rider || rider;
+    const overview = overviewData?.data || {};
+    const metrics = overview.metrics || { totalKm: 0, completedOrders: 0, cancelledOrders: 0, avgKmPerOrder: 0 };
+    const summary = overview.summary || { totalOrders: 0, deliveredOrders: 0, cancelledOrders: 0 };
+    const riderInfo = overview.rider || rider;
+    
+    // Derive suspension status with proper fallbacks
+    const derivedStatus = (overview.status || riderInfo.status || rider.status || '').toUpperCase();
+    const isSuspended = overview.isSuspended ?? riderInfo.isSuspended ?? rider.isSuspended ?? (derivedStatus === 'SUSPENDED');
+    const isPending = derivedStatus === 'PENDING';
+    
     const deliveries = deliveriesData?.data?.orders || [];
 
     const handleActionClick = (type) => {
@@ -251,11 +318,11 @@ const RiderModal = ({ isOpen, onClose, rider }) => {
                 <div className="p-4 border-b border-zinc-100 flex items-center justify-between bg-white shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-xs">
-                            {rider.initials}
+                            {getInitials(riderInfo.name)}
                         </div>
                         <div>
-                            <h2 className="text-sm font-bold text-zinc-900">{riderInfo.name}</h2>
-                            <p className="text-[10px] text-zinc-500 font-medium tracking-tight uppercase">{rider.id?.substring(0, 8)}</p>
+                            <h2 className="text-sm font-bold text-zinc-900">{formatName(riderInfo.name)}</h2>
+                            <p className="text-[10px] text-zinc-500 font-medium tracking-tight uppercase">{riderId?.substring(0, 8)}</p>
                         </div>
                     </div>
                     <button
@@ -288,20 +355,10 @@ const RiderModal = ({ isOpen, onClose, rider }) => {
                             Deliveries
                         </button>
                     </div>
-                    <div className="relative">
-                        <select 
-                            value={filter}
-                            onChange={(e) => setFilter(e.target.value)}
-                            className="appearance-none bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-1.5 pr-8 text-[10px] font-bold text-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/10"
-                        >
-                            <option value="today">Today</option>
-                            <option value="last7days">Last 7 Days</option>
-                            <option value="last30days">Last 30 Days</option>
-                            <option value="thisMonth">This Month</option>
-                            <option value="lastMonth">Last Month</option>
-                        </select>
-                        <ChevronRight size={14} className="absolute right-2 top-1/2 -translate-y-1/2 rotate-90 text-zinc-400 pointer-events-none" />
-                    </div>
+                    <FilterDropdown 
+                        selected={filter} 
+                        onSelect={setFilter} 
+                    />
                 </div>
 
                 {/* Content */}
@@ -317,7 +374,7 @@ const RiderModal = ({ isOpen, onClose, rider }) => {
                                 )}
                                 <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
                                     <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Total KM</p>
-                                    <h4 className="text-base font-bold text-zinc-900">{metrics.totalKm || 0} km</h4>
+                                    <h4 className="text-base font-bold text-zinc-900">{Number(metrics.totalKm || 0).toFixed(2)} km</h4>
                                 </div>
                                 <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
                                     <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Completed Orders</p>
@@ -329,7 +386,7 @@ const RiderModal = ({ isOpen, onClose, rider }) => {
                                 </div>
                                 <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
                                     <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Avg KM / Order</p>
-                                    <h4 className="text-base font-bold text-zinc-900">{metrics.avgKmPerOrder || 0} km</h4>
+                                    <h4 className="text-base font-bold text-zinc-900">{Number(metrics.avgKmPerOrder || 0).toFixed(2)} km</h4>
                                 </div>
                             </div>
 
@@ -339,8 +396,12 @@ const RiderModal = ({ isOpen, onClose, rider }) => {
                                     <h3 className="text-xs font-bold text-zinc-900 flex items-center gap-2">
                                         Details
                                     </h3>
-                                    <span className="px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full text-[9px] font-bold">
-                                        Active
+                                    <span className={`px-3 py-1 rounded-full text-[9px] font-bold border uppercase tracking-tighter ${
+                                        isSuspended 
+                                            ? 'bg-rose-50 text-rose-600 border-rose-100' 
+                                            : (isPending ? 'bg-zinc-100 text-zinc-500 border-zinc-200' : 'bg-emerald-50 text-emerald-600 border-emerald-100')
+                                    }`}>
+                                        {isSuspended ? 'Suspended' : (isPending ? 'Pending' : 'Active')}
                                     </span>
                                 </div>
 
@@ -352,11 +413,11 @@ const RiderModal = ({ isOpen, onClose, rider }) => {
                                     )}
                                     <div>
                                         <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Rider Name</p>
-                                        <p className="text-[11px] font-bold text-zinc-800">{riderInfo.name}</p>
+                                        <p className="text-[11px] font-bold text-zinc-800">{formatName(riderInfo.name)}</p>
                                     </div>
                                     <div>
                                         <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Vehicle Name</p>
-                                        <p className="text-[11px] font-bold text-zinc-800">{riderInfo.vehicleName || 'N/A'}</p>
+                                        <p className="text-[11px] font-bold text-zinc-800">{capitalizeFirst(riderInfo.vehicleName || 'N/A')}</p>
                                     </div>
                                     <div>
                                         <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Phone</p>
@@ -364,7 +425,7 @@ const RiderModal = ({ isOpen, onClose, rider }) => {
                                     </div>
                                     <div>
                                         <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Vehicle Plate</p>
-                                        <p className="text-[11px] font-bold text-zinc-800">{riderInfo.vehiclePlate || 'N/A'}</p>
+                                        <p className="text-[11px] font-bold text-zinc-800">{formatPlate(riderInfo.vehiclePlate || 'N/A')}</p>
                                     </div>
                                     <div className="col-span-2">
                                         <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Email</p>
@@ -377,7 +438,7 @@ const RiderModal = ({ isOpen, onClose, rider }) => {
                                     <div className="col-span-2">
                                         <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Date Joined</p>
                                         <p className="text-[11px] font-bold text-zinc-800">
-                                            {riderInfo.joinedAt ? `${riderInfo.joinedAt.date}/${riderInfo.joinedAt.month}/${riderInfo.joinedAt.year}` : 'N/A'}
+                                            {formatDate(riderInfo.joinedAt || riderInfo.createdAt)}
                                         </p>
                                     </div>
                                 </div>
@@ -400,7 +461,7 @@ const RiderModal = ({ isOpen, onClose, rider }) => {
                                                 <div>
                                                     <h5 className="text-[11px] font-bold text-zinc-900">{delivery.code}</h5>
                                                     <p className="text-[9px] text-zinc-500 font-medium">
-                                                        {delivery.deliveredAt ? `${delivery.deliveredAt.date}/${delivery.deliveredAt.month}/${delivery.deliveredAt.year} ${delivery.deliveredAt.time}` : 'N/A'} • {delivery.vendorStore}
+                                                        {formatDate(delivery.deliveredAt || delivery.createdAt)} • {formatName(delivery.vendorStore)}
                                                     </p>
                                                 </div>
                                                 <span className={`px-3 py-1 rounded-full text-[8px] font-bold border uppercase tracking-tighter ${delivery.status === 'DELIVERED'
@@ -421,7 +482,7 @@ const RiderModal = ({ isOpen, onClose, rider }) => {
                                                 </div>
                                             </div>
                                             <div className="mt-3 text-right">
-                                                <span className="text-[11px] font-bold text-zinc-900">{delivery.distanceKm} km</span>
+                                                <span className="text-[11px] font-bold text-zinc-900">{Number(delivery.distanceKm || 0).toFixed(2)} km</span>
                                             </div>
                                         </div>
                                     ))}
@@ -443,20 +504,20 @@ const RiderModal = ({ isOpen, onClose, rider }) => {
                             {deleteMutation.isPending ? <Loader2 className="animate-spin" size={14} /> : <><Trash2 size={14} /> Delete account</>}
                         </button>
                         <button 
-                            onClick={() => handleActionClick(rider.isSuspended ? 'unsuspend' : 'suspend')}
+                            onClick={() => handleActionClick(isSuspended ? 'activate' : 'suspend')}
                             disabled={suspensionMutation.isPending}
                             className={`px-6 py-3 rounded-2xl text-[11px] font-bold transition-all shadow-md flex items-center justify-center gap-2 ${
-                                rider.isSuspended 
-                                    ? 'bg-amber-600 text-white hover:bg-amber-700 shadow-amber-900/10' 
-                                    : 'bg-emerald-800 text-white hover:bg-emerald-900 shadow-emerald-900/10'
+                                isSuspended 
+                                    ? 'bg-emerald-800 text-white hover:bg-emerald-900 shadow-emerald-900/10' 
+                                    : 'bg-rose-600 text-white hover:bg-rose-700 shadow-rose-900/10'
                             }`}
                         >
                             {suspensionMutation.isPending ? (
                                 <Loader2 className="animate-spin" size={14} />
                             ) : (
                                 <>
-                                    {rider.isSuspended ? <ShieldAlert size={14} /> : <AlertTriangle size={14} />}
-                                    {rider.isSuspended ? 'Unsuspend' : 'Suspend'}
+                                    {isSuspended ? <ShieldAlert size={14} /> : <AlertTriangle size={14} />}
+                                    {isSuspended ? 'Activate' : 'Suspend'}
                                 </>
                             )}
                         </button>

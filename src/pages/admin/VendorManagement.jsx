@@ -109,12 +109,52 @@ const ShopTypeModal = ({ isOpen, onClose, shopType = null }) => {
     );
 };
 
+const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, name }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
+            <div className="relative bg-white rounded-[2rem] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+                <div className="p-8 flex flex-col items-center text-center">
+                    <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mb-6">
+                        <Trash2 size={32} className="text-rose-600" />
+                    </div>
+                    
+                    <h3 className="text-xl font-bold text-zinc-900 mb-2">Delete Shop Type?</h3>
+                    <p className="text-xs text-zinc-500 font-medium leading-relaxed mb-8 px-4">
+                        Are you sure you want to delete <span className="text-zinc-900 font-bold">"{name}"</span>? This action cannot be undone and may affect associated vendors.
+                    </p>
+
+                    <div className="flex w-full gap-3">
+                        <button
+                            onClick={onClose}
+                            className="flex-1 py-4 bg-zinc-50 text-zinc-900 text-sm font-bold rounded-2xl hover:bg-zinc-100 transition-all"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={() => { onConfirm(); onClose(); }}
+                            className="flex-1 py-4 bg-rose-600 text-white text-sm font-bold rounded-2xl hover:bg-rose-700 transition-all shadow-lg shadow-rose-600/20"
+                        >
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const VendorManagement = () => {
     const { accessToken } = useAuthStore();
     const queryClient = useQueryClient();
     const [searchQuery, setSearchQuery] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selectedShopType, setSelectedShopType] = useState(null);
+    const [shopTypeIdToDelete, setShopTypeIdToDelete] = useState(null);
+    const [shopTypeNameToDelete, setShopTypeNameToDelete] = useState('');
 
     const { data: shopTypesData, isLoading, error, refetch } = useQuery({
         queryKey: ['shop-types'],
@@ -146,9 +186,15 @@ const VendorManagement = () => {
         setIsModalOpen(true);
     };
 
-    const handleDelete = (id) => {
-        if (window.confirm('Are you sure you want to delete this shop type?')) {
-            deleteMutation.mutate(id);
+    const handleDeleteClick = (st) => {
+        setShopTypeIdToDelete(st.id);
+        setShopTypeNameToDelete(st.name);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = () => {
+        if (shopTypeIdToDelete) {
+            deleteMutation.mutate(shopTypeIdToDelete);
         }
     };
 
@@ -245,7 +291,7 @@ const VendorManagement = () => {
                                                 <Edit2 size={16} />
                                             </button>
                                             <button 
-                                                onClick={() => handleDelete(st.id)}
+                                                onClick={() => handleDeleteClick(st)}
                                                 disabled={deleteMutation.isPending}
                                                 className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all disabled:opacity-30"
                                                 title="Delete"
@@ -265,6 +311,13 @@ const VendorManagement = () => {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 shopType={selectedShopType}
+            />
+
+            <DeleteConfirmModal 
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                name={shopTypeNameToDelete}
             />
         </div>
     );

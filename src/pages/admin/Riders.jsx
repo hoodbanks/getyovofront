@@ -9,15 +9,18 @@ import {
     Navigation,
     Plus,
     Loader2,
-    ChevronLeft,
     ChevronRight,
-    AlertCircle
+    AlertCircle,
+    ShieldAlert,
+    CheckCircle2
 } from 'lucide-react';
+import { toast } from 'sonner';
 import RiderModal from '../../components/admin/RiderModal';
 import CreateRiderModal from '../../components/admin/CreateRiderModal';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
+import { formatName, capitalizeFirst, formatPlate, getInitials, exportToCSV, formatDate } from '../../utils/formatters';
 
 const StatCard = ({ label, value, subLabel, icon: Icon, color, bg, borderColor, cardBg, dotColor }) => (
     <div className={`relative overflow-hidden p-4 pb-6 rounded-xl ${cardBg} border ${borderColor} shadow-sm transition-all hover:shadow-md group flex-1 min-w-0`}>
@@ -42,6 +45,51 @@ const StatCard = ({ label, value, subLabel, icon: Icon, color, bg, borderColor, 
         </div>
     </div>
 );
+
+const FilterDropdown = ({ selected, onSelect, options, labels }) => {
+    const [isOpen, setIsOpen] = React.useState(false);
+    const dropdownRef = React.useRef(null);
+
+    React.useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div className="relative flex-1 sm:flex-none" ref={dropdownRef}>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-zinc-50 border border-transparent rounded-xl text-[9px] font-bold text-zinc-500 hover:bg-zinc-100 transition-all uppercase tracking-tight"
+            >
+                {labels[selected] || selected}
+                <ChevronDown size={12} className={`text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isOpen && (
+                <div className="absolute right-0 mt-2 w-40 bg-white border border-zinc-100 rounded-2xl shadow-xl z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
+                    {options.map((opt) => (
+                        <button
+                            key={opt}
+                            onClick={() => {
+                                onSelect(opt);
+                                setIsOpen(false);
+                            }}
+                            className={`w-full text-left px-4 py-2 text-[9px] font-bold uppercase transition-colors ${selected === opt ? 'bg-zinc-50 text-emerald-600' : 'text-zinc-600 hover:bg-zinc-50'
+                                }`}
+                        >
+                            {labels[opt] || opt}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
 
 const Riders = () => {
     const token = useAuthStore((state) => state.accessToken);
@@ -68,6 +116,18 @@ const Riders = () => {
         placeholderData: (previousData) => previousData
     });
 
+    const suspensionMutation = useMutation({
+        mutationFn: ({ id, suspend }) => api.patch(`/superadmin/riders/${id}/suspension`, { suspend }, token),
+        onSuccess: (res) => {
+            toast.success(res.message || 'Rider status updated');
+            queryClient.invalidateQueries({ queryKey: ['riders'] });
+            queryClient.invalidateQueries({ queryKey: ['adminDashboard'] });
+        },
+        onError: (err) => {
+            toast.error(err.response?.data?.message || 'Failed to update status');
+        }
+    });
+
     // Fetch Available Orders (Monitoring View)
     const { data: availableOrdersData, isLoading: isLoadingOrders } = useQuery({
         queryKey: ['available-orders', ordersPage],
@@ -75,20 +135,36 @@ const Riders = () => {
         enabled: activeTab === 'available_orders'
     });
 
-    const riders = ridersData?.data?.riders?.data || [];
-    const summary = ridersData?.data?.summary || {
+    const riders = ridersData?.data?.riders?.data || ridersData?.data?.data || (Array.isArray(ridersData?.data) ? ridersData.data : []);
+    const lastSummaryRef = React.useRef({
         total: 0,
         active: 0,
         inactive: 0,
         suspended: 0,
         onDelivery: 0
-    };
-    const totalPages = ridersData?.data?.riders?.totalPages || 1;
+    });
+
+    if (ridersData?.data?.summary) {
+        lastSummaryRef.current = ridersData.data.summary;
+    }
+
+    const summary = ridersData?.data?.summary || lastSummaryRef.current;
+    const totalItems = ridersData?.data?.riders?.total || ridersData?.data?.total || (Array.isArray(ridersData?.data) ? ridersData.data.length : 0);
+    const totalPages = ridersData?.data?.riders?.totalPages || ridersData?.data?.totalPages || Math.ceil(totalItems / 20) || 1;
 
     const openDetailModal = (rider) => {
         setSelectedRider(rider);
         setIsDetailModalOpen(true);
     };
+
+    // Sync selected rider with fresh data when riders list updates
+    React.useEffect(() => {
+        if (selectedRider && riders.length > 0) {
+            const rId = selectedRider.id || selectedRider._id || selectedRider.riderId || selectedRider.uid;
+            const freshRider = riders.find(r => (r.id === rId || r._id === rId || r.riderId === rId));
+            if (freshRider) setSelectedRider(freshRider);
+        }
+    }, [riders]);
 
     return (
         <div className="space-y-6 max-w-[440px] md:max-w-[1600px] mx-auto pb-10">
@@ -179,28 +255,30 @@ const Riders = () => {
                         <p className="text-[10px] text-zinc-500 font-medium">All rider operations in one place.</p>
                     </div>
                      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
-                        <select 
-                            value={sortBy}
-                            onChange={(e) => setSortBy(e.target.value)}
-                            className="flex-1 sm:flex-none appearance-none px-3 py-2.5 md:py-2 bg-zinc-50 rounded-xl text-[9px] font-bold text-zinc-500 hover:bg-zinc-100 transition-colors uppercase tracking-tight outline-none border-none cursor-pointer"
-                        >
-                            <option value="date_newest">Newest First</option>
-                            <option value="date_oldest">Oldest First</option>
-                            <option value="name_asc">Name (A-Z)</option>
-                            <option value="name_desc">Name (Z-A)</option>
-                        </select>
-                        <select 
-                            value={filter}
-                            onChange={(e) => setFilter(e.target.value)}
-                            className="flex-1 sm:flex-none appearance-none px-3 py-2.5 md:py-2 bg-zinc-50 rounded-xl text-[9px] font-bold text-zinc-500 hover:bg-zinc-100 transition-colors uppercase tracking-tight outline-none border-none cursor-pointer"
-                        >
-                            <option value="all">All Status</option>
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                            <option value="suspended">Suspended</option>
-                            <option value="pending">Pending</option>
-                            <option value="on_delivery">On Delivery</option>
-                        </select>
+                        <FilterDropdown 
+                            selected={sortBy}
+                            onSelect={setSortBy}
+                            options={['date_newest', 'date_oldest', 'name_asc', 'name_desc']}
+                            labels={{
+                                'date_newest': 'Newest First',
+                                'date_oldest': 'Oldest First',
+                                'name_asc': 'Name (A-Z)',
+                                'name_desc': 'Name (Z-A)'
+                            }}
+                        />
+                        <FilterDropdown 
+                            selected={filter}
+                            onSelect={setFilter}
+                            options={['all', 'active', 'inactive', 'suspended', 'pending', 'on_delivery']}
+                            labels={{
+                                'all': 'All Status',
+                                'active': 'Active',
+                                'inactive': 'Inactive',
+                                'suspended': 'Suspended',
+                                'pending': 'Pending',
+                                'on_delivery': 'On Delivery'
+                            }}
+                        />
                         <button
                             onClick={() => setIsCreateModalOpen(true)}
                             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 md:py-2 bg-emerald-800 rounded-3xl text-[10px] font-bold text-white hover:bg-emerald-900 transition-all shadow-md shadow-emerald-900/10 whitespace-nowrap"
@@ -243,32 +321,55 @@ const Riders = () => {
                                             <td className="px-3 py-3.5">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-[10px] font-bold text-zinc-500 overflow-hidden shrink-0 border border-zinc-200">
-                                                        {rider.name?.split(' ').map(n => n[0]).join('') || 'R'}
+                                                        {getInitials(rider.name)}
                                                     </div>
-                                                    <span className="text-[12px] font-bold text-zinc-900">{rider.name}</span>
+                                                    <span className="text-[12px] font-bold text-zinc-900">{formatName(rider.name)}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-600 truncate max-w-[100px]">{rider.vehicleName}</td>
-                                            <td className="px-3 py-3.5 text-[12px] font-bold text-zinc-500 whitespace-nowrap">{rider.vehiclePlate}</td>
+                                            <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-600 truncate max-w-[100px]">{capitalizeFirst(rider.vehicleName)}</td>
+                                            <td className="px-3 py-3.5 text-[12px] font-bold text-zinc-500 whitespace-nowrap">{formatPlate(rider.vehiclePlate)}</td>
                                             <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 whitespace-nowrap">{rider.phone}</td>
-                                            <td className="px-3 py-3.5 text-[12px] font-extrabold text-zinc-900 text-center">{rider.totalDeliveries || 0}</td>
+                                            <td className="px-3 py-3.5 text-[12px] font-extrabold text-zinc-900 text-center">{rider.deliveriesDone || 0}</td>
                                             <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-400 truncate max-w-[120px] lowercase">{rider.email}</td>
                                             <td className="px-3 py-3.5">
                                                 <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border whitespace-nowrap uppercase tracking-tighter ${
-                                                    rider.isActive 
-                                                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
-                                                        : 'bg-zinc-100 text-zinc-500 border-zinc-200'
+                                                    rider.isSuspended 
+                                                        ? 'bg-rose-50 text-rose-600 border-rose-100' 
+                                                        : (rider.status === 'PENDING' ? 'bg-zinc-100 text-zinc-500 border-zinc-200' : 'bg-emerald-50 text-emerald-600 border-emerald-100')
                                                 }`}>
-                                                    {rider.isActive ? 'Online' : 'Offline'}
+                                                    {rider.isSuspended ? 'Suspended' : (rider.status === 'PENDING' ? 'Pending' : 'Active')}
                                                 </span>
                                             </td>
                                             <td className="px-3 py-3.5">
-                                                <div className="flex justify-center">
+                                                <div className="flex justify-center gap-2">
                                                     <button
                                                         onClick={() => openDetailModal(rider)}
                                                         className="p-1.5 bg-indigo-50 text-indigo-500 rounded-lg hover:bg-indigo-500 hover:text-white transition-all shadow-sm"
+                                                        title="View Details"
                                                     >
                                                         <Eye size={12} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const isSuspended = !!rider.isSuspended;
+                                                            const rId = rider.id || rider._id || rider.riderId || rider.uid;
+                                                            
+                                                            if (!isSuspended && !window.confirm('Are you sure you want to suspend this rider?')) return;
+                                                            
+                                                            suspensionMutation.mutate({ id: rId, suspend: !isSuspended });
+                                                        }}
+                                                        disabled={suspensionMutation.isPending}
+                                                        className={`p-1.5 rounded-lg transition-all shadow-sm ${
+                                                            rider.isSuspended 
+                                                                ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white' 
+                                                                : 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white'
+                                                        }`}
+                                                        title={rider.isSuspended ? 'Activate Rider' : 'Suspend Rider'}
+                                                    >
+                                                        {suspensionMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : (
+                                                            rider.isSuspended ? <CheckCircle2 size={12} /> : <ShieldAlert size={12} />
+                                                        )}
                                                     </button>
                                                 </div>
                                             </td>
@@ -331,8 +432,10 @@ const Riders = () => {
                 {/* Pagination */}
                 {activeTab === 'riders' ? (
                     totalPages > 1 && (
-                        <div className="p-4 border-t border-zinc-100 flex items-center justify-between">
-                            <p className="text-[10px] text-zinc-500 font-medium">Page {page} of {totalPages}</p>
+                        <div className="p-4 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
+                                Showing {Math.min((page - 1) * 20 + 1, totalItems)} to {Math.min(page * 20, totalItems)} of {totalItems} items
+                            </p>
                             <div className="flex items-center gap-2">
                                 <button
                                     disabled={page === 1}

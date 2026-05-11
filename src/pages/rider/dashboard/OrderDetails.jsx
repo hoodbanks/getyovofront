@@ -6,6 +6,13 @@ import api from '../../../api/api';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useRiderStore } from '../../../store/useRiderStore';
 
+const capitalize = (str) => {
+    if (!str) return '';
+    return str.split(/\s+/).map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+};
+
 const OrderDetails = () => {
     const navigate = useNavigate();
     const { orderId } = useParams();
@@ -140,8 +147,8 @@ const OrderDetails = () => {
                         <div className="bg-white rounded-[24px] p-6 border border-zinc-100 shadow-sm">
                             <div className="mb-6">
                                 <p className="text-[11px] font-bold text-zinc-400 mb-1">{orderData.orderId}</p>
-                                <p className="text-[13px] font-semibold text-zinc-800">{orderData.shopType || 'Order'}</p>
-                                <h3 className="text-[20px] font-bold text-[#1C5E20] leading-tight mt-1 mb-1">{orderData.vendorStoreName}</h3>
+                                <p className="text-[13px] font-semibold text-zinc-800">{capitalize(orderData.shopType || 'Order')}</p>
+                                <h3 className="text-[20px] font-bold text-[#1C5E20] leading-tight mt-1 mb-1">{capitalize(orderData.vendorStoreName)}</h3>
                                 <p className="text-[14px] text-zinc-500 font-medium mb-1">{orderData.storeAddress}</p>
                                 <p className="text-[13px] font-medium text-zinc-400">
                                     Items: <span className="text-[#1C5E20]">{orderData.itemsString}</span>
@@ -167,7 +174,7 @@ const OrderDetails = () => {
                             <div className="space-y-4">
                                 <div className="bg-[#F8F9F8] rounded-[16px] p-5">
                                     <h4 className="text-[12px] font-bold text-zinc-400 mb-1">Customer</h4>
-                                    <p className="text-[15px] font-bold text-zinc-800">{orderData.customerName}</p>
+                                    <p className="text-[15px] font-bold text-zinc-800">{capitalize(orderData.customerName)}</p>
                                     <p className="text-[14px] text-zinc-500 font-medium">{orderData.customerPhone}</p>
                                 </div>
 

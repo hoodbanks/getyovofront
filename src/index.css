@@ -5,9 +5,13 @@
     --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
-@layer utilities {
+body {
+    margin: 0;
+    font-family: var(--font-sans);
+    overflow-x: hidden;
+}
 
-    .no-scrollbar,
+.no-scrollbar,
     .scrollbar-hide {
         -ms-overflow-style: none;
         scrollbar-width: none;

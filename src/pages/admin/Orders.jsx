@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     Search,
     ChevronDown,
@@ -7,14 +7,64 @@ import {
     Clock,
     Truck,
     CheckCircle2,
-    Download,
-    Filter
+    Download
 } from 'lucide-react';
 import OrderModal from '../../components/admin/OrderModal';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
+import { formatName, formatDate, formatDateTime, exportToCSV } from '../../utils/formatters';
 import { Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+
+const FilterDropdown = ({ selected, onSelect, options, label }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const displayLabel = options.find(o => o.value === selected)?.label || label;
+
+    return (
+        <div className="relative" ref={dropdownRef}>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-white border border-zinc-200 rounded-xl text-[10px] font-bold text-zinc-900 hover:border-zinc-300 transition-all shadow-sm whitespace-nowrap"
+            >
+                {displayLabel}
+                <ChevronDown size={14} className={`text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isOpen && (
+                <div className="absolute right-0 mt-2 w-44 bg-white border border-zinc-100 rounded-2xl shadow-xl z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
+                    {options.map((opt) => (
+                        <button
+                            key={opt.value}
+                            onClick={() => {
+                                onSelect(opt.value);
+                                setIsOpen(false);
+                            }}
+                            className={`w-full text-left px-4 py-2.5 text-[10px] font-medium transition-colors ${
+                                selected === opt.value
+                                    ? 'bg-zinc-50 text-emerald-600 font-bold'
+                                    : 'text-zinc-600 hover:bg-zinc-50'
+                            }`}
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
 
 const StatCard = ({ label, value, subLabel, icon: Icon, color, bg, borderColor, cardBg, dotColor }) => (
     <div className={`relative overflow-hidden p-4 pb-6 rounded-xl ${cardBg} border ${borderColor} shadow-sm transition-all hover:shadow-md group flex-1 min-w-0`}>
@@ -45,18 +95,18 @@ const Orders = () => {
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [filter, setFilter] = useState('all');
-    const [sortBy, setSortBy] = useState('all');
+    const [status, setStatus] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [page, setPage] = useState(1);
 
     // Fetch Orders Data
     const { data: dashboardData, isLoading, error, refetch } = useQuery({
-        queryKey: ['order-dashboard', filter, sortBy, page, searchQuery],
+        queryKey: ['order-dashboard', filter, page, searchQuery],
         queryFn: async () => {
             if (searchQuery) {
                 return await api.get(`/superadmin/orders/search?query=${searchQuery}&page=${page}&limit=20`, token);
             }
-            return await api.get(`/superadmin/orders?filter=${filter}&sortBy=${sortBy}&page=${page}&limit=20`, token);
+            return await api.get(`/superadmin/orders?filter=${filter}&page=${page}&limit=20`, token);
         },
         keepPreviousData: true
     });
@@ -68,9 +118,30 @@ const Orders = () => {
         deliveredToday: 0,
         cancelledOrders: 0
     };
-    
-    const orders = dashboardData?.data?.latestOrders || dashboardData?.data?.data || [];
-    const totalPages = dashboardData?.data?.totalPages || (dashboardData?.data?.total ? Math.ceil(dashboardData?.data?.total / 20) : 1);
+
+    const allOrders = dashboardData?.data?.latestOrders || dashboardData?.data?.data || [];
+
+    // Apply client-side status filtering
+    const orders = status === 'all'
+        ? allOrders
+        : allOrders.filter(o => o.status?.toUpperCase() === status.toUpperCase().replace(/ /g, '_'));
+
+    const totalItems = orders.length || dashboardData?.data?.total || summary.totalOrders || 0;
+    const totalPages = dashboardData?.data?.totalPages || (totalItems ? Math.ceil(totalItems / 20) : 1);
+
+    const handleExport = () => {
+        const exportData = orders.map(o => ({
+            'Order Code': o.orderCode || o.code,
+            'Customer': o.customerName,
+            'Vendor': o.vendorStoreName,
+            'Rider': o.riderName || 'Not Assigned',
+            'Status': o.status,
+            'Amount (NGN)': o.totalAmount,
+            'Order Time': formatDateTime(o.orderTime || o.placedAt || o.createdAt),
+            'ETA / Delivered': formatDateTime(o.etaOrDelivered || o.deliveredAt)
+        }));
+        exportToCSV(exportData, 'Orders');
+    };
 
     const openModal = (order) => {
         setSelectedOrder(order);
@@ -151,36 +222,36 @@ const Orders = () => {
                         <p className="text-[10px] text-zinc-500 font-medium">All Order operations in one place.</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
-                        <div className="relative flex-1 sm:flex-initial">
-                            <select 
-                                value={sortBy}
-                                onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
-                                className="w-full appearance-none bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2.5 md:py-2 pr-10 text-[10px] font-bold text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 cursor-pointer"
-                            >
-                                <option value="all">All Status</option>
-                                <option value="pending">Pending</option>
-                                <option value="in_transit">In Transit</option>
-                                <option value="delivered">Delivered</option>
-                                <option value="cancelled">Cancelled</option>
-                            </select>
-                            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
-                        </div>
-                        <div className="relative flex-1 sm:flex-initial">
-                            <select 
-                                value={filter}
-                                onChange={(e) => { setFilter(e.target.value); setPage(1); }}
-                                className="w-full appearance-none bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2.5 md:py-2 pr-10 text-[10px] font-bold text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 cursor-pointer"
-                            >
-                                <option value="all">All Time</option>
-                                <option value="today">Today</option>
-                                <option value="yesterday">Yesterday</option>
-                                <option value="last7days">Last 7 Days</option>
-                                <option value="last30days">Last 30 Days</option>
-                                <option value="thisMonth">This Month</option>
-                            </select>
-                            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
-                        </div>
-                        <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 md:py-2 bg-emerald-800 rounded-3xl text-[10px] font-bold text-white hover:bg-emerald-900 transition-all shadow-md shadow-emerald-900/10 whitespace-nowrap">
+                        <FilterDropdown
+                            selected={status}
+                            onSelect={(val) => { setStatus(val); setPage(1); }}
+                            label="All Status"
+                            options={[
+                                { value: 'all', label: 'All Status' },
+                                { value: 'preparing', label: 'Preparing' },
+                                { value: 'ready', label: 'Ready' },
+                                { value: 'out_for_delivery', label: 'Out for Delivery' },
+                                { value: 'delivered', label: 'Delivered' },
+                                { value: 'cancelled', label: 'Cancelled' },
+                            ]}
+                        />
+                        <FilterDropdown
+                            selected={filter}
+                            onSelect={(val) => { setFilter(val); setPage(1); }}
+                            label="All Time"
+                            options={[
+                                { value: 'all', label: 'All Time' },
+                                { value: 'today', label: 'Today' },
+                                { value: 'yesterday', label: 'Yesterday' },
+                                { value: 'last7days', label: 'Last 7 Days' },
+                                { value: 'last30days', label: 'Last 30 Days' },
+                                { value: 'thisMonth', label: 'This Month' },
+                            ]}
+                        />
+                        <button 
+                            onClick={handleExport}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 md:py-2 bg-emerald-800 rounded-3xl text-[10px] font-bold text-white hover:bg-emerald-900 transition-all shadow-md shadow-emerald-900/10 whitespace-nowrap"
+                        >
                             <Download size={14} />
                             Export CSV
                         </button>
@@ -229,9 +300,9 @@ const Orders = () => {
                                 orders.map((order, idx) => (
                                     <tr key={idx} className="hover:bg-zinc-50/50 transition-colors group">
                                         <td className="px-3 py-3.5 text-[10px] font-bold text-zinc-800 uppercase">{order.orderCode || order.code}</td>
-                                        <td className="px-3 py-3.5 text-[10px] font-bold text-zinc-900 truncate max-w-[120px]">{order.customerName}</td>
-                                        <td className="px-3 py-3.5 text-[10px] font-medium text-zinc-600 truncate max-w-[120px]">{order.vendorStoreName}</td>
-                                        <td className="px-3 py-3.5 text-[10px] font-medium text-zinc-600">{order.riderName || 'Not Assigned'}</td>
+                                        <td className="px-3 py-3.5 text-[10px] font-bold text-zinc-900 truncate max-w-[120px]">{formatName(order.customerName)}</td>
+                                        <td className="px-3 py-3.5 text-[10px] font-medium text-zinc-600 truncate max-w-[120px]">{formatName(order.vendorStoreName)}</td>
+                                        <td className="px-3 py-3.5 text-[10px] font-medium text-zinc-600">{order.riderName ? formatName(order.riderName) : 'Not Assigned'}</td>
                                         <td className="px-3 py-3.5">
                                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border whitespace-nowrap uppercase tracking-tighter ${
                                                 order.status === 'DELIVERED'
@@ -246,12 +317,10 @@ const Orders = () => {
                                             </span>
                                         </td>
                                         <td className="px-3 py-3.5 text-[10px] font-medium text-zinc-400 whitespace-nowrap">
-                                            {new Date(order.orderTime || order.placedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {formatDateTime(order.orderTime || order.placedAt || order.createdAt)}
                                         </td>
                                         <td className="px-3 py-3.5 text-[10px] font-bold text-zinc-900 whitespace-nowrap">
-                                            {order.status === 'DELIVERED' 
-                                                ? new Date(order.etaOrDelivered || order.deliveredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                                                : (order.etaOrDelivered || 'Calculating...')}
+                                            {formatDateTime(order.etaOrDelivered || order.deliveredAt)}
                                         </td>
                                         <td className="px-3 py-3.5">
                                             <div className="flex justify-center">
@@ -271,8 +340,10 @@ const Orders = () => {
                 </div>
                 {/* Pagination */}
                 {totalPages > 1 && (
-                    <div className="px-4 py-3 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between">
-                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Page {page} of {totalPages}</p>
+                    <div className="px-4 py-3 bg-zinc-50 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
+                            Showing {Math.min((page - 1) * 20 + 1, totalItems)} to {Math.min(page * 20, totalItems)} of {totalItems} items
+                        </p>
                         <div className="flex items-center gap-2">
                             <button 
                                 disabled={page === 1}

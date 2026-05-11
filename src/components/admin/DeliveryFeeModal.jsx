@@ -60,13 +60,13 @@ const DeliveryFeeModal = ({ isOpen, onClose }) => {
                         <h3 className="text-sm font-bold text-zinc-900">Example Calculation</h3>
                         <div className="space-y-2 text-xs font-medium text-zinc-500">
                             <div className="flex justify-between">
-                                <span>Total Distance: 5 km</span>
+                                <span>Total Distance: 5.00 km</span>
                             </div>
                             <div className="flex justify-between">
-                                <span>Base Fee (3 km): ₦{baseFee}</span>
+                                <span>Base Fee (3.00 km): ₦{baseFee}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span>Extra Distance (2 km × ₦{perKmFee}): ₦{2 * perKmFee}</span>
+                                <span>Extra Distance (2.00 km × ₦{perKmFee}): ₦{2 * perKmFee}</span>
                             </div>
                         </div>
                         <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 text-center">

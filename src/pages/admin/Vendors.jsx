@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
     Search,
     ChevronDown,
@@ -12,11 +12,12 @@ import {
     Loader2,
     AlertCircle,
     ChevronLeft,
-    ChevronRight,
+    ChevronRight
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
+import { formatName, formatDate, getInitials } from '../../utils/formatters';
 import VendorModal from '../../components/admin/VendorModal';
 import CreateVendorModal from '../../components/admin/CreateVendorModal';
 
@@ -85,9 +86,16 @@ const Vendors = () => {
         keepPreviousData: true
     });
 
-    const summary = vendorsData?.data?.summary || { totalVendors: 0, pendingVendors: 0, activeVendors: 0, suspendedVendors: 0 };
+    const lastSummaryRef = useRef({ totalVendors: 0, pendingVendors: 0, activeVendors: 0, suspendedVendors: 0 });
+
+    if (vendorsData?.data?.summary) {
+        lastSummaryRef.current = vendorsData.data.summary;
+    }
+
+    const summary = vendorsData?.data?.summary || lastSummaryRef.current;
     const vendors = vendorsData?.data?.data || [];
-    const totalPages = Math.ceil((vendorsData?.data?.total || 0) / (vendorsData?.data?.pageSize || 20)) || 1;
+    const totalItems = vendorsData?.data?.total || (Array.isArray(vendorsData?.data) ? vendorsData.data.length : 0);
+    const totalPages = vendorsData?.data?.totalPages || Math.ceil(totalItems / (vendorsData?.data?.pageSize || 20)) || 1;
 
     const openDetailModal = (vendor) => {
         setSelectedVendor(vendor);
@@ -265,16 +273,16 @@ const Vendors = () => {
                                         <td className="px-3 py-3.5">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-[8px] font-bold text-zinc-500 overflow-hidden shrink-0">
-                                                    {vendor.storeName?.[0] || 'V'}
+                                                    {getInitials(vendor.storeName)}
                                                 </div>
-                                                <span className="text-[12px] font-bold text-zinc-900 max-w-[80px]">{vendor.storeName}</span>
+                                                <span className="text-[12px] font-bold text-zinc-900 max-w-[80px]">{formatName(vendor.storeName)}</span>
                                             </div>
                                         </td>
-                                        <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 truncate max-w-[80px]">{vendor.ownerName}</td>
+                                        <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 truncate max-w-[80px]">{formatName(vendor.ownerName)}</td>
                                         <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 whitespace-nowrap">{vendor.phonenumber}</td>
                                         <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 truncate max-w-[100px] lowercase">{vendor.email}</td>
                                         <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 max-w-[120px] truncate">{vendor.address}</td>
-                                        <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 whitespace-nowrap">{new Date(vendor.createdAt).toLocaleDateString()}</td>
+                                        <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 whitespace-nowrap">{formatDate(vendor.createdAt)}</td>
                                         <td className="px-3 py-3.5 text-[12px] font-bold text-zinc-900">{vendor.totalOrders}</td>
                                         <td className="px-3 py-3.5">
                                             <span className={`px-2 py-0.5 rounded-full text-[12px] font-bold border capitalize ${vendor.status === 'ACTIVE'
@@ -305,8 +313,10 @@ const Vendors = () => {
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                    <div className="p-4 border-t border-zinc-100 flex items-center justify-between">
-                        <p className="text-[10px] text-zinc-500 font-medium">Page {page} of {totalPages}</p>
+                    <div className="p-4 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
+                            Showing {Math.min((page - 1) * 20 + 1, totalItems)} to {Math.min(page * 20, totalItems)} of {totalItems} items
+                        </p>
                         <div className="flex items-center gap-2">
                             <button
                                 disabled={page === 1}

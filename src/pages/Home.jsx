@@ -43,7 +43,7 @@ const Home = () => {
     useReveal();
 
     return (
-        <div className="min-h-screen bg-white p-1 font-sans pb-0">
+        <div className="min-h-screen bg-white p-1 font-sans pb-0 overflow-x-hidden">
             <div className="max-w-[1440px] mx-auto">
                 <Hero
                     title="Everything you need, delivered to your doorstep."
@@ -158,7 +158,7 @@ const Home = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* Step 1 */}
-                        <div className="reveal reveal-up bg-[#EEF2EF] p-8 space-y-6 relative group border border-zinc-100 hover:border-[#1C5E20]/20 transition-all rounded-tr-[5rem] md:rounded-tr-none md:rounded-bl-[5rem]">
+                        <div className="reveal reveal-up bg-[#EEF2EF] p-8 space-y-6 relative group border border-zinc-100 hover:border-[#1C5E20]/20 transition-all rounded-tr-[5rem] md:rounded-tr-none md:rounded-bl-[5rem] overflow-hidden">
                             <div className="w-10 h-10 rounded-full bg-[#1C5E20] text-white flex items-center justify-center font-bold text-lg">
                                 1
                             </div>
@@ -174,7 +174,7 @@ const Home = () => {
                         </div>
 
                         {/* Step 2 */}
-                        <div className="reveal reveal-up delay-100 bg-[#1C5E20] p-8 space-y-6 text-white relative group shadow-2xl shadow-[#1C5E20]/20">
+                        <div className="reveal reveal-up delay-100 bg-[#1C5E20] p-8 space-y-6 text-white relative group shadow-2xl shadow-[#1C5E20]/20 overflow-hidden">
                             <div className="w-10 h-10 rounded-full bg-white text-[#1C5E20] flex items-center justify-center font-bold text-lg">
                                 2
                             </div>
@@ -195,7 +195,7 @@ const Home = () => {
                         </div>
 
                         {/* Step 3 */}
-                        <div className="reveal reveal-up delay-200 bg-[#EEF2EF] p-8 space-y-6 relative group border border-zinc-100 hover:border-[#1C5E20]/20 transition-all rounded-bl-[5rem] md:rounded-tr-[5rem] md:rounded-bl-none">
+                        <div className="reveal reveal-up delay-200 bg-[#EEF2EF] p-8 space-y-6 relative group border border-zinc-100 hover:border-[#1C5E20]/20 transition-all rounded-bl-[5rem] md:rounded-tr-[5rem] md:rounded-bl-none overflow-hidden">
                             <div className="w-10 h-10 rounded-full bg-[#1C5E20] text-white flex items-center justify-center font-bold text-lg">
                                 3
                             </div>

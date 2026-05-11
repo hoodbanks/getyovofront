@@ -5,6 +5,13 @@ import api from '../../../api/api';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useRiderStore } from '../../../store/useRiderStore';
 
+const capitalize = (str) => {
+    if (!str) return '';
+    return str.split(/\s+/).map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+};
+
 const RiderHistory = () => {
     const token = useAuthStore((state) => state.accessToken);
     const activeOrdersCount = useRiderStore((state) => state.activeOrdersCount);
@@ -203,7 +210,7 @@ const RiderHistory = () => {
                                     : 'bg-[#F1F4F1] text-zinc-500 hover:bg-zinc-200'
                                     }`}
                             >
-                                {cat}
+                                {capitalize(cat)}
                             </button>
                         ))}
                     </div>
@@ -281,9 +288,9 @@ const RiderHistory = () => {
                                         <div key={order.orderId} className="bg-white rounded-xl p-6 border border-zinc-100 shadow-sm">
                                             <p className="text-[11px] font-bold text-zinc-400 mb-1">{order.orderId}</p>
                                             {order.shopType && (
-                                                <p className="text-[13px] font-semibold text-zinc-800">{order.shopType}</p>
+                                                <p className="text-[13px] font-semibold text-zinc-800">{capitalize(order.shopType)}</p>
                                             )}
-                                            <h3 className="text-[18px] font-bold text-[#1C5E20] leading-tight mt-1 mb-1">{order.vendorStoreName}</h3>
+                                            <h3 className="text-[18px] font-bold text-[#1C5E20] leading-tight mt-1 mb-1">{capitalize(order.vendorStoreName)}</h3>
                                             {order.itemsString && (
                                                 <p className="text-[13px] font-medium text-zinc-400 mb-2">
                                                     Items: <span className="text-zinc-600">{order.itemsString}</span>

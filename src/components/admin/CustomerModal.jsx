@@ -11,6 +11,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
+import { formatName, formatDate, getInitials } from '../../utils/formatters';
 
 const ConfirmationModal = ({ isOpen, onClose, type, customer, onConfirm }) => {
     const [reason, setReason] = useState('');
@@ -151,6 +152,61 @@ const ConfirmationModal = ({ isOpen, onClose, type, customer, onConfirm }) => {
     );
 };
 
+const FilterDropdown = ({ selected, onSelect, options = ['today', 'yesterday', 'last7days', 'last30days', 'thisMonth', 'lastMonth', 'all'] }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    const labels = {
+        'today': 'Today',
+        'yesterday': 'Yesterday',
+        'last7days': 'Last 7 Days',
+        'last30days': 'Last 30 Days',
+        'thisMonth': 'This Month',
+        'lastMonth': 'Last Month',
+        'all': 'All Time'
+    };
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div className="relative" ref={dropdownRef}>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 rounded-xl text-[10px] font-bold text-zinc-500 group hover:bg-zinc-200 transition-all outline-none"
+            >
+                {labels[selected] || selected}
+                <ChevronDown size={14} className={`text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isOpen && (
+                <div className="absolute right-0 mt-2 w-40 bg-white border border-zinc-100 rounded-2xl shadow-xl z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
+                    {options.map((opt) => (
+                        <button
+                            key={opt}
+                            onClick={() => {
+                                onSelect(opt);
+                                setIsOpen(false);
+                            }}
+                            className={`w-full text-left px-4 py-2 text-[10px] font-medium transition-colors ${selected === opt ? 'bg-zinc-50 text-emerald-600 font-bold' : 'text-zinc-600 hover:bg-zinc-50'
+                                }`}
+                        >
+                            {labels[opt] || opt}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const CustomerModal = ({ isOpen, onClose, customer }) => {
     const token = useAuthStore((state) => state.accessToken);
     const queryClient = useQueryClient();
@@ -241,10 +297,10 @@ const CustomerModal = ({ isOpen, onClose, customer }) => {
                         <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 font-bold text-sm">
-                                    {(customer?.firstname?.[0] || '') + (customer?.lastname?.[0] || '')}
+                                    {getInitials(`${customer?.firstname || ''} ${customer?.lastname || ''}`)}
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold text-zinc-900 leading-tight">{customer?.firstname} {customer?.lastname}</h2>
+                                    <h2 className="text-xl font-bold text-zinc-900 leading-tight">{formatName(`${customer?.firstname || ''} ${customer?.lastname || ''}`)}</h2>
                                     <h5 className="text-xs font-medium text-zinc-500 leading-tight">{customer?.id}</h5>
                                     <div className="mt-1">
                                         <span className={`px-3 py-0.5 rounded-full text-[10px] font-bold border capitalize ${!overview.isSuspended
@@ -299,19 +355,10 @@ const CustomerModal = ({ isOpen, onClose, customer }) => {
                                         </button>
                                     ))}
                                 </div>
-                                <div className="relative">
-                                    <select
-                                        value={filter}
-                                        onChange={(e) => setFilter(e.target.value)}
-                                        className="appearance-none flex items-center gap-2 px-4 py-2.5 bg-zinc-100 rounded-2xl text-[10px] font-bold text-zinc-500 uppercase tracking-wider outline-none"
-                                    >
-                                        <option value="last7days">Last 7 Days</option>
-                                        <option value="last30days">Last 30 Days</option>
-                                        <option value="thisMonth">This Month</option>
-                                        <option value="lastMonth">Last Month</option>
-                                        <option value="all">All Time</option>
-                                    </select>
-                                </div>
+                                <FilterDropdown 
+                                    selected={filter} 
+                                    onSelect={setFilter} 
+                                />
                             </div>
 
                             {activeTab === 'Overview' ? (
@@ -343,13 +390,13 @@ const CustomerModal = ({ isOpen, onClose, customer }) => {
                                             <div>
                                                 <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Joined</label>
                                                 <p className="text-sm font-bold text-zinc-800">
-                                                    {overview.joinedAt ? `${overview.joinedAt.date}/${overview.joinedAt.month}/${overview.joinedAt.year}` : 'N/A'}
+                                                    {formatDate(overview.joinedAt || customer?.createdAt)}
                                                 </p>
                                             </div>
                                             <div>
                                                 <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Last Seen</label>
                                                 <p className="text-sm font-bold text-zinc-800">
-                                                    {overview.lastSeenAt ? `${overview.lastSeenAt.date}/${overview.lastSeenAt.month}/${overview.lastSeenAt.year}` : 'N/A'}
+                                                    {formatDate(overview.lastSeenAt)}
                                                 </p>
                                             </div>
                                         </div>
@@ -389,7 +436,7 @@ const CustomerModal = ({ isOpen, onClose, customer }) => {
                                                                 </span>
                                                             </div>
                                                             <p className="text-[10px] font-medium text-zinc-400">
-                                                                {order.date ? `${order.date.date}/${order.date.month}/${order.date.year}` : ''} • {order.vendorStore}
+                                                                {formatDate(order.date)} • {formatName(order.vendorStore)}
                                                             </p>
                                                             <div className="mt-2 text-[10px] font-bold text-zinc-400 flex justify-between items-center gap-1.5 uppercase tracking-wider">
                                                                 Amount <span className="text-zinc-900">₦{(order.amount || 0).toLocaleString()}</span>

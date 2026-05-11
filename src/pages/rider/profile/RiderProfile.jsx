@@ -7,6 +7,13 @@ import { useAuthStore } from '../../../store/useAuthStore';
 import { useRiderStore } from '../../../store/useRiderStore';
 import api from '../../../api/api';
 
+const capitalize = (str) => {
+    if (!str) return '';
+    return str.split(/\s+/).map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+};
+
 const RiderProfile = () => {
     const navigate = useNavigate();
     const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -102,7 +109,7 @@ const RiderProfile = () => {
                         />
                     </div>
                     <div>
-                        <h2 className="text-[19px] font-bold text-[#103D2E] leading-tight text-capitalize">{userData.name}</h2>
+                        <h2 className="text-[19px] font-bold text-[#103D2E] leading-tight">{capitalize(userData.name)}</h2>
                         <p className="text-[14px] text-zinc-500 font-medium">{userData.email}</p>
                     </div>
                 </div>
@@ -111,7 +118,7 @@ const RiderProfile = () => {
                 <div className="bg-white rounded-[16px] p-6 border border-zinc-100 shadow-sm space-y-5 mb-5">
                     <div>
                         <label className="text-[15px] font-bold text-[#103D2E] block mb-1">Full Name</label>
-                        <p className="text-[14px] text-zinc-500 font-medium text-capitalize">{userData.name}</p>
+                        <p className="text-[14px] text-zinc-500 font-medium">{capitalize(userData.name)}</p>
                     </div>
 
                     <div>

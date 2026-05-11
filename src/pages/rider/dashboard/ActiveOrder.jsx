@@ -7,6 +7,13 @@ import api from '../../../api/api';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useRiderStore } from '../../../store/useRiderStore';
 
+const capitalize = (str) => {
+    if (!str) return '';
+    return str.split(/\s+/).map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+};
+
 const ActiveOrder = () => {
     const navigate = useNavigate();
     const { orderId } = useParams();
@@ -131,8 +138,8 @@ const ActiveOrder = () => {
                             {activeOrdersList.map(order => (
                                 <div key={order.orderId} className="bg-white rounded-xl p-6 border border-zinc-100 shadow-sm">
                                     <p className="text-[11px] font-bold text-zinc-400 mb-1">{order.orderId}</p>
-                                    <p className="text-[13px] font-semibold text-zinc-800">{order.shopType || 'Order'}</p>
-                                    <h3 className="text-[20px] font-bold text-[#1C5E20] leading-tight mt-1 mb-1">{order.vendorStoreName}</h3>
+                                    <p className="text-[13px] font-semibold text-zinc-800">{capitalize(order.shopType || 'Order')}</p>
+                                    <h3 className="text-[20px] font-bold text-[#1C5E20] leading-tight mt-1 mb-1">{capitalize(order.vendorStoreName)}</h3>
                                     <p className="text-[14px] text-zinc-500 font-medium mb-1">{order.storeAddress}</p>
                                     <p className="text-[13px] font-medium text-zinc-400 mb-6">
                                         Drop-off: <span className="text-zinc-600">{order.deliveryAddress}</span>
@@ -173,8 +180,8 @@ const ActiveOrder = () => {
                     <div className="bg-white rounded-[24px] p-6 shadow-sm border border-zinc-100 flex flex-col">
                         <div className="mb-6">
                             <p className="text-[11px] font-bold text-zinc-400 mb-1">{orderData.orderId}</p>
-                            <p className="text-[12px] font-bold text-zinc-900">{orderData.shopType || 'Order'}</p>
-                            <h2 className="text-[24px] font-bold text-[#103D2E] leading-tight mt-1 mb-1">{orderData.vendorStoreName}</h2>
+                            <p className="text-[12px] font-bold text-zinc-900">{capitalize(orderData.shopType || 'Order')}</p>
+                            <h2 className="text-[24px] font-bold text-[#103D2E] leading-tight mt-1 mb-1">{capitalize(orderData.vendorStoreName)}</h2>
                             <p className="text-[14px] text-zinc-500 font-medium mb-1">{orderData.storeAddress}</p>
                             <p className="text-[13px] font-medium text-zinc-400 mb-6">
                                 Items: <span className="text-[#1C5E20]">{orderData.itemsString}</span>
@@ -220,7 +227,7 @@ const ActiveOrder = () => {
                         <div className="space-y-4">
                             <div className="bg-[#F8F9F8] rounded-[16px] p-5">
                                 <label className="text-[11px] font-bold text-zinc-400 block mb-1">Customer</label>
-                                <p className="text-[15px] font-bold text-zinc-900 mb-0.5">{orderData.customerName}</p>
+                                <p className="text-[15px] font-bold text-zinc-900 mb-0.5">{capitalize(orderData.customerName)}</p>
                                 <p className="text-[14px] text-zinc-500 font-medium">{orderData.customerPhone}</p>
                             </div>
 
@@ -281,7 +288,7 @@ const ActiveOrder = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-8">
                     <div className="bg-white w-full max-w-sm rounded-xl p-6 text-center shadow-2xl relative animate-in fade-in zoom-in duration-300">
                         <h2 className="text-md font-bold text-[#1C5E20] mb-2">
-                            Enter Delivery Code — {orderData?.vendorStoreName}
+                            Enter Delivery Code — {capitalize(orderData?.vendorStoreName)}
                         </h2>
                         <p className="text-[13px] text-zinc-500 mb-4 font-medium px-4 leading-relaxed text-left">
                             Ask the customer for their code to confirm delivery.
