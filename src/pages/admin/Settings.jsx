@@ -191,13 +191,13 @@ const Settings = () => {
                         ))
                     )}
 
-                    {activeTab === 'Vendor Management' && (
-                        <div className="p-0">
+                    {activeTab === 'Shop Type Management' && (
+                        <div className="p-0 animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <VendorManagement />
                         </div>
                     )}
 
-                    {activeTab !== 'General App Controls' && activeTab !== 'Vendor Management' && (
+                    {activeTab !== 'General App Controls' && activeTab !== 'Shop Type Management' && (
                         <div className="py-20 flex flex-col items-center justify-center text-center space-y-3">
                             <div className="p-4 bg-zinc-50 rounded-full text-zinc-300">
                                 <SettingsIcon size={32} />

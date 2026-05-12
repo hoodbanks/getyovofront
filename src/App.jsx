@@ -11,6 +11,7 @@ import Transactions from './pages/admin/Transactions';
 import Payments from './pages/admin/Payments';
 import Settings from './pages/admin/Settings';
 import PushNotifications from './pages/admin/PushNotifications';
+import VendorManagement from './pages/admin/VendorManagement';
 
 import Login from './pages/admin/auth/Login';
 import ForgotPassword from './pages/admin/auth/ForgotPassword';
@@ -123,6 +124,7 @@ function App() {
           <Route path="payments" element={<Payments />} />
           <Route path="settings" element={<Settings />} />
           <Route path="push-notifications" element={<PushNotifications />} />
+          <Route path="vendor-management" element={<VendorManagement />} />
           <Route path="*" element={<div className="flex h-screen items-center justify-center text-2xl font-bold bg-zinc-50 text-zinc-900">404 - Not Found</div>} />
         </Route>
    
