@@ -10,9 +10,7 @@ import {
     Plus,
     Loader2,
     ChevronRight,
-    AlertCircle,
-    ShieldAlert,
-    CheckCircle2
+    ChevronLeft
 } from 'lucide-react';
 import { toast } from 'sonner';
 import RiderModal from '../../components/admin/RiderModal';
@@ -116,17 +114,7 @@ const Riders = () => {
         placeholderData: (previousData) => previousData
     });
 
-    const suspensionMutation = useMutation({
-        mutationFn: ({ id, suspend }) => api.patch(`/superadmin/riders/${id}/suspension`, { suspend }, token),
-        onSuccess: (res) => {
-            toast.success(res.message || 'Rider status updated');
-            queryClient.invalidateQueries({ queryKey: ['riders'] });
-            queryClient.invalidateQueries({ queryKey: ['adminDashboard'] });
-        },
-        onError: (err) => {
-            toast.error(err.response?.data?.message || 'Failed to update status');
-        }
-    });
+
 
     // Fetch Available Orders (Monitoring View)
     const { data: availableOrdersData, isLoading: isLoadingOrders } = useQuery({
@@ -342,34 +330,12 @@ const Riders = () => {
                                             </td>
                                             <td className="px-3 py-3.5">
                                                 <div className="flex justify-center gap-2">
-                                                    <button
+                                                    <button 
                                                         onClick={() => openDetailModal(rider)}
-                                                        className="p-1.5 bg-indigo-50 text-indigo-500 rounded-lg hover:bg-indigo-500 hover:text-white transition-all shadow-sm"
+                                                        className="p-2 bg-indigo-50 text-indigo-500 rounded-lg hover:bg-indigo-500 hover:text-white transition-all shadow-sm"
                                                         title="View Details"
                                                     >
-                                                        <Eye size={12} />
-                                                    </button>
-                                                    <button 
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            const isSuspended = !!(rider.isSuspended ?? (rider.status?.toUpperCase() === 'SUSPENDED'));
-                                                            const rId = rider.id || rider._id || rider.riderId || rider.uid;
-                                                            
-                                                            if (!isSuspended && !window.confirm('Are you sure you want to suspend this rider?')) return;
-                                                            
-                                                            suspensionMutation.mutate({ id: rId, suspend: !isSuspended });
-                                                        }}
-                                                        disabled={suspensionMutation.isPending}
-                                                        className={`p-1.5 rounded-lg transition-all shadow-sm ${
-                                                            (rider.isSuspended ?? (rider.status?.toUpperCase() === 'SUSPENDED')) 
-                                                                ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white' 
-                                                                : 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white'
-                                                        }`}
-                                                        title={(rider.isSuspended ?? (rider.status?.toUpperCase() === 'SUSPENDED')) ? 'Activate Rider' : 'Suspend Rider'}
-                                                    >
-                                                        {suspensionMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : (
-                                                            (rider.isSuspended ?? (rider.status?.toUpperCase() === 'SUSPENDED')) ? <CheckCircle2 size={12} /> : <ShieldAlert size={12} />
-                                                        )}
+                                                        <Eye size={14} />
                                                     </button>
                                                 </div>
                                             </td>

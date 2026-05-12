@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Menu, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import logo from '../../assets/images/GetYovo-Logo2.png';
+import logo from '../../assets/images/GetYovo-Logo-Sized-yellow+white.png';
 import phonesImg from '../../assets/images/Phones.png';
 import mapBg from '../../assets/images/map-background.png';
 
@@ -34,7 +34,7 @@ const Hero = ({
             <nav className="relative z-50 flex justify-between items-center">
                 {showLogo ? (
                     <Link to="/">
-                        <img src={logo} alt="GetYovo" className="h-14 md:h-20 w-auto" />
+                        <img src={logo} alt="GetYovo" className="h-10 md:h-20 w-auto" />
                     </Link>
                 ) : <div />}
 
@@ -113,7 +113,7 @@ const Hero = ({
             )}
 
             {/* Hero Content */}
-            <div className={`relative z-10 md:mt-20 text-center max-w-4xl mx-auto space-y-3 ${!showPhones ? 'pb-10' : ''}`}>
+            <div className={`relative z-10 mt-5 md:mt-20 text-center max-w-4xl mx-auto space-y-3 ${!showPhones ? 'pb-10' : ''}`}>
                 <h1 className="text-xl md:text-4xl lg:text-5xl font-semibold lg:font-bold text-white leading-[1.3] tracking-tight px-7 md:px-0">
                     {title}
                 </h1>

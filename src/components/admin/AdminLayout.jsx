@@ -33,6 +33,10 @@ const AdminLayout = () => {
             title: 'Orders',
             description: 'Monitor and manage all customer orders.'
         },
+        '/admin/transactions': {
+            title: 'Transactions',
+            description: 'Monitor and manage all processed financial activities.'
+        },
         '/admin/payments': {
             title: 'Payments',
             description: 'Track revenue, commissions, and payouts.'

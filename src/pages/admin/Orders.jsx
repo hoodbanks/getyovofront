@@ -126,7 +126,7 @@ const Orders = () => {
         ? allOrders
         : allOrders.filter(o => o.status?.toUpperCase() === status.toUpperCase().replace(/ /g, '_'));
 
-    const totalItems = orders.length || dashboardData?.data?.total || summary.totalOrders || 0;
+    const totalItems = dashboardData?.data?.total || summary.totalOrders || orders.length || 0;
     const totalPages = dashboardData?.data?.totalPages || (totalItems ? Math.ceil(totalItems / 20) : 1);
 
     const handleExport = () => {

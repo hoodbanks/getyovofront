@@ -10,16 +10,23 @@ import {
     MessageSquare,
     Search,
     Lock,
-    Layers
+    Layers,
+    Timer,
+    Loader2
 } from 'lucide-react';
 import VendorManagement from './VendorManagement';
 import OperatingHoursModal from '../../components/admin/OperatingHoursModal';
 import MaintenanceModeModal from '../../components/admin/MaintenanceModeModal';
 import DeliveryFeeModal from '../../components/admin/DeliveryFeeModal';
+import OrderTimingModal from '../../components/admin/OrderTimingModal';
 import BusinessProfileModal from '../../components/admin/BusinessProfileModal';
 import ChangePasswordModal from '../../components/admin/ChangePasswordModal';
+import { useQuery } from '@tanstack/react-query';
+import api from '../../api/api';
+import { useAuthStore } from '../../store/useAuthStore';
 
 const Settings = () => {
+    const token = useAuthStore((state) => state.accessToken);
     const [activeTab, setActiveTab] = useState('General App Controls');
     const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
 
@@ -27,17 +34,46 @@ const Settings = () => {
     const [isHoursModalOpen, setIsHoursModalOpen] = useState(false);
     const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
     const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
+    const [isTimingModalOpen, setIsTimingModalOpen] = useState(false);
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+
+    // Fetch All Settings
+    const { data: settingsData, isLoading, refetch } = useQuery({
+        queryKey: ['admin-settings'],
+        queryFn: async () => {
+            return await api.get('/superadmin/settings', token);
+        }
+    });
+
+    const settings = settingsData?.data || [];
+    const settingsMap = settings.reduce((acc, curr) => {
+        acc[curr.key] = curr.value;
+        return acc;
+    }, {});
 
     const tabs = [
         { id: 'General App Controls', icon: SettingsIcon },
         { id: 'User App Settings', icon: Users },
         { id: 'Vendor App Settings', icon: Store },
-        { id: 'Vendor Management', icon: Layers },
+        { id: 'Shop Type Management', icon: Layers },
     ];
 
     const generalSettings = [
+        {
+            id: 'delivery-fee',
+            title: 'Delivery Fee Calculation',
+            description: 'Set how delivery charges are calculated based on distance.',
+            icon: Truck,
+            action: () => setIsFeeModalOpen(true)
+        },
+        {
+            id: 'order-timing',
+            title: 'Order Prep & Timing',
+            description: 'Set default prep time and travel rates.',
+            icon: Timer,
+            action: () => setIsTimingModalOpen(true)
+        },
         {
             id: 'operating-hours',
             title: 'Operating Hours',
@@ -55,13 +91,6 @@ const Settings = () => {
             toggleValue: maintenanceEnabled,
             secondaryAction: () => setIsMaintenanceModalOpen(true),
             secondaryActionLabel: 'Edit message'
-        },
-        {
-            id: 'delivery-fee',
-            title: 'Delivery Fee Calculation',
-            description: 'Set how delivery charges are calculated based on distance.',
-            icon: Truck,
-            action: () => setIsFeeModalOpen(true)
         },
         {
             id: 'business-profile',
@@ -102,58 +131,65 @@ const Settings = () => {
             {/* List of Settings */}
             <div className="bg-white rounded-[2rem] border border-zinc-100 overflow-hidden shadow-sm">
                 <div className="p-8 space-y-4">
-                    {activeTab === 'General App Controls' && generalSettings.map((item) => (
-                        <div
-                            key={item.id}
-                            className="group flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 md:p-6 bg-zinc-50/50 hover:bg-zinc-100/50 rounded-2xl border border-zinc-100 transition-all cursor-pointer gap-4"
-                            onClick={item.action}
-                        >
-                            <div className="flex items-center gap-5">
-                                <div className="p-3 bg-white rounded-xl text-zinc-400 group-hover:text-zinc-600 transition-colors shadow-sm">
-                                    <item.icon size={20} />
+                    {isLoading ? (
+                        <div className="py-20 flex flex-col items-center justify-center">
+                            <Loader2 className="animate-spin text-emerald-600 mb-4" size={32} />
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Loading Settings...</p>
+                        </div>
+                    ) : (
+                        activeTab === 'General App Controls' && generalSettings.map((item) => (
+                            <div
+                                key={item.id}
+                                className="group flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 md:p-6 bg-zinc-50/50 hover:bg-zinc-100/50 rounded-2xl border border-zinc-100 transition-all cursor-pointer gap-4"
+                                onClick={item.action}
+                            >
+                                <div className="flex items-center gap-5">
+                                    <div className="p-3 bg-white rounded-xl text-zinc-400 group-hover:text-zinc-600 transition-colors shadow-sm">
+                                        <item.icon size={20} />
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        <h3 className="text-sm font-bold text-zinc-900 leading-tight">{item.title}</h3>
+                                        <p className="text-[10px] text-zinc-500 font-medium">{item.description}</p>
+                                    </div>
                                 </div>
-                                <div className="space-y-0.5">
-                                    <h3 className="text-sm font-bold text-zinc-900 leading-tight">{item.title}</h3>
-                                    <p className="text-[10px] text-zinc-500 font-medium">{item.description}</p>
-                                </div>
-                            </div>
 
-                            <div className="flex items-center justify-between w-full sm:w-auto gap-4">
-                                {item.hasToggle && (
-                                    <div className="flex items-center gap-6">
-                                        {/* Toggle Switch */}
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                item.onToggle();
-                                            }}
-                                            className={`relative w-11 h-6 rounded-full transition-colors duration-200 outline-none ${item.toggleValue ? 'bg-emerald-500' : 'bg-zinc-300'
-                                                }`}
-                                        >
-                                            <div className={`absolute left-1 top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${item.toggleValue ? 'translate-x-5' : 'translate-x-0'
-                                                }`} />
-                                        </button>
-
-                                        {item.secondaryAction && (
+                                <div className="flex items-center justify-between w-full sm:w-auto gap-4">
+                                    {item.hasToggle && (
+                                        <div className="flex items-center gap-6">
+                                            {/* Toggle Switch */}
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    item.secondaryAction();
+                                                    item.onToggle();
                                                 }}
-                                                className="text-[11px] font-bold text-zinc-800 hover:text-zinc-900 transition-colors"
+                                                className={`relative w-11 h-6 rounded-full transition-colors duration-200 outline-none ${item.toggleValue ? 'bg-emerald-500' : 'bg-zinc-300'
+                                                    }`}
                                             >
-                                                {item.secondaryActionLabel}
+                                                <div className={`absolute left-1 top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${item.toggleValue ? 'translate-x-5' : 'translate-x-0'
+                                                    }`} />
                                             </button>
-                                        )}
-                                    </div>
-                                )}
-                                <ChevronRight
-                                    size={18}
-                                    className="text-zinc-300 group-hover:text-zinc-400 group-hover:translate-x-1 transition-all"
-                                />
+
+                                            {item.secondaryAction && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        item.secondaryAction();
+                                                    }}
+                                                    className="text-[11px] font-bold text-zinc-800 hover:text-zinc-900 transition-colors"
+                                                >
+                                                    {item.secondaryActionLabel}
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                    <ChevronRight
+                                        size={18}
+                                        className="text-zinc-300 group-hover:text-zinc-400 group-hover:translate-x-1 transition-all"
+                                    />
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        ))
+                    )}
 
                     {activeTab === 'Vendor Management' && (
                         <div className="p-0">
@@ -187,6 +223,12 @@ const Settings = () => {
             <DeliveryFeeModal
                 isOpen={isFeeModalOpen}
                 onClose={() => setIsFeeModalOpen(false)}
+                settingsMap={settingsMap}
+            />
+            <OrderTimingModal
+                isOpen={isTimingModalOpen}
+                onClose={() => setIsTimingModalOpen(false)}
+                settingsMap={settingsMap}
             />
             <BusinessProfileModal
                 isOpen={isProfileModalOpen}

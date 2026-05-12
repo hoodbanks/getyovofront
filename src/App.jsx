@@ -7,6 +7,7 @@ import Customers from './pages/admin/Customers';
 import Vendors from './pages/admin/Vendors';
 import Riders from './pages/admin/Riders';
 import Orders from './pages/admin/Orders';
+import Transactions from './pages/admin/Transactions';
 import Payments from './pages/admin/Payments';
 import Settings from './pages/admin/Settings';
 import PushNotifications from './pages/admin/PushNotifications';
@@ -118,6 +119,7 @@ function App() {
           <Route path="vendors" element={<Vendors />} />
           <Route path="riders" element={<Riders />} />
           <Route path="orders" element={<Orders />} />
+          <Route path="transactions" element={<Transactions />} />
           <Route path="payments" element={<Payments />} />
           <Route path="settings" element={<Settings />} />
           <Route path="push-notifications" element={<PushNotifications />} />

@@ -219,7 +219,8 @@ const FilterDropdown = ({ selected, onSelect, options = ['today', 'last7days', '
     );
 };
 
-const RiderModal = ({ isOpen, onClose, rider }) => {
+const RiderModal = ({ isOpen, onClose, rider, variant = 'full' }) => {
+    const isDashboard = variant === 'dashboard';
     const token = useAuthStore((state) => state.accessToken);
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState('overview');
@@ -333,33 +334,34 @@ const RiderModal = ({ isOpen, onClose, rider }) => {
                     </button>
                 </div>
 
-                {/* Tabs */}
-                <div className="px-4 py-2 border-b border-zinc-100 flex items-center justify-between shrink-0">
-                    <div className="flex gap-1 bg-zinc-100 p-0.5 rounded-3xl">
-                        <button
-                            onClick={() => setActiveTab('overview')}
-                            className={`px-6 py-2 rounded-3xl text-[11px] font-bold transition-all ${activeTab === 'overview'
-                                    ? 'bg-emerald-800 text-white shadow-md'
-                                    : 'text-zinc-500 hover:text-zinc-700'
-                                }`}
-                        >
-                            Overview
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('deliveries')}
-                            className={`px-6 py-2 rounded-3xl text-[11px] font-bold transition-all ${activeTab === 'deliveries'
-                                    ? 'bg-emerald-800 text-white shadow-md'
-                                    : 'text-zinc-500 hover:text-zinc-700'
-                                }`}
-                        >
-                            Deliveries
-                        </button>
+                {!isDashboard && (
+                    <div className="px-4 py-2 border-b border-zinc-100 flex items-center justify-between shrink-0">
+                        <div className="flex gap-1 bg-zinc-100 p-0.5 rounded-3xl">
+                            <button
+                                onClick={() => setActiveTab('overview')}
+                                className={`px-6 py-2 rounded-3xl text-[11px] font-bold transition-all ${activeTab === 'overview'
+                                        ? 'bg-emerald-800 text-white shadow-md'
+                                        : 'text-zinc-500 hover:text-zinc-700'
+                                    }`}
+                            >
+                                Overview
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('deliveries')}
+                                className={`px-6 py-2 rounded-3xl text-[11px] font-bold transition-all ${activeTab === 'deliveries'
+                                        ? 'bg-emerald-800 text-white shadow-md'
+                                        : 'text-zinc-500 hover:text-zinc-700'
+                                    }`}
+                            >
+                                Deliveries
+                            </button>
+                        </div>
+                        <FilterDropdown 
+                            selected={filter} 
+                            onSelect={setFilter} 
+                        />
                     </div>
-                    <FilterDropdown 
-                        selected={filter} 
-                        onSelect={setFilter} 
-                    />
-                </div>
+                )}
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-6">
@@ -494,35 +496,37 @@ const RiderModal = ({ isOpen, onClose, rider }) => {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="p-5 border-t border-zinc-100 bg-zinc-50/50 shrink-0">
-                    <div className="grid grid-cols-2 gap-3">
-                        <button 
-                            onClick={() => handleActionClick('delete')}
-                            disabled={deleteMutation.isPending}
-                            className="px-6 py-3 bg-white border border-rose-600 text-rose-600 rounded-2xl text-[11px] font-bold hover:bg-rose-50 transition-all flex items-center justify-center gap-2"
-                        >
-                            {deleteMutation.isPending ? <Loader2 className="animate-spin" size={14} /> : <><Trash2 size={14} /> Delete account</>}
-                        </button>
-                        <button 
-                            onClick={() => handleActionClick(isSuspended ? 'activate' : 'suspend')}
-                            disabled={suspensionMutation.isPending}
-                            className={`px-6 py-3 rounded-2xl text-[11px] font-bold transition-all shadow-md flex items-center justify-center gap-2 ${
-                                isSuspended 
-                                    ? 'bg-emerald-800 text-white hover:bg-emerald-900 shadow-emerald-900/10' 
-                                    : 'bg-rose-600 text-white hover:bg-rose-700 shadow-rose-900/10'
-                            }`}
-                        >
-                            {suspensionMutation.isPending ? (
-                                <Loader2 className="animate-spin" size={14} />
-                            ) : (
-                                <>
-                                    {isSuspended ? <ShieldAlert size={14} /> : <AlertTriangle size={14} />}
-                                    {isSuspended ? 'Activate' : 'Suspend'}
-                                </>
-                            )}
-                        </button>
+                {!isDashboard && (
+                    <div className="p-5 border-t border-zinc-100 bg-zinc-50/50 shrink-0">
+                        <div className="grid grid-cols-2 gap-3">
+                            <button 
+                                onClick={() => handleActionClick('delete')}
+                                disabled={deleteMutation.isPending}
+                                className="px-6 py-3 bg-white border border-rose-600 text-rose-600 rounded-2xl text-[11px] font-bold hover:bg-rose-50 transition-all flex items-center justify-center gap-2"
+                            >
+                                {deleteMutation.isPending ? <Loader2 className="animate-spin" size={14} /> : <><Trash2 size={14} /> Delete account</>}
+                            </button>
+                            <button 
+                                onClick={() => handleActionClick(isSuspended ? 'activate' : 'suspend')}
+                                disabled={suspensionMutation.isPending}
+                                className={`px-6 py-3 rounded-2xl text-[11px] font-bold transition-all shadow-md flex items-center justify-center gap-2 ${
+                                    isSuspended 
+                                        ? 'bg-emerald-800 text-white hover:bg-emerald-900 shadow-emerald-900/10' 
+                                        : 'bg-rose-600 text-white hover:bg-rose-700 shadow-rose-900/10'
+                                }`}
+                            >
+                                {suspensionMutation.isPending ? (
+                                    <Loader2 className="animate-spin" size={14} />
+                                ) : (
+                                    <>
+                                        {isSuspended ? <ShieldAlert size={14} /> : <AlertTriangle size={14} />}
+                                        {isSuspended ? 'Activate' : 'Suspend'}
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             <ConfirmationModal

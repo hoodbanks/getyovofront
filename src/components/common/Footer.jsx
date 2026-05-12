@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Facebook, Instagram, Twitter, Music2 } from 'lucide-react';
-import logo from '../../assets/images/GetYovo-Logo1.png';
+import logo from '../../assets/images/GetYovo-Logo-Sized-yellow+white.png';
 
 const Footer = () => {
     return (
@@ -36,6 +36,22 @@ const Footer = () => {
                         <p className="text-white text-sm md:text-base leading-relaxed max-w-xs">
                             Getyovo powers local commerce by connecting pharmacies, grocers, and restaurants with riders and customers. Your neighborhood essentials, delivered in one app.
                         </p>
+                        
+                    </div>
+
+                    {/* Quick Links Section */}
+                    <div className="lg:pl-20">
+                        <h3 className="text-xl font-bold mb-6">Quick Links</h3>
+                        <ul className="space-y-4 text-white">
+                            <li><Link title="About us" to="/about" className="hover:text-white transition-colors">Register as a vendor</Link></li>
+                            <li><Link title="About us" to="/about" className="hover:text-white transition-colors">About us</Link></li>
+                            <li><Link title="Terms & Privacy" to="/terms-and-conditions" className="hover:text-white transition-colors">Terms & Privacy</Link></li>
+                            <li><Link title="Privacy Policy" to="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
+                        </ul>
+                    </div>
+
+                    {/* Quick Links Section */}
+                    <div className="lg:pl-20">
                         <div className="space-y-2 pt-4">
                             <p className="text-sm font-medium">+234 70 000 0000</p>
                             <p className="text-sm font-medium">info@getyovo.com</p>
@@ -51,17 +67,6 @@ const Footer = () => {
                             <a href="#" className="hover:text-white transition-colors"><Twitter size={24} /></a>
                             <a href="#" className="hover:text-white transition-colors"><Music2 size={24} /></a>
                         </div>
-                    </div>
-
-                    {/* Quick Links Section */}
-                    <div className="lg:pl-20">
-                        <h3 className="text-xl font-bold mb-6">Quick Links</h3>
-                        <ul className="space-y-4 text-white">
-                            <li><Link title="About us" to="/about" className="hover:text-white transition-colors">Register as a vendor</Link></li>
-                            <li><Link title="About us" to="/about" className="hover:text-white transition-colors">About us</Link></li>
-                            <li><Link title="Terms & Privacy" to="/terms-and-conditions" className="hover:text-white transition-colors">Terms & Privacy</Link></li>
-                            <li><Link title="Privacy Policy" to="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
-                        </ul>
                     </div>
                 </div>
 

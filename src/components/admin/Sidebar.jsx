@@ -13,6 +13,7 @@ import {
     PanelLeftOpen,
     Bell,
     Layers,
+    History,
     X
 } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
@@ -20,7 +21,8 @@ import { useStore } from '../../store/useStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useMutation } from '@tanstack/react-query';
 import api from '../../api/api';
-import logo from '../../assets/images/GetYovo-Logo2.png';
+import logoExpanded from '../../assets/images/GetYovo-Logo1.png';
+import logoCollapsed from '../../assets/images/GetYovo-Logo2.png';
 import LogoutModal from './LogoutModal';
 
 const SidebarItem = ({ icon: Icon, label, to, collapsed, end }) => {
@@ -120,9 +122,9 @@ const Sidebar = () => {
                 <div className={`mb-2 flex items-center transition-all duration-300 ${isSidebarCollapsed ? 'p-4 justify-center' : 'p-6 justify-between'}`}>
                     <div className="flex items-center gap-3">
                         <img
-                            src={logo}
+                            src={isSidebarCollapsed ? logoCollapsed : logoExpanded}
                             alt="GetYovo Logo"
-                            className={`object-contain transition-all duration-300 ${isSidebarCollapsed ? 'w-10 h-10' : 'w-16 h-16'}`}
+                            className={`object-contain transition-all duration-300 ${isSidebarCollapsed ? 'w-10 h-10' : 'w-24 h-12'}`}
                         />
                     </div>
                     
@@ -201,6 +203,7 @@ const Sidebar = () => {
 
                     <SidebarGroup title="Orders & Payments" collapsed={isSidebarCollapsed}>
                         <SidebarItem icon={ShoppingBag} label="Orders" to="/admin/orders" collapsed={isSidebarCollapsed} />
+                        <SidebarItem icon={History} label="Transactions" to="/admin/transactions" collapsed={isSidebarCollapsed} />
                         <SidebarItem icon={CreditCard} label="Payments" to="/admin/payments" collapsed={isSidebarCollapsed} />
                         <SidebarItem icon={Bell} label="Push Notification" to="/admin/push-notifications" collapsed={isSidebarCollapsed} />
                         <SidebarItem icon={Settings} label="Settings" to="/admin/settings" collapsed={isSidebarCollapsed} />

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Bell } from 'lucide-react';
-import logo from '../../assets/images/GetYovo-Logo2.png';
+import logo from '../../assets/images/GetYovo-Logo-yellow.png';
 import { useRiderStore } from '../../store/useRiderStore';
 import { useAuthStore } from '../../store/useAuthStore';
 

@@ -9,13 +9,12 @@ import {
     DollarSign,
     Search,
     ChevronRight,
+    ChevronLeft,
     Briefcase,
     Wallet,
     Eye,
     Loader2,
     X,
-    ShieldAlert,
-    CheckCircle2,
     AlertTriangle
 } from 'lucide-react';
 import {
@@ -101,6 +100,12 @@ const Dashboard = () => {
     const [selectedCustomer, setSelectedCustomer] = React.useState(null);
     const [isCreateVendorOpen, setIsCreateVendorOpen] = React.useState(false);
     const [isCreateRiderOpen, setIsCreateRiderOpen] = React.useState(false);
+    
+    // Pagination State for Dashboard Tables
+    const [orderPage, setOrderPage] = React.useState(1);
+    const [vendorPage, setVendorPage] = React.useState(1);
+    const [riderPage, setRiderPage] = React.useState(1);
+    const ITEMS_PER_PAGE = 5;
 
     const { data: adminData, isLoading, error } = useQuery({
         queryKey: ['adminDashboard'],
@@ -150,18 +155,7 @@ const Dashboard = () => {
     });
 
     const queryClient = useQueryClient();
-    const suspensionMutation = useMutation({
-        mutationFn: ({ id, suspend }) => api.patch(`/superadmin/riders/${id}/suspension`, { suspend }, accessToken),
-        onSuccess: (res) => {
-            toast.success(res.message || 'Rider status updated');
-            queryClient.invalidateQueries({ queryKey: ['adminDashboard'] });
-            queryClient.invalidateQueries({ queryKey: ['riders'] });
-            queryClient.invalidateQueries({ queryKey: ['rider-overview'] });
-        },
-        onError: (err) => {
-            toast.error(err.response?.data?.message || 'Failed to update status');
-        }
-    });
+
 
     // Sync modal states with fresh dashboard data when it updates
     React.useEffect(() => {
@@ -313,7 +307,7 @@ const Dashboard = () => {
                             <p className="text-xs text-zinc-500">All order activity in one view.</p>
                         </div>
                         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-                            <div className="relative flex-1 sm:flex-initial">
+                            {/* <div className="relative flex-1 sm:flex-initial">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" size={16} />
                                 <input
                                     type="text"
@@ -323,7 +317,7 @@ const Dashboard = () => {
                             </div>
                             <button className="flex-1 sm:flex-none px-4 py-3 bg-green-900 text-white text-[10px] sm:text-xs font-medium rounded-3xl hover:bg-zinc-800 transition-colors whitespace-nowrap">
                                 Open Orders
-                            </button>
+                            </button> */}
                         </div>
                     </div>
                     <div className="overflow-x-auto">
@@ -355,7 +349,7 @@ const Dashboard = () => {
                                         <td colSpan="8" className="py-20 text-center text-xs text-zinc-400 font-medium italic">No recent orders found.</td>
                                     </tr>
                                 ) : (
-                                    dashboard.orders.data.slice(0, 5).map((row, i) => (
+                                    dashboard.orders.data.slice((orderPage - 1) * ITEMS_PER_PAGE, orderPage * ITEMS_PER_PAGE).map((row, i) => (
                                         <tr key={i} className="hover:bg-zinc-50/50 transition-colors group">
                                             <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{row.code}</td>
                                             <td className="px-6 py-4 text-[11px] text-zinc-500">{formatDate(row.createdAt)}</td>
@@ -403,6 +397,30 @@ const Dashboard = () => {
                             </tbody>
                         </table>
                     </div>
+                    {/* Pagination for Orders */}
+                    {dashboard.orders.data.length > ITEMS_PER_PAGE && (
+                        <div className="px-6 py-4 bg-zinc-50/50 border-t border-zinc-100 flex items-center justify-between gap-4">
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                                Page {orderPage} of {Math.ceil(dashboard.orders.data.length / ITEMS_PER_PAGE)}
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    disabled={orderPage === 1}
+                                    onClick={() => setOrderPage(p => Math.max(1, p - 1))}
+                                    className="p-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors"
+                                >
+                                    <ChevronLeft size={16} />
+                                </button>
+                                <button 
+                                    disabled={orderPage * ITEMS_PER_PAGE >= dashboard.orders.data.length}
+                                    onClick={() => setOrderPage(p => p + 1)}
+                                    className="p-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors"
+                                >
+                                    <ChevronRight size={16} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Revenue Chart */}
@@ -535,7 +553,7 @@ const Dashboard = () => {
                                         <td colSpan="5" className="py-10 text-center text-xs text-zinc-400">No data available</td>
                                     </tr>
                                 ) : (
-                                    dashboard.topVendors.data.slice(0, 5).map((row, i) => (
+                                    dashboard.topVendors.data.slice((vendorPage - 1) * ITEMS_PER_PAGE, vendorPage * ITEMS_PER_PAGE).map((row, i) => (
                                         <tr key={i} className="hover:bg-zinc-50/50 transition-colors">
                                             <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{formatName(row.name)}</td>
                                             <td className="px-6 py-4 text-[11px] text-zinc-500 text-center font-medium">{row.totalOrders}</td>
@@ -557,6 +575,30 @@ const Dashboard = () => {
                             </tbody>
                         </table>
                     </div>
+                    {/* Pagination for Vendors */}
+                    {dashboard.topVendors.data.length > ITEMS_PER_PAGE && (
+                        <div className="px-6 py-4 bg-zinc-50/50 border-t border-zinc-100 flex items-center justify-between gap-4">
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                                Page {vendorPage} of {Math.ceil(dashboard.topVendors.data.length / ITEMS_PER_PAGE)}
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    disabled={vendorPage === 1}
+                                    onClick={() => setVendorPage(p => Math.max(1, p - 1))}
+                                    className="p-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors"
+                                >
+                                    <ChevronLeft size={16} />
+                                </button>
+                                <button 
+                                    disabled={vendorPage * ITEMS_PER_PAGE >= dashboard.topVendors.data.length}
+                                    onClick={() => setVendorPage(p => p + 1)}
+                                    className="p-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors"
+                                >
+                                    <ChevronRight size={16} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Riders Activity Panel */}
@@ -627,7 +669,7 @@ const Dashboard = () => {
                                         <td colSpan="5" className="py-10 text-center text-xs text-zinc-400">No data available</td>
                                     </tr>
                                 ) : (
-                                    dashboard.topRiders.data.slice(0, 5).map((row, i) => (
+                                    dashboard.topRiders.data.slice((riderPage - 1) * ITEMS_PER_PAGE, riderPage * ITEMS_PER_PAGE).map((row, i) => (
                                         <tr key={i} className="hover:bg-zinc-50/50 transition-colors">
                                             <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{formatName(row.name)}</td>
                                             <td className="px-6 py-4 text-[11px] text-zinc-500 text-center font-medium">{row.deliveries}</td>
@@ -648,28 +690,6 @@ const Dashboard = () => {
                                                     >
                                                         <Eye size={14} />
                                                     </button>
-                                                    <button 
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            const isSuspended = !!(row.isSuspended ?? (row.status?.toUpperCase() === 'SUSPENDED'));
-                                                            const rId = row.id || row._id || row.riderId || row.uid;
-                                                            
-                                                            if (!isSuspended && !window.confirm('Are you sure you want to suspend this rider?')) return;
-                                                            
-                                                            suspensionMutation.mutate({ id: rId, suspend: !isSuspended });
-                                                        }}
-                                                        disabled={suspensionMutation.isPending}
-                                                        className={`p-2 rounded-lg transition-all shadow-sm ${
-                                                            (row.isSuspended ?? (row.status?.toUpperCase() === 'SUSPENDED'))
-                                                                ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white'
-                                                                : 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white'
-                                                        }`}
-                                                        title={(row.isSuspended ?? (row.status?.toUpperCase() === 'SUSPENDED')) ? 'Activate Rider' : 'Suspend Rider'}
-                                                    >
-                                                        {suspensionMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : (
-                                                            (row.isSuspended ?? (row.status?.toUpperCase() === 'SUSPENDED')) ? <CheckCircle2 size={14} /> : <ShieldAlert size={14} />
-                                                        )}
-                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -678,6 +698,30 @@ const Dashboard = () => {
                             </tbody>
                         </table>
                     </div>
+                    {/* Pagination for Riders */}
+                    {dashboard.topRiders.data.length > ITEMS_PER_PAGE && (
+                        <div className="px-6 py-4 bg-zinc-50/50 border-t border-zinc-100 flex items-center justify-between gap-4">
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                                Page {riderPage} of {Math.ceil(dashboard.topRiders.data.length / ITEMS_PER_PAGE)}
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    disabled={riderPage === 1}
+                                    onClick={() => setRiderPage(p => Math.max(1, p - 1))}
+                                    className="p-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors"
+                                >
+                                    <ChevronLeft size={16} />
+                                </button>
+                                <button 
+                                    disabled={riderPage * ITEMS_PER_PAGE >= dashboard.topRiders.data.length}
+                                    onClick={() => setRiderPage(p => p + 1)}
+                                    className="p-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors"
+                                >
+                                    <ChevronRight size={16} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
 
@@ -726,6 +770,7 @@ const Dashboard = () => {
                 isOpen={!!selectedRider} 
                 onClose={() => setSelectedRider(null)} 
                 rider={selectedRider} 
+                variant="dashboard"
             />
 
             <CustomerModal 
