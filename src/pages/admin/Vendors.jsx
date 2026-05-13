@@ -183,7 +183,7 @@ const Vendors = () => {
                                 {sortLabels[selectedSort]} <ChevronDown size={14} className={`transition-transform duration-300 ${showSortDropdown ? 'rotate-180' : ''}`} />
                             </button>
                             {showSortDropdown && (
-                                <div className="absolute right-0 mt-2 w-48 bg-white border border-zinc-100 rounded-2xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in duration-200">
+                                <div className="absolute right-0 mt-2 w-25 bg-white border border-zinc-100 rounded-2xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in duration-200">
                                     {Object.entries(sortLabels).map(([value, label]) => (
                                         <button
                                             key={value}
@@ -205,7 +205,7 @@ const Vendors = () => {
                                 {filterLabels[selectedFilter]} <ChevronDown size={14} className={`transition-transform duration-300 ${showFilterDropdown ? 'rotate-180' : ''}`} />
                             </button>
                             {showFilterDropdown && (
-                                <div className="absolute right-0 mt-2 w-48 bg-white border border-zinc-100 rounded-2xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in duration-200">
+                                <div className="absolute right-0 mt-2 w-25 bg-white border border-zinc-100 rounded-2xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in duration-200">
                                     {Object.entries(filterLabels).map(([value, label]) => (
                                         <button
                                             key={value}
