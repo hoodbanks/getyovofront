@@ -187,7 +187,7 @@ const Customers = () => {
                             {showSortDropdown && (
                                 <>
                                     <div className="fixed inset-0 z-40" onClick={() => setShowSortDropdown(false)} />
-                                    <div className="absolute right-0 mt-2 w-64 bg-white border border-zinc-100 rounded-[24px] shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in duration-200">
+                                    <div className="absolute right-0 mt-2 w-40 bg-white border border-zinc-100 rounded-[24px] shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in duration-200">
                                         {sortView === 'main' && (
                                             <>
                                                 <div className="px-5 py-4 bg-[#F8FAFC] border-b border-zinc-50">
@@ -196,14 +196,14 @@ const Customers = () => {
                                                 <div className="py-2">
                                                     <button
                                                         onClick={() => setSortView('name')}
-                                                        className="w-full flex items-center justify-between px-5 py-4 text-[15px] font-bold text-[#1E293B] hover:bg-zinc-50 transition-colors"
+                                                        className="w-full flex items-center justify-between px-5 py-4 text-[12px] font-medium text-[#1E293B] hover:bg-zinc-50 transition-colors"
                                                     >
                                                         Customer name
                                                         <ChevronRight size={18} className="text-[#64748B]" />
                                                     </button>
                                                     <button
                                                         onClick={() => setSortView('date')}
-                                                        className="w-full flex items-center justify-between px-5 py-4 text-[15px] font-bold text-[#1E293B] hover:bg-zinc-50 transition-colors"
+                                                        className="w-full flex items-center justify-between px-5 py-4 text-[12px] font-medium text-[#1E293B] hover:bg-zinc-50 transition-colors"
                                                     >
                                                         Date Joined
                                                         <ChevronRight size={18} className="text-[#64748B]" />
