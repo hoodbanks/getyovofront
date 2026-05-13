@@ -424,7 +424,7 @@ const Dashboard = () => {
                 </div>
 
                 {/* Revenue Chart */}
-                <div className="bg-white rounded-3xl border border-zinc-200 p-4 md:p-6 shadow-sm flex flex-col h-full relative">
+                <div className="bg-white rounded-3xl border border-zinc-200 p-4 md:p-6 shadow-sm flex flex-col min-h-[450px] lg:h-full relative">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 relative z-[10]">
                         <div className="flex bg-zinc-100 p-1 rounded-xl">
                             <button
@@ -478,7 +478,7 @@ const Dashboard = () => {
                         </div>
                     </div>
 
-                    <div className="flex-1 h-[320px] w-full min-h-0">
+                    <div className="flex-1 h-full w-full min-h-0">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                                 <defs>

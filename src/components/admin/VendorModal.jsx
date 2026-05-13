@@ -250,6 +250,18 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
         }
     });
 
+    const verifyMutation = useMutation({
+        mutationFn: (isVerified) => api.patch(`/superadmin/vendors/${vendor?.id}/verify`, { isVerified }, token),
+        onSuccess: (res) => {
+            queryClient.invalidateQueries(['vendorOverview', vendor?.id]);
+            queryClient.invalidateQueries(['vendors']);
+            toast.success(res.message || 'Verification status updated');
+        },
+        onError: (err) => {
+            toast.error(err.message || 'Failed to update verification');
+        }
+    });
+
     if (!isOpen) return null;
 
     const overview = overviewData?.data || {};
@@ -332,7 +344,7 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
                             {/* Details Section */}
                             <div className="bg-white border border-zinc-100 rounded-2xl p-6 shadow-sm">
                                 <h3 className="text-sm font-bold text-zinc-900 mb-4">Details</h3>
-                                <div className="mb-6">
+                                <div className="mb-6 flex flex-wrap gap-3">
                                     <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold border capitalize ${!overview.isSuspended && overview.status !== 'PENDING'
                                             ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
                                             : overview.isSuspended
@@ -341,6 +353,12 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
                                         }`}>
                                         {overview.isSuspended ? 'Inactive' : (overview.status || vendor?.status || 'Active')}
                                     </span>
+                                    {overview.isVerified && (
+                                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-full text-[10px] font-bold">
+                                            <CheckCircle2 size={12} />
+                                            Verified
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="grid grid-cols-2 gap-y-6">
                                     <div>
@@ -420,30 +438,52 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
                             )}
                         </div>
 
-                        {/* Footer Actions */}
-                        <div className="p-6 border-t border-zinc-100 flex items-center gap-3">
-                            <button 
-                                onClick={() => handleActionClick('delete')}
-                                disabled={deleteMutation.isPending}
-                                className="flex-1 py-3 text-xs font-bold text-emerald-800 border-2 border-emerald-800/20 rounded-3xl hover:bg-emerald-50 transition-all disabled:opacity-50"
-                            >
-                                {deleteMutation.isPending ? <Loader2 className="animate-spin mx-auto" size={16} /> : 'Delete account'}
-                            </button>
-                            {overview.status === 'PENDING' ? (
-                                <button
-                                    onClick={() => handleActionClick('approve')}
-                                    disabled={suspensionMutation.isPending}
-                                    className="flex-1 py-3 text-xs font-bold text-white rounded-3xl bg-emerald-800 hover:bg-emerald-900 transition-all shadow-md shadow-emerald-900/10 disabled:opacity-50"
+                        <div className="p-6 border-t border-zinc-100 flex flex-col gap-3">
+                            <div className="flex items-center gap-3 w-full">
+                                <button 
+                                    onClick={() => handleActionClick('delete')}
+                                    disabled={deleteMutation.isPending}
+                                    className="flex-1 py-3 text-xs font-bold text-emerald-800 border-2 border-emerald-800/20 rounded-3xl hover:bg-emerald-50 transition-all disabled:opacity-50"
                                 >
-                                    {suspensionMutation.isPending ? <Loader2 className="animate-spin mx-auto" size={16} /> : 'Approve account'}
+                                    {deleteMutation.isPending ? <Loader2 className="animate-spin mx-auto" size={16} /> : 'Delete account'}
                                 </button>
-                            ) : (
+                                {overview.status === 'PENDING' ? (
+                                    <button
+                                        onClick={() => handleActionClick('approve')}
+                                        disabled={suspensionMutation.isPending}
+                                        className="flex-1 py-3 text-xs font-bold text-white rounded-3xl bg-emerald-800 hover:bg-emerald-900 transition-all shadow-md shadow-emerald-900/10 disabled:opacity-50"
+                                    >
+                                        {suspensionMutation.isPending ? <Loader2 className="animate-spin mx-auto" size={16} /> : 'Approve account'}
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => handleActionClick(overview.isSuspended ? 'activate' : 'suspend')}
+                                        disabled={suspensionMutation.isPending}
+                                        className={`flex-1 py-3 text-xs font-bold text-white rounded-3xl transition-all shadow-md shadow-emerald-900/10 flex items-center justify-center gap-2 disabled:opacity-50 ${overview.isSuspended ? 'bg-emerald-800 hover:bg-emerald-900' : 'bg-emerald-900 hover:bg-black'
+                                            }`}>
+                                        {suspensionMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : (overview.isSuspended ? 'Activate account' : 'Suspend account')}
+                                    </button>
+                                )}
+                            </div>
+                            
+                            {!overview.isSuspended && overview.status !== 'PENDING' && (
                                 <button
-                                    onClick={() => handleActionClick(overview.isSuspended ? 'activate' : 'suspend')}
-                                    disabled={suspensionMutation.isPending}
-                                    className={`flex-1 py-3 text-xs font-bold text-white rounded-3xl transition-all shadow-md shadow-emerald-900/10 flex items-center justify-center gap-2 disabled:opacity-50 ${overview.isSuspended ? 'bg-emerald-800 hover:bg-emerald-900' : 'bg-emerald-900 hover:bg-black'
-                                        }`}>
-                                    {suspensionMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : (overview.isSuspended ? 'Activate account' : 'Suspend account')}
+                                    onClick={() => verifyMutation.mutate(!overview.isVerified)}
+                                    disabled={verifyMutation.isPending}
+                                    className={`w-full py-3 text-xs font-bold rounded-3xl transition-all flex items-center justify-center gap-2 border-2 ${
+                                        overview.isVerified 
+                                            ? 'text-rose-600 border-rose-100 hover:bg-rose-50' 
+                                            : 'text-blue-600 border-blue-100 hover:bg-blue-50'
+                                    } disabled:opacity-50`}
+                                >
+                                    {verifyMutation.isPending ? (
+                                        <Loader2 className="animate-spin" size={16} />
+                                    ) : (
+                                        <>
+                                            <CheckCircle2 size={16} />
+                                            {overview.isVerified ? 'Remove Verification' : 'Verify Vendor'}
+                                        </>
+                                    )}
                                 </button>
                             )}
                         </div>
