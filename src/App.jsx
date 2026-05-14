@@ -19,6 +19,7 @@ import VerifyEmail from './pages/admin/auth/VerifyEmail';
 import ResetPassword from './pages/admin/auth/ResetPassword';
 import ResetSuccess from './pages/admin/auth/ResetSuccess';
 import Home from './pages/Home';
+import About from './pages/About';
 import PrivacyPolicy from './pages/legal/PrivacyPolicy';
 import TermsAndConditions from './pages/legal/TermsAndConditions';
 import MobilePrivacyPolicy from './pages/legal/MobilePrivacyPolicy';
@@ -96,6 +97,7 @@ function App() {
         </Route>
 
         <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
         <Route path="/delete-account" element={<DeleteAccount />} />
