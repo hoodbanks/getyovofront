@@ -286,7 +286,7 @@ const RiderHistory = () => {
                                 <div className="space-y-4">
                                     {orders.map((order) => (
                                         <div key={order.orderId} className="bg-white rounded-xl p-6 border border-zinc-100 shadow-sm">
-                                            <p className="text-[11px] font-bold text-zinc-400 mb-1">{order.orderId}</p>
+                                            <p className="text-[11px] font-bold text-zinc-400 mb-1">{order.code}</p>
                                             {order.shopType && (
                                                 <p className="text-[13px] font-semibold text-zinc-800">{capitalize(order.shopType)}</p>
                                             )}

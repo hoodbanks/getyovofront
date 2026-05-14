@@ -216,7 +216,7 @@ const RiderDashboard = () => {
                     <div className="space-y-4 pb-12">
                         {displayedOrders.map((order) => (
                             <div key={order.orderId} className="bg-white rounded-xl p-6 border border-zinc-100 shadow-sm">
-                                <p className="text-[11px] font-bold text-zinc-400 mb-1">{order.orderId}</p>
+                                <p className="text-[11px] font-bold text-zinc-400 mb-1">{order.code}</p>
                                 <p className="text-[13px] font-semibold text-zinc-800">{capitalize(order.shopType)}</p>
                                 <h3 className="text-[20px] font-bold text-[#1C5E20] leading-tight mt-1 mb-1">{capitalize(order.vendorStoreName)}</h3>
                                 <p className="text-[14px] text-zinc-500 font-medium mb-1">{order.storeAddress}</p>

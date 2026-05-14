@@ -146,7 +146,7 @@ const OrderDetails = () => {
                         {/* Main Order Card */}
                         <div className="bg-white rounded-[24px] p-6 border border-zinc-100 shadow-sm">
                             <div className="mb-6">
-                                <p className="text-[11px] font-bold text-zinc-400 mb-1">{orderData.orderId}</p>
+                                <p className="text-[11px] font-bold text-zinc-400 mb-1">{orderData.code}</p>
                                 <p className="text-[13px] font-semibold text-zinc-800">{capitalize(orderData.shopType || 'Order')}</p>
                                 <h3 className="text-[20px] font-bold text-[#1C5E20] leading-tight mt-1 mb-1">{capitalize(orderData.vendorStoreName)}</h3>
                                 <p className="text-[14px] text-zinc-500 font-medium mb-1">{orderData.storeAddress}</p>
