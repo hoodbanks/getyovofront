@@ -32,7 +32,7 @@ const PrivacyPolicy = () => {
                                 This Privacy Policy for <strong>GETYOVO LIMITED</strong> describes how and why we might access, collect, store, use, and/or share ("process") your personal information when you use our services ("Services"), including when you:
                             </p>
                             <ul className="list-disc pl-6 space-y-4">
-                                <li>Visit our website at <strong>Getyovonow.com</strong> or any website of ours that links to this Privacy Policy</li>
+                                <li>Visit our website at <strong>getyovo.app</strong> or any website of ours that links to this Privacy Policy</li>
                                 <li>Download and use our mobile application (<strong>Getyovo</strong>), or any other application of ours that links to this Privacy Notice</li>
                                 <li>Use <strong>Getyovo</strong>. A platform designed to offer delivery services for food, groceries, products and other day to day needs/wants. The services we offer ensures our users obtain their daily life essentials within their comfort zones, thereby making lives easier for them. Our platform can be used from offices, schools and various organizations for ordering your day-to-day items!!!</li>
                                 <li>Engage with us in other related ways, including any marketing or events</li>
@@ -123,7 +123,7 @@ const PrivacyPolicy = () => {
                             <section>
                                 <h3 className="text-xl font-bold text-zinc-900 mb-6">11. HOW CAN YOU CONTACT US ABOUT THIS NOTICE?</h3>
                                 <div className="space-y-4 bg-zinc-50 p-4 rounded-xl border border-zinc-100">
-                                    <p>If you have questions or comments about this notice, you may email us at <strong>getyovo.app</strong>.</p>
+                                    <p>If you have questions or comments about this notice, you may email us at <strong>support@getyovo.app</strong>.</p>
                                     <div>
                                         <p className="font-bold text-zinc-900">GETYOVO LIMITED</p>
                                         <p>Awka City, Anambra State</p>

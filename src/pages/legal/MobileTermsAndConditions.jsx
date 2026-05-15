@@ -45,7 +45,7 @@ const TermsAndConditions = () => {
                             <h3 className="text-xl font-bold text-zinc-900 border-l-4 border-[#1C5E20] pl-4">AGREEMENT TO OUR LEGAL TERMS</h3>
                             <p>We are <strong>GETYOVO LIMITED</strong>.</p>
                             <p>We operate, as well as any other related products and services that refer or link to these legal terms (the "Legal Terms") (collectively, the "Services").</p>
-                            <p>You can contact us by email at: <strong>getyovo.app</strong></p>
+                            <p>You can contact us by email at: <strong>support@getyovo.app</strong></p>
                             <p>
                                 These Legal Terms constitute a legally binding agreement made between you, whether personally or on behalf of an entity ("you"), and <strong>GETYOVO LIMITED</strong>, concerning your access to and use of the Services. You agree that by accessing the Services, you have read, understood, and agreed to be bound by all of these Legal Terms. <span className="font-bold">IF YOU DO NOT AGREE WITH ALL OF THESE LEGAL TERMS, THEN YOU ARE EXPRESSLY PROHIBITED FROM USING THE SERVICES AND YOU MUST DISCONTINUE USE IMMEDIATELY.</span>
                             </p>

@@ -53,8 +53,8 @@ const Footer = () => {
                     {/* Quick Links Section */}
                     <div className="lg:pl-20">
                         <div className="space-y-2 pt-4">
-                            <p className="text-sm font-medium">+234 70 000 0000</p>
-                            <p className="text-sm font-medium">info@getyovo.com</p>
+                            <p className="text-sm font-medium">+234 906 133 8717</p>
+                            <p className="text-sm font-medium">support@getyovo.app</p>
                             <p className="text-sm font-medium leading-relaxed">
                                 No 1 Grace and court Rd, Awka,<br />
                                 EnuguOnitsha Expressway
