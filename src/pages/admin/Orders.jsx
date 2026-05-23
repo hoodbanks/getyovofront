@@ -7,7 +7,9 @@ import {
     Clock,
     Truck,
     CheckCircle2,
-    Download
+    Download,
+    X,
+    Calendar
 } from 'lucide-react';
 import OrderModal from '../../components/admin/OrderModal';
 import { useQuery } from '@tanstack/react-query';
@@ -97,6 +99,8 @@ const Orders = () => {
     const [filter, setFilter] = useState('all');
     const [status, setStatus] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [page, setPage] = useState(1);
 
     // Fetch Orders Data
@@ -121,10 +125,30 @@ const Orders = () => {
 
     const allOrders = dashboardData?.data?.latestOrders || dashboardData?.data?.data || [];
 
-    // Apply client-side status filtering
-    const orders = status === 'all'
-        ? allOrders
-        : allOrders.filter(o => o.status?.toUpperCase() === status.toUpperCase().replace(/ /g, '_'));
+    // Apply client-side status and date filtering
+    const orders = allOrders.filter(o => {
+        if (status !== 'all' && o.status?.toUpperCase() !== status.toUpperCase().replace(/ /g, '_')) {
+            return false;
+        }
+        
+        const orderDateStr = o.orderTime || o.placedAt || o.createdAt;
+        if (orderDateStr) {
+            const txDate = new Date(orderDateStr);
+            if (startDate) {
+                const start = new Date(startDate);
+                start.setHours(0, 0, 0, 0);
+                if (txDate < start) return false;
+            }
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                if (txDate > end) return false;
+            }
+        } else if (startDate || endDate) {
+            return false;
+        }
+        return true;
+    });
 
     const totalItems = dashboardData?.data?.total || summary.totalOrders || orders.length || 0;
     const totalPages = dashboardData?.data?.totalPages || (totalItems ? Math.ceil(totalItems / 20) : 1);
@@ -199,17 +223,61 @@ const Orders = () => {
                     />
                 </div>
 
-                {/* Search Bar Section */}
-                <div className="px-4">
-                    <div className="relative w-full sm:max-w-md">
+                {/* Search & Filters Row */}
+                <div className="px-4 flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
+                    {/* Search Bar */}
+                    <div className="relative flex-1 max-w-md">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
                         <input
                             type="text"
                             value={searchQuery}
                             onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
                             placeholder="Search code, store, product..."
-                            className="w-full pl-12 pr-6 py-4 bg-zinc-100 border-none rounded-3xl text-sm focus:ring-2 focus:ring-emerald-500/10 placeholder:text-zinc-500 outline-none transition-all"
+                            className="w-full pl-12 pr-6 py-4 bg-zinc-100 border-none rounded-3xl text-sm focus:ring-2 focus:ring-emerald-500/10 placeholder:text-zinc-500 outline-none transition-all font-medium"
                         />
+                    </div>
+
+                    {/* Date Filters & Reset Button */}
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* From Date */}
+                        <div className="relative flex items-center bg-zinc-100 rounded-3xl px-4 py-3 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
+                            <span className="text-[10px] font-bold text-zinc-400 uppercase mr-2 select-none">From</span>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+                                className="bg-transparent border-none text-xs font-bold text-zinc-700 focus:ring-0 p-0 outline-none cursor-pointer [color-scheme:light]"
+                            />
+                            <Calendar className="text-zinc-400 ml-2" size={14} />
+                        </div>
+
+                        {/* To Date */}
+                        <div className="relative flex items-center bg-zinc-100 rounded-3xl px-4 py-3 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
+                            <span className="text-[10px] font-bold text-zinc-400 uppercase mr-2 select-none">To</span>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+                                className="bg-transparent border-none text-xs font-bold text-zinc-700 focus:ring-0 p-0 outline-none cursor-pointer [color-scheme:light]"
+                            />
+                            <Calendar className="text-zinc-400 ml-2" size={14} />
+                        </div>
+
+                        {/* Reset Button */}
+                        {(searchQuery || startDate || endDate) && (
+                            <button
+                                onClick={() => {
+                                    setSearchQuery('');
+                                    setStartDate('');
+                                    setEndDate('');
+                                    setPage(1);
+                                }}
+                                className="flex items-center gap-2 px-5 py-3 bg-zinc-900 text-white rounded-3xl text-[10px] font-bold hover:bg-zinc-800 transition-all hover:scale-[1.02] active:scale-[0.98] uppercase tracking-widest group shadow-sm cursor-pointer"
+                            >
+                                <X size={14} className="group-hover:rotate-90 transition-transform duration-300" />
+                                Reset
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

@@ -10,7 +10,9 @@ import {
     Plus,
     Loader2,
     ChevronRight,
-    ChevronLeft
+    ChevronLeft,
+    X,
+    Calendar
 } from 'lucide-react';
 import { toast } from 'sonner';
 import RiderModal from '../../components/admin/RiderModal';
@@ -99,6 +101,8 @@ const Riders = () => {
     const [page, setPage] = useState(1);
     const [ordersPage, setOrdersPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [filter, setFilter] = useState('all');
     const [sortBy, setSortBy] = useState('date_newest');
 
@@ -123,7 +127,30 @@ const Riders = () => {
         enabled: activeTab === 'available_orders'
     });
 
-    const riders = ridersData?.data?.riders?.data || ridersData?.data?.data || (Array.isArray(ridersData?.data) ? ridersData.data : []);
+    const allRiders = ridersData?.data?.riders?.data || ridersData?.data?.data || (Array.isArray(ridersData?.data) ? ridersData.data : []);
+    
+    // Apply client-side date filtering
+    const riders = allRiders.filter(r => {
+        let matchesDate = true;
+        const riderDate = r.createdAt || r.joinedAt;
+        if (riderDate) {
+            const txDate = new Date(riderDate);
+            if (startDate) {
+                const start = new Date(startDate);
+                start.setHours(0, 0, 0, 0);
+                if (txDate < start) matchesDate = false;
+            }
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                if (txDate > end) matchesDate = false;
+            }
+        } else if (startDate || endDate) {
+            matchesDate = false;
+        }
+        return matchesDate;
+    });
+
     const lastSummaryRef = React.useRef({
         total: 0,
         active: 0,
@@ -233,6 +260,51 @@ const Riders = () => {
                         />
                     </div>
                 </div>
+
+                {/* Date Filters Row */}
+                {activeTab === 'riders' && (
+                    <div className="px-4 mt-3 flex flex-wrap items-center justify-end gap-3">
+                        {/* From Date */}
+                        <div className="relative flex items-center bg-zinc-100 rounded-3xl px-4 py-3 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
+                            <span className="text-[10px] font-bold text-zinc-400 uppercase mr-2 select-none">From</span>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+                                className="bg-transparent border-none text-xs font-bold text-zinc-700 focus:ring-0 p-0 outline-none cursor-pointer [color-scheme:light]"
+                            />
+                            <Calendar className="text-zinc-400 ml-2" size={14} />
+                        </div>
+
+                        {/* To Date */}
+                        <div className="relative flex items-center bg-zinc-100 rounded-3xl px-4 py-3 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
+                            <span className="text-[10px] font-bold text-zinc-400 uppercase mr-2 select-none">To</span>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+                                className="bg-transparent border-none text-xs font-bold text-zinc-700 focus:ring-0 p-0 outline-none cursor-pointer [color-scheme:light]"
+                            />
+                            <Calendar className="text-zinc-400 ml-2" size={14} />
+                        </div>
+
+                        {/* Reset Button */}
+                        {(searchQuery || startDate || endDate) && (
+                            <button
+                                onClick={() => {
+                                    setSearchQuery('');
+                                    setStartDate('');
+                                    setEndDate('');
+                                    setPage(1);
+                                }}
+                                className="flex items-center gap-2 px-5 py-3 bg-zinc-900 text-white rounded-3xl text-[10px] font-bold hover:bg-zinc-800 transition-all hover:scale-[1.02] active:scale-[0.98] uppercase tracking-widest group shadow-sm cursor-pointer"
+                            >
+                                <X size={14} className="group-hover:rotate-90 transition-transform duration-300" />
+                                Reset
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Table Section */}

@@ -9,7 +9,8 @@ import {
     Loader2,
     AlertCircle,
     Download,
-    Eye
+    Eye,
+    X
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../api/api';
@@ -42,6 +43,8 @@ const Transactions = () => {
     const token = useAuthStore((state) => state.accessToken);
     const [page, setPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [selectedTransaction, setSelectedTransaction] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -74,12 +77,32 @@ const Transactions = () => {
         exportToCSV(exportData, 'getyovo_transactions');
     };
 
-    const filteredTransactions = transactions.filter(t => 
-        t.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.vendor?.storeName?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredTransactions = transactions.filter(t => {
+        const matchesSearch = !searchQuery || 
+            t.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            t.vendor?.storeName?.toLowerCase().includes(searchQuery.toLowerCase());
+        
+        let matchesDate = true;
+        if (t.paidAt) {
+            const txDate = new Date(t.paidAt);
+            if (startDate) {
+                const start = new Date(startDate);
+                start.setHours(0, 0, 0, 0);
+                if (txDate < start) matchesDate = false;
+            }
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                if (txDate > end) matchesDate = false;
+            }
+        } else if (startDate || endDate) {
+            matchesDate = false;
+        }
 
-    const totalRevenue = transactions.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
+        return matchesSearch && matchesDate;
+    });
+
+    const totalRevenue = filteredTransactions.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
 
     return (
         <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
@@ -110,9 +133,10 @@ const Transactions = () => {
                     />
                 </div>
 
-                {/* Search Bar */}
-                <div className="px-4">
-                    <div className="relative max-w-md">
+                {/* Search & Filters Row */}
+                <div className="px-4 flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
+                    {/* Search Bar */}
+                    <div className="relative flex-1 max-w-md">
                         <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
                         <input
                             type="text"
@@ -121,6 +145,48 @@ const Transactions = () => {
                             placeholder="Search by customer or vendor..."
                             className="w-full pl-14 pr-6 py-4 bg-zinc-100 border-none rounded-3xl text-sm focus:ring-2 focus:ring-emerald-500/10 placeholder:text-zinc-500 outline-none transition-all font-medium"
                         />
+                    </div>
+
+                    {/* Date Filters & Reset Button */}
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* From Date */}
+                        <div className="relative flex items-center bg-zinc-100 rounded-3xl px-4 py-3.5 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
+                            <span className="text-[10px] font-bold text-zinc-400 uppercase mr-2 select-none">From</span>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className="bg-transparent border-none text-xs font-bold text-zinc-700 focus:ring-0 p-0 outline-none cursor-pointer [color-scheme:light]"
+                            />
+                            <Calendar className="text-zinc-400 ml-2" size={14} />
+                        </div>
+
+                        {/* To Date */}
+                        <div className="relative flex items-center bg-zinc-100 rounded-3xl px-4 py-3.5 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
+                            <span className="text-[10px] font-bold text-zinc-400 uppercase mr-2 select-none">To</span>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                className="bg-transparent border-none text-xs font-bold text-zinc-700 focus:ring-0 p-0 outline-none cursor-pointer [color-scheme:light]"
+                            />
+                            <Calendar className="text-zinc-400 ml-2" size={14} />
+                        </div>
+
+                        {/* Reset Button */}
+                        {(searchQuery || startDate || endDate) && (
+                            <button
+                                onClick={() => {
+                                    setSearchQuery('');
+                                    setStartDate('');
+                                    setEndDate('');
+                                }}
+                                className="flex items-center gap-2 px-5 py-3.5 bg-zinc-900 text-white rounded-3xl text-[10px] font-bold hover:bg-zinc-800 transition-all hover:scale-[1.02] active:scale-[0.98] uppercase tracking-widest group shadow-sm cursor-pointer"
+                            >
+                                <X size={14} className="group-hover:rotate-90 transition-transform duration-300" />
+                                Reset
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
