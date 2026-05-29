@@ -103,7 +103,7 @@ const RiderVerifyOtp = () => {
 
             <div className="bg-white rounded-[32px] p-8 md:p-10 w-full max-w-md shadow-2xl z-10 flex flex-col items-center">
                 <img src={logo} alt="GetYovo Logo" className="h-16 mb-6" />
-                <h1 className="text-2xl font-bold text-[#1C5E20] mb-2">Check Your Message!</h1>
+                <h1 className="text-xl font-bold text-[#1C5E20] mb-2">Check Your Message!</h1>
                 <p className="text-[14px] text-zinc-500 font-medium text-center mb-8 px-4 leading-relaxed">
                     {isPasswordReset 
                         ? 'We’ve sent a password reset code to ' 
@@ -125,7 +125,7 @@ const RiderVerifyOtp = () => {
                             <input
                                 key={index}
                                 ref={(el) => (inputRefs.current[index] = el)}
-                                type="text"
+                                type="tel"
                                 maxLength="1"
                                 className="w-12 h-14 bg-zinc-100 border-none rounded-xl text-center text-xl font-bold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-[#00B074]/30 focus:bg-white transition-all shadow-sm disabled:opacity-50"
                                 value={data}
