@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Terms and Conditions — GetYovo</title>
+    <meta name="description" content="GetYovo Terms and Conditions — Understand your rights and responsibilities on our platform." />
+    <style>
+        /* ─── Reset & Base ──────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #ffffff;
+            color: #3f3f46; /* zinc-700 */
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            padding: 4px;
+            padding-bottom: 0;
+        }
+
+        .wrapper { max-width: 1440px; margin: 0 auto; }
+
+        /* ─── Hero Banner ───────────────────────────────────────── */
+        .hero {
+            position: relative;
+            background: #225B28;
+            border-radius: 16px;
+            overflow: hidden;
+            padding: 24px 8px;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        @media (min-width: 768px) {
+            .hero { padding: 48px; min-height: 360px; }
+        }
+
+        .map-bg {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1;
+            pointer-events: none;
+            opacity: 1;
+            background-image: url('map-background.png');
+            background-position: center bottom;
+            background-size: contain;
+            background-repeat: no-repeat;
+            height: 100%;
+            max-height: 400px;
+        }
+
+        .hero-content { position: relative; z-index: 2; text-align: center; max-width: 720px; }
+
+        .hero h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -0.02em;
+            line-height: 1.3;
+            padding: 0 28px;
+        }
+        @media (min-width: 768px) { .hero h1 { font-size: 2.5rem; padding: 0; } }
+
+        .hero p {
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.9);
+            font-weight: 500;
+            margin-top: 12px;
+            max-width: 560px;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 0 40px;
+        }
+        @media (min-width: 768px) { .hero p { font-size: 1.25rem; padding: 0; } }
+
+        /* ─── Content Area ──────────────────────────────────────── */
+        .content { padding: 60px 8px; max-width: 720px; margin: 0 auto; }
+
+        .page-title { text-align: center; margin-bottom: 48px; }
+        .page-title h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #18181b;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        @media (min-width: 768px) { .page-title h2 { font-size: 1.875rem; } }
+        .page-title .date { color: #71717a; font-weight: 500; letter-spacing: 0.05em; font-size: 0.875rem; }
+
+        /* ─── Sections ──────────────────────────────────────────── */
+        section { margin-bottom: 48px; }
+        section p { margin-bottom: 16px; }
+        section ul { padding-left: 24px; margin-bottom: 16px; }
+        section ul li { margin-bottom: 8px; }
+        section ul.disc { list-style-type: disc; }
+
+        strong { color: #18181b; }
+
+        h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #18181b;
+            margin-bottom: 20px;
+        }
+
+        h3.bordered {
+            border-left: 4px solid #1C5E20;
+            padding-left: 16px;
+        }
+
+        .bold-text { font-weight: 700; }
+        .uppercase { text-transform: uppercase; font-size: 0.875rem; line-height: 1.7; }
+
+        /* ─── TOC Card ──────────────────────────────────────────── */
+        .toc-card {
+            background: #fafafa;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #f4f4f5;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            margin-bottom: 48px;
+        }
+        .toc-card h3 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 20px;
+        }
+        .toc-list {
+            list-style: none;
+            padding: 0;
+            display: grid;
+            gap: 12px;
+        }
+        @media (min-width: 768px) { .toc-list { grid-template-columns: 1fr 1fr; } }
+        .toc-list li {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #1C5E20;
+        }
+
+        /* ─── Sub-sections ──────────────────────────────────────── */
+        .sub-heading {
+            font-weight: 700;
+            color: #18181b;
+            margin-bottom: 8px;
+        }
+        .sub-section { margin-bottom: 24px; }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <!-- Hero Banner -->
+        <div class="hero">
+            <div class="hero-content">
+                <h1>Terms and Conditions</h1>
+                <p>Understand your rights and responsibilities on our platform.</p>
+            </div>
+            <!-- Map Background Decoration -->
+            <div class="map-bg"></div>
+        </div>
+
+        <!-- Page Content -->
+        <div class="content">
+            <div class="page-title">
+                <h2>TERMS AND CONDITIONS OF USE</h2>
+                <p class="date">Last updated 18/03/2026</p>
+            </div>
+
+            <section>
+                <h3 class="bordered">AGREEMENT TO OUR LEGAL TERMS</h3>
+                <p>We are <strong>GETYOVO LIMITED</strong>.</p>
+                <p>We operate, as well as any other related products and services that refer or link to these legal terms (the "Legal Terms") (collectively, the "Services").</p>
+                <p>You can contact us by email at: <strong>support@getyovo.app</strong></p>
+                <p>
+                    These Legal Terms constitute a legally binding agreement made between you, whether personally or on behalf of an entity ("you"), and <strong>GETYOVO LIMITED</strong>, concerning your access to and use of the Services. You agree that by accessing the Services, you have read, understood, and agreed to be bound by all of these Legal Terms. <strong>IF YOU DO NOT AGREE WITH ALL OF THESE LEGAL TERMS, THEN YOU ARE EXPRESSLY PROHIBITED FROM USING THE SERVICES AND YOU MUST DISCONTINUE USE IMMEDIATELY.</strong>
+                </p>
+                <p>
+                    Supplemental terms and conditions or documents that may be posted on the Services from time to time are hereby expressly incorporated herein by reference. We reserve the right, in our sole discretion, to make changes or modifications to these Legal Terms at any time and for any reason. We will alert you about any changes by updating the "Last updated" date of these Legal Terms, and you waive any right to receive specific notice of each such change. It is your responsibility to periodically review these Legal Terms to stay informed of updates. You will be subject to, and will be deemed to have been made aware of and to have accepted, the changes in any revised Legal Terms by your continued use of the Services after the date such revised Legal Terms are posted.
+                </p>
+                <p>We recommend that you print a copy of these Legal Terms for your records.</p>
+            </section>
+
+            <!-- Table of Contents -->
+            <div class="toc-card">
+                <h3>Table of Contents</h3>
+                <ul class="toc-list">
+                    <li>1. OUR SERVICES</li>
+                    <li>2. INTELLECTUAL PROPERTY RIGHTS</li>
+                    <li>3. USER REPRESENTATIONS</li>
+                    <li>4. PROHIBITED ACTIVITIES</li>
+                    <li>5. USER GENERATED CONTRIBUTIONS</li>
+                    <li>6. CONTRIBUTION LICENSE</li>
+                    <li>7. SERVICES MANAGEMENT</li>
+                    <li>8. TERM AND TERMINATION</li>
+                    <li>9. MODIFICATIONS AND INTERRUPTIONS</li>
+                    <li>10. DISPUTE RESOLUTION</li>
+                    <li>11. CORRECTIONS</li>
+                    <li>12. DISCLAIMER</li>
+                    <li>13. LIMITATIONS OF LIABILITY</li>
+                    <li>14. INDEMNIFICATION</li>
+                    <li>15. USER DATA</li>
+                    <li>16. ELECTRONIC COMMUNICATIONS</li>
+                    <li>17. MISCELLANEOUS</li>
+                    <li>18. CONTACT US</li>
+                </ul>
+            </div>
+
+            <!-- Sections -->
+            <section>
+                <h3>1. OUR SERVICES</h3>
+                <p>
+                    The information provided when using the Services is not intended for distribution to or use by any person or entity in any jurisdiction or country where such distribution or use would be contrary to law or regulation or which would subject us to any registration requirement within such jurisdiction or country. Accordingly, those persons who choose to access the Services from other locations do so on their own initiative and are solely responsible for compliance with local laws, if and to the extent local laws are applicable.
+                </p>
+            </section>
+
+            <section>
+                <h3>2. INTELLECTUAL PROPERTY RIGHTS</h3>
+
+                <div class="sub-section">
+                    <p class="sub-heading">Our intellectual property</p>
+                    <p>
+                        We are the owner or the licensee of all intellectual property rights in our Services, including all source code, databases, functionality, software, website designs, audio, video, text, photographs, and graphics in the Services (collectively, the "Content"), as well as the trademarks, service marks, and logos contained therein (the "Marks").
+                    </p>
+                    <p>
+                        Our Content and Marks are protected by copyright and trademark laws (and various other intellectual property rights and unfair competition laws) and treaties around the world.
+                    </p>
+                    <p>
+                        The Content and Marks are provided in or through the Services "AS IS" for your personal, non-commercial use or internal business purpose only.
+                    </p>
+                </div>
+
+                <div class="sub-section">
+                    <p class="sub-heading">Your use of our Services</p>
+                    <p>
+                        Subject to your compliance with these Legal Terms, including the "PROHIBITED ACTIVITIES" section below, we grant you a non-exclusive, non-transferable, revocable license to:
+                    </p>
+                    <ul class="disc">
+                        <li>access the Services; and</li>
+                        <li>download or print a copy of any portion of the Content to which you have properly gained access, solely for your personal, non-commercial use or internal business purpose.</li>
+                    </ul>
+                    <p>
+                        Except as set out in this section or elsewhere in our Legal Terms, no part of the Services and no Content or Marks may be copied, reproduced, aggregated, republished, uploaded, posted, publicly displayed, encoded, translated, transmitted, distributed, sold, licensed, or otherwise exploited for any commercial purpose whatsoever, without our express prior written permission.
+                    </p>
+                </div>
+
+                <div class="sub-section">
+                    <p class="sub-heading">Your submissions</p>
+                    <p>
+                        By directly sending us any question, comment, suggestion, idea, feedback, or other information about the Services ("Submissions"), you agree to assign to us all intellectual property rights in such Submission. You agree that we shall own this Submission and be entitled to its unrestricted use and dissemination for any lawful purpose, commercial or otherwise, without acknowledgment or compensation to you.
+                    </p>
+                </div>
+            </section>
+
+            <section>
+                <h3>3. USER REPRESENTATIONS</h3>
+                <p>
+                    By using the Services, you represent and warrant that: (1) you have the legal capacity and you agree to comply with these Legal Terms; (2) you are not a minor in the jurisdiction in which you reside; (3) you will not access the Services through automated or non-human means, whether through a bot, script or otherwise; (4) you will not use the Services for any illegal or unauthorized purpose; and (5) your use of the Services will not violate any applicable law or regulation.
+                </p>
+            </section>
+
+            <section>
+                <h3>4. PROHIBITED ACTIVITIES</h3>
+                <p>
+                    You may not access or use the Services for any purpose other than that for which we make the Services available. The Services may not be used in connection with any commercial endeavors except those that are specifically endorsed or approved by us.
+                </p>
+                <p>As a user of the Services, you agree not to:</p>
+                <ul class="disc">
+                    <li>Systematically retrieve data or other content from the Services to create or compile, directly or indirectly, a collection, compilation, database, or directory without written permission from us.</li>
+                    <li>Trick, defraud, or mislead us and other users, especially in any attempt to learn sensitive account information such as user passwords.</li>
+                    <li>Circumvent, disable, or otherwise interfere with security-related features of the Services.</li>
+                    <li>Disparage, tarnish, or otherwise harm, in our opinion, us and/or the Services.</li>
+                    <li>Use any information obtained from the Services in order to harass, abuse, or harm another person.</li>
+                    <li>Make improper use of our support services or submit false reports of abuse or misconduct.</li>
+                    <li>Use the Services in a manner inconsistent with any applicable laws or regulations.</li>
+                    <li>Engage in unauthorized framing of or linking to the Services.</li>
+                    <li>Upload or transmit (or attempt to upload or to transmit) viruses, Trojan horses, or other material.</li>
+                    <li>Delete the copyright or other proprietary rights notice from any Content.</li>
+                    <li>Attempt to impersonate another user or person.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h3>10. DISPUTE RESOLUTION</h3>
+                <p class="sub-heading">Binding Arbitration</p>
+                <p>
+                    Any dispute arising out of or in connection with these Legal Terms, including any question regarding its existence, validity, or termination, shall be referred to and finally resolved by the International Commercial Arbitration Court under the European Arbitration Chamber (Belgium, Brussels, Avenue Louise, 146) according to the Rules of this ICAC. The seat, or legal place, or arbitration shall be <strong>Awka City Anambra State, Nigeria</strong>. The language of the proceedings shall be English. The governing law of these Legal Terms shall be substantive law of NDPA (Nigeria Data Protection Regulation).
+                </p>
+            </section>
+
+            <section>
+                <h3>12. DISCLAIMER</h3>
+                <p class="uppercase">
+                    THE SERVICES ARE PROVIDED ON AN AS-IS AND AS-AVAILABLE BASIS. YOU AGREE THAT YOUR USE OF THE SERVICES WILL BE AT YOUR SOLE RISK. TO THE FULLEST EXTENT PERMITTED BY LAW, WE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, IN CONNECTION WITH THE SERVICES AND YOUR USE THEREOF.
+                </p>
+            </section>
+
+            <section>
+                <h3>18. CONTACT US</h3>
+                <p>
+                    In order to resolve a complaint regarding the Services or to receive further information regarding use of the Services, please contact us at: <strong>getyovo.app</strong>
+                </p>
+            </section>
+        </div>
+    </div>
+</body>
+</html>

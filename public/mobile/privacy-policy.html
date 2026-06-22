@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Policy — GetYovo</title>
+    <meta name="description" content="GetYovo Privacy Policy — Learn how we handle and protect your data." />
+    <style>
+        /* ─── Reset & Base ──────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #ffffff;
+            color: #3f3f46; /* zinc-700 */
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            padding: 4px;
+            padding-bottom: 0;
+        }
+
+        .wrapper { max-width: 1440px; margin: 0 auto; }
+
+        /* ─── Hero Banner ───────────────────────────────────────── */
+        .hero {
+            position: relative;
+            background: #225B28;
+            border-radius: 16px;
+            overflow: hidden;
+            padding: 24px 8px;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        @media (min-width: 768px) {
+            .hero { padding: 48px; min-height: 360px; }
+        }
+
+        .map-bg {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1;
+            pointer-events: none;
+            opacity: 1;
+            background-image: url('map-background.png');
+            background-position: center bottom;
+            background-size: contain;
+            background-repeat: no-repeat;
+            height: 100%;
+            max-height: 400px;
+        }
+
+        .hero-content { position: relative; z-index: 2; text-align: center; max-width: 720px; }
+
+        .hero h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -0.02em;
+            line-height: 1.3;
+            padding: 0 28px;
+        }
+        @media (min-width: 768px) { .hero h1 { font-size: 2.5rem; padding: 0; } }
+
+        .hero p {
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.9);
+            font-weight: 500;
+            margin-top: 12px;
+            max-width: 560px;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 0 40px;
+        }
+        @media (min-width: 768px) { .hero p { font-size: 1.25rem; padding: 0; } }
+
+        /* ─── Content Area ──────────────────────────────────────── */
+        .content { padding: 60px 8px; max-width: 720px; margin: 0 auto; }
+
+        .page-title { text-align: center; margin-bottom: 48px; }
+        .page-title h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #18181b; /* zinc-900 */
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        @media (min-width: 768px) { .page-title h2 { font-size: 1.875rem; } }
+        .page-title .date { color: #71717a; font-weight: 500; letter-spacing: 0.05em; font-size: 0.875rem; }
+
+        /* ─── Sections ──────────────────────────────────────────── */
+        section { margin-bottom: 40px; }
+        section p { margin-bottom: 16px; }
+        section ul { padding-left: 24px; margin-bottom: 16px; }
+        section ul li { margin-bottom: 8px; }
+        section ul.disc { list-style-type: disc; }
+
+        strong { color: #18181b; }
+
+        h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #18181b;
+            margin-bottom: 20px;
+        }
+
+        .italic { font-style: italic; }
+
+        /* ─── Summary Card ──────────────────────────────────────── */
+        .summary-card {
+            background: #EEF2EF;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(34, 91, 40, 0.1);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            margin-bottom: 40px;
+        }
+        .summary-card h3 {
+            font-size: 1.125rem;
+            color: #0C3D2A;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 20px;
+        }
+        .summary-card p { font-size: 0.875rem; margin-bottom: 16px; }
+        .summary-card p:last-child { margin-bottom: 0; }
+
+        /* ─── TOC Card ──────────────────────────────────────────── */
+        .toc-card {
+            background: #fafafa;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #f4f4f5;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            margin-bottom: 48px;
+        }
+        .toc-card h3 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 20px;
+        }
+        .toc-list {
+            list-style: none;
+            padding: 0;
+            display: grid;
+            gap: 12px;
+        }
+        @media (min-width: 768px) { .toc-list { grid-template-columns: 1fr 1fr; } }
+        .toc-list li {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #1C5E20;
+        }
+
+        /* ─── Bullet dots ───────────────────────────────────────── */
+        .bullet-item {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .bullet-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #1C5E20;
+            margin-top: 8px;
+            flex-shrink: 0;
+        }
+
+        /* ─── Contact Card ──────────────────────────────────────── */
+        .contact-card {
+            background: #fafafa;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #f4f4f5;
+        }
+        .contact-card p { margin-bottom: 12px; }
+        .contact-card .company { font-weight: 700; color: #18181b; }
+
+        .highlight-text { font-weight: 500; color: #1C5E20; }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <!-- Hero Banner -->
+        <div class="hero">
+            <div class="hero-content">
+                <h1>Privacy Policy</h1>
+                <p>Your privacy matters to us. Learn how we handle and protect your data.</p>
+            </div>
+            <!-- Map Background Decoration -->
+            <div class="map-bg"></div>
+        </div>
+
+        <!-- Page Content -->
+        <div class="content">
+            <div class="page-title">
+                <h2>PRIVACY POLICY</h2>
+                <p class="date">Last updated March 18, 2026</p>
+            </div>
+
+            <section>
+                <p>
+                    This Privacy Policy for <strong>GETYOVO LIMITED</strong> describes how and why we might access, collect, store, use, and/or share ("process") your personal information when you use our services ("Services"), including when you:
+                </p>
+                <ul class="disc">
+                    <li>Visit our website at <strong>getyovo.app</strong> or any website of ours that links to this Privacy Policy</li>
+                    <li>Download and use our mobile application (<strong>Getyovo</strong>), or any other application of ours that links to this Privacy Notice</li>
+                    <li>Use <strong>Getyovo</strong>. A platform designed to offer delivery services for food, groceries, products and other day to day needs/wants. The services we offer ensures our users obtain their daily life essentials within their comfort zones, thereby making lives easier for them. Our platform can be used from offices, schools and various organizations for ordering your day-to-day items!!!</li>
+                    <li>Engage with us in other related ways, including any marketing or events</li>
+                </ul>
+                <p>
+                    <strong>Questions or concerns?</strong> Reading this Privacy Notice will help you understand your privacy rights and choices. We are responsible for making decisions about how your personal information is processed. If you do not agree with our policies and practices, please do not use our Services. If you still have any questions or concerns, please contact us at <strong>getyovo.app</strong>.
+                </p>
+            </section>
+
+            <!-- Summary Card -->
+            <div class="summary-card">
+                <h3>Summary of Key Points</h3>
+                <p><strong>What personal information do we process?</strong> When you visit, use, or navigate our Services, we may process personal information depending on how you interact with us and the Services.</p>
+                <p><strong>Do we process any sensitive personal information?</strong> No, we do not process sensitive personal information.</p>
+                <p><strong>Do we collect any information from third parties?</strong> No, we do not collect any information from third parties.</p>
+                <p><strong>How do we process your information?</strong> We process your information to provide, improve, and administer our Services, communicate with you, for security and fraud prevention, and to comply with law.</p>
+            </div>
+
+            <!-- Table of Contents -->
+            <div class="toc-card">
+                <h3>Table of Contents</h3>
+                <ul class="toc-list">
+                    <li>1. WHAT INFORMATION DO WE COLLECT?</li>
+                    <li>2. HOW DO WE PROCESS YOUR INFORMATION?</li>
+                    <li>3. WHEN AND WITH WHOM DO WE SHARE YOUR INFO?</li>
+                    <li>4. COOKIES AND TRACKING TECHNOLOGIES</li>
+                    <li>5. HOW LONG DO WE KEEP YOUR INFO?</li>
+                    <li>6. HOW DO WE KEEP YOUR INFO SAFE?</li>
+                    <li>7. DO WE COLLECT INFO FROM MINORS?</li>
+                    <li>8. WHAT ARE YOUR PRIVACY RIGHTS?</li>
+                    <li>9. CONTROLS FOR DO-NOT-TRACK FEATURES</li>
+                    <li>10. DO WE MAKE UPDATES TO THIS NOTICE?</li>
+                    <li>11. HOW CAN YOU CONTACT US?</li>
+                    <li>12. REVIEW, UPDATE, OR DELETE YOUR DATA</li>
+                </ul>
+            </div>
+
+            <!-- Sections -->
+            <section>
+                <h3>1. WHAT INFORMATION DO WE COLLECT?</h3>
+                <p><strong>Personal information you disclose to us</strong></p>
+                <p>We collect personal information that you voluntarily provide to us when you register on the Services, express an interest in obtaining information about us, or when you contact us.</p>
+                <ul class="disc">
+                    <li>Names</li>
+                    <li>Phone Numbers</li>
+                    <li>Email Addresses</li>
+                    <li>Usernames</li>
+                    <li>Passwords</li>
+                </ul>
+                <p class="italic">We do not process sensitive information.</p>
+            </section>
+
+            <section>
+                <h3>2. HOW DO WE PROCESS YOUR INFORMATION?</h3>
+                <p class="italic" style="color: #71717a; margin-bottom: 16px;">In Short: We process your information to provide, improve, and administer our Services, communicate with you, for security and fraud prevention, and to comply with law.</p>
+                <div class="bullet-item">
+                    <div class="bullet-dot"></div>
+                    <span><strong>To facilitate account creation and authentication:</strong> We process your information so you can create and log in to your account.</span>
+                </div>
+                <div class="bullet-item">
+                    <div class="bullet-dot"></div>
+                    <span><strong>To deliver services:</strong> We process your information to provide you with the requested service.</span>
+                </div>
+                <div class="bullet-item">
+                    <div class="bullet-dot"></div>
+                    <span><strong>To fulfill and manage orders:</strong> We may process your information to fulfill and manage your orders, payments, and exchanges.</span>
+                </div>
+            </section>
+
+            <section>
+                <h3>6. HOW DO WE KEEP YOUR INFORMATION SAFE?</h3>
+                <p>
+                    We have implemented appropriate and reasonable technical and organizational security measures designed to protect the security of any personal information we process. However, despite our safeguards and efforts to secure your information, no electronic transmission over the Internet or information storage technology can be guaranteed to be 100% secure.
+                </p>
+            </section>
+
+            <section>
+                <h3>7. DO WE COLLECT INFORMATION FROM MINORS?</h3>
+                <p class="highlight-text">
+                    The app is for Users from ages 18 years and above.
+                </p>
+            </section>
+
+            <section>
+                <h3>11. HOW CAN YOU CONTACT US ABOUT THIS NOTICE?</h3>
+                <div class="contact-card">
+                    <p>If you have questions or comments about this notice, you may email us at <strong>support@getyovo.app</strong>.</p>
+                    <p class="company">GETYOVO LIMITED</p>
+                    <p>Awka City, Anambra State</p>
+                    <p>Nigeria.</p>
+                </div>
+            </section>
+        </div>
+    </div>
+</body>
+</html>
