@@ -78,13 +78,8 @@ const OrderDetails = () => {
             const riderLng = position.coords.longitude;
             const vendorLat = orderData.vendorLatitude;
             const vendorLng = orderData.vendorLongitude;
-            const storeAddress = orderData.storeAddress;
 
-            if (vendorLat && vendorLng) {
-                setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${vendorLat},${vendorLng}&output=embed`);
-            } else {
-                setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${encodeURIComponent(storeAddress)}&output=embed`);
-            }
+            setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${vendorLat},${vendorLng}&output=embed`);
             setIsMapLoading(false);
         }, () => setIsMapLoading(false));
     };
@@ -97,13 +92,8 @@ const OrderDetails = () => {
             const riderLng = position.coords.longitude;
             const deliveryLat = orderData.deliveryLatitude;
             const deliveryLng = orderData.deliveryLongitude;
-            const deliveryAddress = orderData.deliveryAddress;
 
-            if (deliveryLat && deliveryLng) {
-                setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${deliveryLat},${deliveryLng}&output=embed`);
-            } else {
-                setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${encodeURIComponent(deliveryAddress)}&output=embed`);
-            }
+            setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${deliveryLat},${deliveryLng}&output=embed`);
             setIsMapLoading(false);
         }, () => setIsMapLoading(false));
     };

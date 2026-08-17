@@ -131,14 +131,26 @@ const OrderModal = ({ isOpen, onClose, order }) => {
                         {/* Items Sub-section */}
                         <div className="bg-zinc-50/50 rounded-xl p-4 space-y-3">
                             <h5 className="text-[11px] font-bold text-zinc-900 uppercase tracking-widest">Ordered Items</h5>
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                                 {items.map((item, i) => (
-                                    <div key={i} className="flex items-center justify-between text-[11px]">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-zinc-400 font-bold">{item.quantity}x</span>
-                                            <span className="text-zinc-700 font-medium">{item.productName}</span>
+                                    <div key={i} className="space-y-1">
+                                        <div className="flex items-center justify-between text-[11px]">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-zinc-400 font-bold">{item.quantity}x</span>
+                                                <span className="text-zinc-700 font-medium">{item.productName}</span>
+                                            </div>
+                                            <span className="text-zinc-900 font-bold">₦{item.total?.toLocaleString()}</span>
                                         </div>
-                                        <span className="text-zinc-900 font-bold">₦{item.total?.toLocaleString()}</span>
+                                        {item.addOns && item.addOns.length > 0 && (
+                                            <div className="pl-6 space-y-0.5 border-l border-zinc-100 ml-2">
+                                                {item.addOns.map((addon, idx) => (
+                                                    <div key={idx} className="flex items-center justify-between text-[9px] text-zinc-500">
+                                                        <span>+ {addon.name} (x{addon.quantity})</span>
+                                                        <span>₦{(addon.price * addon.quantity).toLocaleString()}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
