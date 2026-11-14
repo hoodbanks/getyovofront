@@ -18,6 +18,8 @@ export const useAuthStore = create(
                 isAuthenticated: true,
             }),
 
+            setAccessToken: (accessToken) => set({ accessToken }),
+
             logout: () => set({
                 accessToken: null,
                 refreshToken: null,

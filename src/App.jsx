@@ -1,71 +1,87 @@
-import { Routes, Route } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import AdminLayout from './components/admin/AdminLayout';
 import ProtectedRoute from './components/admin/ProtectedRoute';
-import Dashboard from './pages/admin/Dashboard';
-import Analytics from './pages/admin/Analytics';
-import Customers from './pages/admin/Customers';
-import Vendors from './pages/admin/Vendors';
-import Riders from './pages/admin/Riders';
-import Orders from './pages/admin/Orders';
-import Transactions from './pages/admin/Transactions';
-import Payments from './pages/admin/Payments';
-import Settings from './pages/admin/Settings';
-import PushNotifications from './pages/admin/PushNotifications';
-import VendorManagement from './pages/admin/VendorManagement';
-
-import Login from './pages/admin/auth/Login';
-import ForgotPassword from './pages/admin/auth/ForgotPassword';
-import VerifyEmail from './pages/admin/auth/VerifyEmail';
-import ResetPassword from './pages/admin/auth/ResetPassword';
-import ResetSuccess from './pages/admin/auth/ResetSuccess';
-import Home from './pages/Home';
-import About from './pages/About';
-import PrivacyPolicy from './pages/legal/PrivacyPolicy';
-import TermsAndConditions from './pages/legal/TermsAndConditions';
-import MobilePrivacyPolicy from './pages/legal/MobilePrivacyPolicy';
-import MobileTermsAndConditions from './pages/legal/MobileTermsAndConditions';
-import DeleteAccount from './pages/account/DeleteAccount';
-import MobileDeleteAccount from './pages/account/MobileDeleteAccount';
+import StatusPage from './pages/StatusPage';
 import { Toaster } from 'sonner';
 
-
-
-
-// Rider Pages
-import RiderWelcome from './pages/rider/onboarding/RiderWelcome';
-import RiderLogin from './pages/rider/auth/RiderLogin';
-import RiderForgotPassword from './pages/rider/auth/RiderForgotPassword';
-import RiderVerifyOtp from './pages/rider/auth/RiderVerifyOtp';
-import RiderResetPassword from './pages/rider/auth/RiderResetPassword';
-import RiderSuccessState from './pages/rider/auth/RiderSuccessState';
 import RiderLayout from './components/rider/RiderLayout';
+import RiderMaintenanceGate from './components/rider/RiderMaintenanceGate';
 import RiderProtectedRoute from './components/rider/RiderProtectedRoute';
 import RiderPublicRoute from './components/rider/RiderPublicRoute';
-import RiderDashboard from './pages/rider/dashboard/RiderDashboard';
-import OrderDetails from './pages/rider/dashboard/OrderDetails';
-import ActiveOrder from './pages/rider/dashboard/ActiveOrder';
-import RiderHistory from './pages/rider/history/RiderHistory';
-import RiderProfile from './pages/rider/profile/RiderProfile';
-import RiderProfileForgotPassword from './pages/rider/profile/reset/RiderProfileForgotPassword';
-import RiderProfileVerifyOtp from './pages/rider/profile/reset/RiderProfileVerifyOtp';
-import RiderProfileResetPassword from './pages/rider/profile/reset/RiderProfileResetPassword';
-import RiderProfileSuccessState from './pages/rider/profile/reset/RiderProfileSuccessState';
-import RiderChangePassword from './pages/rider/profile/reset/RiderChangePassword';
-import RiderNotifications from './pages/rider/notifications/RiderNotifications';
+
+const Home = lazy(() => import('./pages/Home'));
+const About = lazy(() => import('./pages/About'));
+const PrivacyPolicy = lazy(() => import('./pages/legal/PrivacyPolicy'));
+const TermsAndConditions = lazy(() => import('./pages/legal/TermsAndConditions'));
+const MobilePrivacyPolicy = lazy(() => import('./pages/legal/MobilePrivacyPolicy'));
+const MobileTermsAndConditions = lazy(() => import('./pages/legal/MobileTermsAndConditions'));
+const DeleteAccount = lazy(() => import('./pages/account/DeleteAccount'));
+const MobileDeleteAccount = lazy(() => import('./pages/account/MobileDeleteAccount'));
+const Login = lazy(() => import('./pages/admin/auth/Login'));
+const ForgotPassword = lazy(() => import('./pages/admin/auth/ForgotPassword'));
+const VerifyEmail = lazy(() => import('./pages/admin/auth/VerifyEmail'));
+const Dashboard = lazy(() => import('./pages/admin/Dashboard'));
+const Analytics = lazy(() => import('./pages/admin/Analytics'));
+const Customers = lazy(() => import('./pages/admin/Customers'));
+const Vendors = lazy(() => import('./pages/admin/Vendors'));
+const Riders = lazy(() => import('./pages/admin/Riders'));
+const Orders = lazy(() => import('./pages/admin/Orders'));
+const Transactions = lazy(() => import('./pages/admin/Transactions'));
+const Payments = lazy(() => import('./pages/admin/Payments'));
+const Settings = lazy(() => import('./pages/admin/Settings'));
+const PushNotifications = lazy(() => import('./pages/admin/PushNotifications'));
+const Broadcast = lazy(() => import('./pages/admin/Broadcast'));
+const VendorManagement = lazy(() => import('./pages/admin/VendorManagement'));
+const SuperAdminAccounts = lazy(() => import('./pages/admin/SuperAdminAccounts'));
+const AuditEvents = lazy(() => import('./pages/admin/AuditEvents'));
+const Promotions = lazy(() => import('./pages/admin/Promotions'));
+const ReferralActivities = lazy(() => import('./pages/admin/ReferralActivities'));
+const VendorWallet = lazy(() => import('./pages/admin/wallet/VendorWallet'));
+const VendorWalletDirectory = lazy(() => import('./pages/admin/wallet/VendorWalletDirectory').then((module) => ({ default: module.VendorWalletDirectory })));
+const VendorWalletProfile = lazy(() => import('./pages/admin/wallet/VendorWalletDirectory').then((module) => ({ default: module.VendorWalletProfile })));
+const UserWallet = lazy(() => import('./pages/admin/wallet/UserWallet'));
+const UserWalletBalances = lazy(() => import('./pages/admin/wallet/UserWalletBalances'));
+const UserWalletReconciliation = lazy(() => import('./pages/admin/wallet/UserWalletReconciliation'));
+const RiderWelcome = lazy(() => import('./pages/rider/onboarding/RiderWelcome'));
+const RiderLogin = lazy(() => import('./pages/rider/auth/RiderLogin'));
+const RiderForgotPassword = lazy(() => import('./pages/rider/auth/RiderForgotPassword'));
+const RiderVerifyOtp = lazy(() => import('./pages/rider/auth/RiderVerifyOtp'));
+const RiderResetPassword = lazy(() => import('./pages/rider/auth/RiderResetPassword'));
+const RiderSuccessState = lazy(() => import('./pages/rider/auth/RiderSuccessState'));
+const RiderDashboard = lazy(() => import('./pages/rider/dashboard/RiderDashboard'));
+const OrderDetails = lazy(() => import('./pages/rider/dashboard/OrderDetails'));
+const ActiveOrder = lazy(() => import('./pages/rider/dashboard/ActiveOrder'));
+const RiderHistory = lazy(() => import('./pages/rider/history/RiderHistory'));
+const RiderProfile = lazy(() => import('./pages/rider/profile/RiderProfile'));
+const RiderProfileForgotPassword = lazy(() => import('./pages/rider/profile/reset/RiderProfileForgotPassword'));
+const RiderProfileVerifyOtp = lazy(() => import('./pages/rider/profile/reset/RiderProfileVerifyOtp'));
+const RiderProfileResetPassword = lazy(() => import('./pages/rider/profile/reset/RiderProfileResetPassword'));
+const RiderProfileSuccessState = lazy(() => import('./pages/rider/profile/reset/RiderProfileSuccessState'));
+const RiderChangePassword = lazy(() => import('./pages/rider/profile/reset/RiderChangePassword'));
+const RiderNotifications = lazy(() => import('./pages/rider/notifications/RiderNotifications'));
 
 function App() {
   return (
     <>
+      <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-sm text-zinc-500">Loading page...</div>}>
       <Routes>
+        {/* Standalone status pages */}
+        <Route path="/403" element={<StatusPage code={403} />} />
+        <Route path="/419" element={<StatusPage code={419} />} />
+        <Route path="/500" element={<StatusPage code={500} />} />
+        <Route path="/503" element={<StatusPage code={503} />} />
+
         {/* Admin Auth Routes */}
         <Route path="/admin/login" element={<Login />} />
         <Route path="/admin/forgot-password" element={<ForgotPassword />} />
         <Route path="/admin/verify-email" element={<VerifyEmail />} />
-        <Route path="/admin/reset-password" element={<ResetPassword />} />
-        <Route path="/admin/reset-success" element={<ResetSuccess />} />
+        <Route path="/admin/reset-password" element={<Navigate to="/admin/forgot-password" replace />} />
+        <Route path="/admin/reset-success" element={<Navigate to="/admin/login" replace />} />
 
 
-        {/* Rider Onboarding & Auth Routes */}
+        {/* Rider website. Maintenance covers login and the signed-in app. Admin stays outside this gate. */}
+        <Route element={<RiderMaintenanceGate />}>
         <Route path="/rider/welcome" element={<RiderPublicRoute><RiderWelcome /></RiderPublicRoute>} />
         <Route path="/rider/login" element={<RiderPublicRoute><RiderLogin /></RiderPublicRoute>} />
         <Route path="/rider/forgot-password" element={<RiderPublicRoute><RiderForgotPassword /></RiderPublicRoute>} />
@@ -94,6 +110,7 @@ function App() {
           <Route path="profile/reset/verify-otp" element={<RiderProfileVerifyOtp />} />
           <Route path="profile/reset/new-password" element={<RiderProfileResetPassword />} />
           <Route path="profile/reset/success" element={<RiderProfileSuccessState />} />
+        </Route>
         </Route>
 
         <Route path="/" element={<Home />} />
@@ -124,13 +141,28 @@ function App() {
           <Route path="orders" element={<Orders />} />
           <Route path="transactions" element={<Transactions />} />
           <Route path="payments" element={<Payments />} />
+          <Route path="wallet/vendor" element={<VendorWallet />} />
+          <Route path="wallet/vendor/vendors" element={<VendorWalletDirectory />} />
+          <Route path="wallet/vendor/vendors/:vendorId" element={<VendorWalletProfile />} />
+          <Route path="wallet/user" element={<UserWallet />} />
+          <Route path="wallet/user/balances" element={<UserWalletBalances />} />
+          <Route path="wallet/user/reconciliation" element={<UserWalletReconciliation />} />
+          <Route path="referral-activities" element={<ReferralActivities />} />
+          <Route path="promotions" element={<Promotions />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="accounts" element={<SuperAdminAccounts />} />
+          <Route path="audit" element={<AuditEvents />} />
           <Route path="push-notifications" element={<PushNotifications />} />
+          <Route path="broadcast" element={<Broadcast />} />
           <Route path="vendor-management" element={<VendorManagement />} />
-          <Route path="*" element={<div className="flex h-screen items-center justify-center text-2xl font-bold bg-zinc-50 text-zinc-900">404 - Not Found</div>} />
+          <Route path="*" element={<StatusPage code={404} />} />
         </Route>
-   
+
+        {/* Unknown addresses across the public, admin, and rider areas */}
+        <Route path="*" element={<StatusPage code={404} />} />
+
       </Routes>
+      </Suspense>
       <Toaster richColors position="top-right" />
     </>
   );

@@ -11,7 +11,7 @@ const AdminLayout = () => {
     const routeDetails = {
         '/admin': {
             title: 'Dashboard',
-            description: 'Monitor platform activity, performance, and revenue.'
+            description: 'Monitor platform activity. Financial cards stay separate and are not one revenue total.'
         },
         '/admin/analytics': {
             title: 'Analytics',
@@ -31,19 +31,47 @@ const AdminLayout = () => {
         },
         '/admin/orders': {
             title: 'Orders',
-            description: 'Monitor and manage all customer orders.'
+            description: 'Paid vendor orders. Cancelled order amounts stay separate from Customer Wallet refunds.'
         },
         '/admin/transactions': {
             title: 'Transactions',
-            description: 'Monitor and manage all processed financial activities.'
+            description: 'Review operational financial activity. These records are not an accounting ledger.'
         },
         '/admin/payments': {
             title: 'Payments',
-            description: 'Track revenue, commissions, and payouts.'
+            description: 'Legacy delivered-order payout queue. This is not Vendor Wallet withdrawals or verified bank payouts.'
+        },
+        '/admin/wallet/vendor': {
+            title: 'Vendor Wallet',
+            description: 'Review vendor wallet balances, order credits, and withdrawal requests.'
+        },
+        '/admin/wallet/user': {
+            title: 'User Wallet',
+            description: 'Review user wallet balances, top-ups, payments, and refunds.'
+        },
+        '/admin/wallet/user/balances': {
+            title: 'User Wallet Balances',
+            description: 'Browse each customer spending-wallet balance and activity.'
+        },
+        '/admin/wallet/user/reconciliation': {
+            title: 'Payment Reconciliation',
+            description: 'Review customer spending-wallet payments held for reconciliation.'
+        },
+        '/admin/referral-activities': {
+            title: 'Referral Wallet / Activities',
+            description: 'Review referral wallet rewards and referral activity.'
+        },
+        '/admin/promotions': {
+            title: 'Promotions',
+            description: 'Create, enable, and disable promotional features.'
         },
         '/admin/push-notifications': {
             title: 'Push Notification',
             description: 'Send updates and alerts to your community.'
+        },
+        '/admin/broadcast': {
+            title: 'Broadcast',
+            description: 'Draft, publish, and deactivate persistent announcements for customers and vendors.'
         },
         '/admin/vendor-management': {
             title: 'Vendor Management',
@@ -52,13 +80,27 @@ const AdminLayout = () => {
         '/admin/settings': {
             title: 'Settings',
             description: 'Configure platform preferences and rules.'
+        },
+        '/admin/accounts': {
+            title: 'Super Admin Accounts',
+            description: 'Review and create Super Admin accounts.'
+        },
+        '/admin/audit': {
+            title: 'Audit trail',
+            description: 'Review recorded Super Admin actions and inspect event details.'
         }
     };
 
-    const currentRoute = routeDetails[location.pathname] || {
+    const currentRoute = routeDetails[location.pathname] || (location.pathname.startsWith('/admin/wallet/vendor/vendors/') ? {
+        title: 'Vendor Wallet Details',
+        description: 'Review a vendor’s spending and withdrawal wallet activity.'
+    } : location.pathname === '/admin/wallet/vendor/vendors' ? {
+        title: 'Vendor Wallets',
+        description: 'Browse vendor identities and available wallet balances.'
+    } : {
         title: 'Dashboard',
-        description: 'Monitor platform activity, performance, and revenue.'
-    };
+        description: 'Monitor platform activity. Financial cards stay separate and are not one revenue total.'
+    });
 
     return (
         <div className="min-h-screen bg-[#E2E8F0A6] flex">

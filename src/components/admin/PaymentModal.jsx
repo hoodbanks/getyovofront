@@ -28,7 +28,7 @@ const PaymentModal = ({ isOpen, onClose, vendor }) => {
     const [snapshotData, setSnapshotData] = useState(null);
 
     // Fetch Vendor Overview
-    const { data: overviewData, isLoading, error } = useQuery({
+    const { data: overviewData, isLoading } = useQuery({
         queryKey: ['vendor-payment-overview', vendor?.vendorId, activeTab, page],
         queryFn: () => api.get(`/superadmin/payment/vendor/${vendor.vendorId}/overview?status=${activeTab}&page=${page}`, token),
         enabled: !!isOpen && !!vendor?.vendorId
@@ -182,7 +182,9 @@ const PaymentModal = ({ isOpen, onClose, vendor }) => {
                                                 <div>
                                                     <h5 className="text-[11px] font-bold text-zinc-900">{order.orderCode}</h5>
                                                     <p className="text-[10px] text-zinc-400 font-medium">
-                                                        {new Date(order.paidAt || order.createdAt || Date.now()).toLocaleString()} • {order.customerName}
+                                                        {order.paidAt || order.createdAt
+                                                            ? new Date(order.paidAt || order.createdAt).toLocaleString()
+                                                            : 'Date unavailable'} • {order.customerName}
                                                     </p>
                                                 </div>
                                                 <span className={`px-3 py-1 rounded-full text-[9px] font-bold border uppercase tracking-tighter ${order.vendorPaymentStatus === 'PAID'

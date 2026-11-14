@@ -1,355 +1,255 @@
-import React, { useState } from 'react';
-import {
-    Search,
-    ChevronDown,
-    History,
-    Calendar,
-    ChevronRight,
-    ChevronLeft,
-    Loader2,
-    AlertCircle,
-    Download,
-    Eye,
-    X
-} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Eye, Loader2, Search, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
-import { formatDate, formatName, exportToCSV } from '../../utils/formatters';
-import TransactionModal from '../../components/admin/TransactionModal';
+import { formatShortDateTime } from '../../utils/formatters';
+import { WalletCustomDateModal, WalletFilterDropdown } from '../../components/admin/wallet/WalletControls';
+import FinancialActivityDetailsPanel from '../../components/admin/FinancialActivityDetailsPanel';
+import {
+    FINANCIAL_ACTIVITY_PAGE_SIZE,
+    SUMMARY_METRICS,
+    activityAmountTone,
+    activityStatusTone,
+    buildFinancialActivityParams,
+    buildFinancialActivitySummaryParams,
+    displayText,
+    domainLabel,
+    eventTypeLabel,
+    financialActivityDateOptions,
+    financialActivityDomainOptions,
+    financialActivityEventOptions,
+    financialActivityStatusOptions,
+    formatActivityAmount,
+    formatKobo,
+    isFinancialActivityList,
+    readSummaryMetric,
+    statusLabel,
+} from './financialActivityUtils';
 
-const StatCard = ({ label, value, subLabel, icon: Icon, color, bg, borderColor, cardBg, dotColor }) => (
-    <div className={`relative overflow-hidden p-6 rounded-2xl ${cardBg} border ${borderColor} shadow-sm transition-all hover:shadow-md group flex-1 min-w-[280px]`}>
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
-            style={{ backgroundImage: `radial-gradient(${dotColor} 1px, transparent 1px)`, backgroundSize: '4px 4px' }}></div>
-        <div className={`absolute -top-10 -right-10 w-48 h-48 ${bg} opacity-10 blur-[40px] rounded-full transition-all duration-500 group-hover:scale-125 group-hover:opacity-20`} />
-        
-        <div className="relative z-10 flex justify-between items-start">
-            <div>
-                <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-3">{label}</p>
-                <div className="space-y-1">
-                    <h3 className="text-lg font-bold text-zinc-900 leading-tight">{value}</h3>
-                    <p className="text-[11px] font-medium text-zinc-400 mt-3">{subLabel}</p>
-                </div>
-            </div>
-            <div className={`p-3 rounded-2xl ${bg} ${color} shadow-sm border border-white/40 group-hover:rotate-6 transition-all duration-300`}>
-                <Icon size={20} />
-            </div>
-        </div>
+const SummaryCard = ({ metric, summary, loading }) => {
+    const value = readSummaryMetric(summary, metric);
+    return (
+        <article className="rounded-xl border border-zinc-200 bg-white p-4">
+            <h2 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{metric.label}</h2>
+            {loading ? <div className="mt-3 h-6 w-28 animate-pulse rounded bg-zinc-200" /> : <p className="mt-2 text-lg font-bold text-zinc-900">{value.amountKobo == null ? '—' : formatKobo(value.amountKobo)}</p>}
+            <p className="mt-1 text-xs font-semibold text-zinc-700">{loading ? '' : value.count == null ? '— records' : `${value.count.toLocaleString('en-NG')} records`}</p>
+            <p className="mt-2 text-[10px] leading-4 text-zinc-500">{metric.detail}</p>
+        </article>
+    );
+};
+
+const ErrorPanel = ({ message, onRetry }) => (
+    <div role="alert" className="px-5 py-12 text-center">
+        <p className="text-sm font-semibold text-rose-700">{message || 'Could not load financial activity.'}</p>
+        <button type="button" onClick={onRetry} className="mt-3 rounded-lg border border-rose-200 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50">Retry</button>
     </div>
 );
 
 const Transactions = () => {
     const token = useAuthStore((state) => state.accessToken);
+    const [search, setSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [domain, setDomain] = useState('ALL');
+    const [eventType, setEventType] = useState('ALL');
+    const [status, setStatus] = useState('ALL');
+    const [dateFilter, setDateFilter] = useState('all_time');
+    const [customDates, setCustomDates] = useState({ start: '', end: '' });
+    const [draftDates, setDraftDates] = useState({ start: '', end: '' });
+    const [previousDateFilter, setPreviousDateFilter] = useState('all_time');
+    const [isDateModalOpen, setIsDateModalOpen] = useState(false);
     const [page, setPage] = useState(1);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
-    const [selectedTransaction, setSelectedTransaction] = useState(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedActivityId, setSelectedActivityId] = useState(null);
 
-    const { data: transData, isLoading, error, refetch } = useQuery({
-        queryKey: ['transactions', page],
-        queryFn: () => api.get(`/superadmin/transchistory?page=${page}&limit=20`, token),
+    useEffect(() => {
+        const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 350);
+        return () => window.clearTimeout(timer);
+    }, [search]);
+
+    const datesReady = dateFilter !== 'custom' || Boolean(customDates.start && customDates.end);
+    const listParams = buildFinancialActivityParams({
+        page,
+        limit: FINANCIAL_ACTIVITY_PAGE_SIZE,
+        query: debouncedSearch,
+        domain,
+        eventType,
+        status,
+        dateFilter,
+        from: customDates.start,
+        to: customDates.end,
+    });
+    const summaryParams = buildFinancialActivitySummaryParams({
+        dateFilter,
+        from: customDates.start,
+        to: customDates.end,
     });
 
-    const transactions = transData?.data?.data || [];
-    const pagination = transData?.data?.pagination || { page: 1, limit: 20, total: 0 };
-    const totalPages = Math.ceil(pagination.total / pagination.limit) || 1;
-
-    const handleViewDetails = (transaction) => {
-        setSelectedTransaction(transaction);
-        setIsModalOpen(true);
-    };
-
-    const handleExport = () => {
-        if (!transactions.length) return;
-        
-        const exportData = transactions.map(tx => ({
-            'Customer Name': tx.customerName,
-            'Total Amount (₦)': tx.totalAmount,
-            'Paid At': tx.paidAt,
-            'Vendor Store': tx.vendor?.storeName,
-            'Vendor ID': tx.vendor?.id,
-            'Items': tx.items?.map(i => `${i.productName} (${i.quantity})`).join(' | ')
-        }));
-
-        exportToCSV(exportData, 'getyovo_transactions');
-    };
-
-    const filteredTransactions = transactions.filter(t => {
-        const matchesSearch = !searchQuery || 
-            t.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            t.vendor?.storeName?.toLowerCase().includes(searchQuery.toLowerCase());
-        
-        let matchesDate = true;
-        if (t.paidAt) {
-            const txDate = new Date(t.paidAt);
-            if (startDate) {
-                const start = new Date(startDate);
-                start.setHours(0, 0, 0, 0);
-                if (txDate < start) matchesDate = false;
+    const summaryQuery = useQuery({
+        queryKey: ['financial-activity-summary', dateFilter, customDates.start, customDates.end],
+        queryFn: () => api.get(`/superadmin/financial-activity/summary?${summaryParams.toString()}`, token),
+        enabled: datesReady,
+    });
+    const listQuery = useQuery({
+        queryKey: ['financial-activity', page, debouncedSearch, domain, eventType, status, dateFilter, customDates.start, customDates.end],
+        queryFn: async () => {
+            const response = await api.get(`/superadmin/financial-activity?${listParams.toString()}`, token);
+            if (!isFinancialActivityList(response?.data)) {
+                throw new Error('Financial activity response is incomplete.');
             }
-            if (endDate) {
-                const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999);
-                if (txDate > end) matchesDate = false;
-            }
-        } else if (startDate || endDate) {
-            matchesDate = false;
+            return response;
+        },
+        enabled: datesReady,
+        placeholderData: (previous) => previous,
+    });
+
+    const summary = summaryQuery.data?.data;
+    const pageData = listQuery.data?.data;
+    const rows = pageData?.data || [];
+    const total = pageData?.total;
+    const pageSize = pageData?.pageSize || FINANCIAL_ACTIVITY_PAGE_SIZE;
+    const pages = total == null ? null : Math.max(1, Math.ceil(total / pageSize));
+    const rangeStart = rows.length && total != null ? (page - 1) * pageSize + 1 : 0;
+    const rangeEnd = total == null ? rows.length : Math.min(page * pageSize, total);
+
+    const updateFilter = (setter) => (value) => {
+        setter(value);
+        setPage(1);
+    };
+    const onDateFilter = (value) => {
+        if (value === 'custom') {
+            setPreviousDateFilter(dateFilter);
+            setDraftDates(customDates);
+            setIsDateModalOpen(true);
+            return;
         }
-
-        return matchesSearch && matchesDate;
-    });
-
-    const totalRevenue = filteredTransactions.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
+        setDateFilter(value);
+        setPage(1);
+    };
+    const closeDateModal = () => {
+        setIsDateModalOpen(false);
+        if (!customDates.start || !customDates.end) setDateFilter(previousDateFilter);
+    };
+    const clearFilters = () => {
+        setSearch('');
+        setDebouncedSearch('');
+        setDomain('ALL');
+        setEventType('ALL');
+        setStatus('ALL');
+        setDateFilter('all_time');
+        setCustomDates({ start: '', end: '' });
+        setPage(1);
+    };
+    const filtersActive = Boolean(search || domain !== 'ALL' || eventType !== 'ALL' || status !== 'ALL' || dateFilter !== 'all_time');
 
     return (
-        <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
-            <div className='bg-white py-6 rounded-2xl'>
-                {/* Stats Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4">
-                    <StatCard
-                        label="Total Transactions"
-                        value={pagination.total?.toLocaleString() || '0'}
-                        subLabel="Successful paid orders"
-                        icon={History}
-                        color="text-white"
-                        bg="bg-indigo-900"
-                        cardBg="bg-indigo-100/20"
-                        borderColor="border-indigo-500"
-                        dotColor="#6366f1"
-                    />
-                    <StatCard
-                        label="Page Volume"
-                        value={`₦${totalRevenue.toLocaleString()}`}
-                        subLabel="Volume on current page"
-                        icon={Calendar}
-                        color="text-white"
-                        bg="bg-emerald-900"
-                        cardBg="bg-emerald-100/20"
-                        borderColor="border-emerald-500"
-                        dotColor="#10b981"
-                    />
+        <div className="mx-auto w-full max-w-[1600px] space-y-6 pb-10">
+            <section className="rounded-2xl bg-white p-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    {SUMMARY_METRICS.map((metric) => (
+                        <SummaryCard key={metric.id} metric={metric} summary={summaryQuery.error ? null : summary} loading={summaryQuery.isLoading} />
+                    ))}
                 </div>
+                <p className="mt-3 text-[11px] leading-5 text-zinc-500">These totals stay separate. The same order can create more than one financial effect, so they are not added into one volume.</p>
+                {summaryQuery.error && <ErrorPanel message={summaryQuery.error.message} onRetry={() => summaryQuery.refetch()} />}
+            </section>
 
-                {/* Search & Filters Row */}
-                <div className="px-4 flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
-                    {/* Search Bar */}
-                    <div className="relative flex-1 max-w-md">
-                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search by customer or vendor..."
-                            className="w-full pl-14 pr-6 py-4 bg-zinc-100 border-none rounded-3xl text-sm focus:ring-2 focus:ring-emerald-500/10 placeholder:text-zinc-500 outline-none transition-all font-medium"
-                        />
+            <section className="space-y-3 rounded-2xl bg-white p-4">
+                <label className="relative block w-full min-w-0">
+                    <span className="sr-only">Search financial activity</span>
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
+                    <input
+                        type="search"
+                        value={search}
+                        onChange={(event) => {
+                            setSearch(event.target.value);
+                            setPage(1);
+                        }}
+                        maxLength={100}
+                        placeholder="Search activity, order, user, or vendor"
+                        className="w-full rounded-3xl bg-zinc-100 py-3.5 pl-12 pr-5 text-sm font-medium outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-emerald-500/10"
+                    />
+                </label>
+                <div className="flex items-end gap-3">
+                    <div className="grid min-w-0 flex-1 grid-cols-4 gap-3">
+                        <WalletFilterDropdown fullWidth label="Domain" selected={domain} options={financialActivityDomainOptions} onSelect={updateFilter(setDomain)} />
+                        <WalletFilterDropdown fullWidth label="Event" selected={eventType} options={financialActivityEventOptions} onSelect={updateFilter(setEventType)} />
+                        <WalletFilterDropdown fullWidth label="Status" selected={status} options={financialActivityStatusOptions} onSelect={updateFilter(setStatus)} />
+                        <WalletFilterDropdown fullWidth label="Date" selected={dateFilter} options={financialActivityDateOptions} onSelect={onDateFilter} />
                     </div>
-
-                    {/* Date Filters & Reset Button */}
-                    <div className="flex flex-wrap items-center gap-3">
-                        {/* From Date */}
-                        <div className="relative flex items-center bg-zinc-100 rounded-3xl px-4 py-3.5 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
-                            <span className="text-[10px] font-bold text-zinc-400 uppercase mr-2 select-none">From</span>
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                className="bg-transparent border-none text-xs font-bold text-zinc-700 focus:ring-0 p-0 outline-none cursor-pointer [color-scheme:light]"
-                            />
-                            <Calendar className="text-zinc-400 ml-2" size={14} />
-                        </div>
-
-                        {/* To Date */}
-                        <div className="relative flex items-center bg-zinc-100 rounded-3xl px-4 py-3.5 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
-                            <span className="text-[10px] font-bold text-zinc-400 uppercase mr-2 select-none">To</span>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
-                                className="bg-transparent border-none text-xs font-bold text-zinc-700 focus:ring-0 p-0 outline-none cursor-pointer [color-scheme:light]"
-                            />
-                            <Calendar className="text-zinc-400 ml-2" size={14} />
-                        </div>
-
-                        {/* Reset Button */}
-                        {(searchQuery || startDate || endDate) && (
-                            <button
-                                onClick={() => {
-                                    setSearchQuery('');
-                                    setStartDate('');
-                                    setEndDate('');
-                                }}
-                                className="flex items-center gap-2 px-5 py-3.5 bg-zinc-900 text-white rounded-3xl text-[10px] font-bold hover:bg-zinc-800 transition-all hover:scale-[1.02] active:scale-[0.98] uppercase tracking-widest group shadow-sm cursor-pointer"
-                            >
-                                <X size={14} className="group-hover:rotate-90 transition-transform duration-300" />
-                                Reset
-                            </button>
-                        )}
-                    </div>
+                    {filtersActive && <button type="button" onClick={clearFilters} className="flex h-[42px] shrink-0 items-center justify-center gap-2 self-end rounded-xl bg-zinc-900 px-4 text-xs font-bold text-white hover:bg-zinc-800"><X size={14} /> Reset</button>}
                 </div>
-            </div>
+            </section>
 
-            {/* Transactions Table Section */}
-            <div className="bg-white rounded-[2rem] border border-zinc-200 overflow-hidden shadow-sm">
-                <div className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-zinc-100 gap-4">
+            <section className="overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-sm">
+                <div className="flex flex-col gap-3 border-b border-zinc-100 p-5 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h3 className="text-sm md:text-base font-bold text-zinc-900">Transaction History</h3>
-                        <p className="text-[10px] text-zinc-500 font-medium tracking-tight">Real-time log of all successfully processed payments</p>
+                        <h1 className="text-base font-bold text-zinc-900">Financial activity</h1>
+                        <p className="mt-1 max-w-3xl text-xs leading-5 text-zinc-500">Operational feed of paid orders, wallet movements, withdrawals, and referral activity. This is not an accounting ledger, and a paid order is not the same event as a customer wallet debit.</p>
+                        {pageData?.limitations?.notes?.[0] && <p className="mt-2 text-[11px] leading-5 text-zinc-500">{pageData.limitations.notes[0]}</p>}
                     </div>
-                    <button 
-                        onClick={handleExport}
-                        disabled={!transactions.length}
-                        className="flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-xl text-[10px] font-bold hover:bg-zinc-800 transition-all uppercase tracking-widest disabled:opacity-50"
-                    >
-                        <Download size={14} />
-                        Export History
-                    </button>
+                    <button type="button" disabled title="There is no server export for this feed." className="cursor-not-allowed rounded-xl bg-zinc-200 px-4 py-2.5 text-xs font-bold text-zinc-500">Export unavailable</button>
                 </div>
-
-                <div className="divide-y divide-zinc-100 min-h-[400px] relative">
-                    {isLoading ? (
-                        <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-[1px] z-10">
-                            <div className="flex flex-col items-center gap-2">
-                                <Loader2 className="text-emerald-600 animate-spin" size={32} />
-                                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Loading History...</p>
-                            </div>
-                        </div>
-                    ) : error ? (
-                        <div className="flex flex-col items-center justify-center py-20 gap-3">
-                            <AlertCircle size={32} className="text-rose-500" />
-                            <p className="text-sm font-bold text-rose-500 uppercase tracking-tight">Failed to load transactions</p>
-                            <button onClick={() => refetch()} className="text-[10px] font-bold text-zinc-500 underline uppercase">Retry</button>
-                        </div>
-                    ) : filteredTransactions.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-20">
-                            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">No transactions found</p>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-zinc-50/50">
-                                        <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Customer</th>
-                                        <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Vendor</th>
-                                        <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Items</th>
-                                        <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Amount</th>
-                                        <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Date & Time</th>
-                                        <th className="px-6 py-4 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Action</th>
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[980px] text-left">
+                        <thead className="border-b border-zinc-100 bg-zinc-50/80">
+                            <tr>
+                                {['Activity', 'Domain', 'Event', 'Actor', 'Amount', 'Status', 'Occurred', 'Action'].map((heading) => (
+                                    <th key={heading} className={`whitespace-nowrap px-4 py-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400 ${heading === 'Action' ? 'text-right' : ''}`}>{heading}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-50">
+                            {listQuery.isLoading && !listQuery.data ? (
+                                <tr><td colSpan="8" className="px-5 py-16 text-center"><Loader2 className="mx-auto animate-spin text-emerald-700" /><p className="mt-2 text-xs text-zinc-500">Loading financial activity…</p></td></tr>
+                            ) : listQuery.error ? (
+                                <tr><td colSpan="8"><ErrorPanel message={listQuery.error.message} onRetry={() => listQuery.refetch()} /></td></tr>
+                            ) : rows.length ? rows.map((row) => {
+                                const amount = formatActivityAmount(row);
+                                return (
+                                    <tr key={row.activityId} className="hover:bg-zinc-50/70">
+                                        <td className="px-4 py-4 text-xs font-semibold text-zinc-800">
+                                            <span className="block">{displayText(row.orderCode ? `Order ${row.orderCode}` : row.actorLabel || eventTypeLabel(row.eventType))}</span>
+                                        </td>
+                                        <td className="whitespace-nowrap px-4 py-4 text-xs text-zinc-700">{domainLabel(row.domain)}</td>
+                                        <td className="whitespace-nowrap px-4 py-4 text-xs font-semibold text-zinc-800">{eventTypeLabel(row.eventType)}</td>
+                                        <td className="px-4 py-4 text-xs text-zinc-700">
+                                            <span className="block font-semibold text-zinc-900">{displayText(row.actorLabel)}</span>
+                                        </td>
+                                        <td className={`whitespace-nowrap px-4 py-4 text-xs font-bold ${activityAmountTone(row)}`}>
+                                            <span className="block">{amount.text}</span>
+                                            {amount.caption && <span className="mt-1 block text-[10px] font-medium text-zinc-400">{amount.caption}</span>}
+                                        </td>
+                                        <td className="whitespace-nowrap px-4 py-4 text-xs"><span className={`inline-flex rounded-full px-2.5 py-1 font-semibold ${activityStatusTone(row.status)}`}>{statusLabel(row.status)}</span></td>
+                                        <td className="whitespace-nowrap px-4 py-4 text-xs text-zinc-500">{row.occurredAt ? formatShortDateTime(row.occurredAt) : '—'}</td>
+                                        <td className="px-4 py-4 text-right">
+                                            <button type="button" onClick={() => setSelectedActivityId(row.activityId)} aria-label={`View ${eventTypeLabel(row.eventType)}${row.orderCode ? ` for order ${row.orderCode}` : ''}`} className="inline-flex rounded-lg p-2 text-emerald-700 hover:bg-emerald-50"><Eye size={16} /></button>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody className="divide-y divide-zinc-100">
-                                    {filteredTransactions.map((tx, idx) => (
-                                        <tr key={idx} className="hover:bg-zinc-50/50 transition-colors group">
-                                            <td className="px-6 py-5">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-500 font-bold text-[10px] uppercase">
-                                                        {tx.customerName?.substring(0, 2)}
-                                                    </div>
-                                                    <span className="text-[13px] font-bold text-zinc-900 tracking-tight">{formatName(tx.customerName)}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-5">
-                                                <div className="flex flex-col">
-                                                    <span className="text-[12px] font-bold text-zinc-700">{formatName(tx.vendor?.storeName)}</span>
-                                                    <span className="text-[9px] text-zinc-400 font-medium">ID: {tx.vendor?.id}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-5">
-                                                <div className="flex flex-col gap-1">
-                                                    <span className="text-[11px] font-bold text-zinc-600">{tx.items?.length} Items</span>
-                                                    <span className="text-[9px] text-zinc-400 font-medium truncate max-w-[150px]">
-                                                        {tx.items?.map(i => i.productName).join(', ')}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-5">
-                                                <span className="text-[13px] font-extrabold text-emerald-700 tracking-tight">₦{tx.totalAmount?.toLocaleString()}</span>
-                                            </td>
-                                            <td className="px-6 py-5 whitespace-nowrap">
-                                                <div className="flex flex-col">
-                                                    <span className="text-[12px] font-bold text-zinc-700">{formatDate(tx.paidAt)}</span>
-                                                    <span className="text-[10px] text-zinc-400 font-medium">
-                                                        {new Date(tx.paidAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-5">
-                                                <div className="flex justify-center">
-                                                    <button 
-                                                        onClick={() => handleViewDetails(tx)}
-                                                        className="p-2 bg-indigo-50 text-indigo-500 rounded-lg hover:bg-indigo-500 hover:text-white transition-all shadow-sm"
-                                                    >
-                                                        <Eye size={14} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                );
+                            }) : (
+                                <tr>
+                                    <td colSpan="8" className="px-5 py-16 text-center">
+                                        <p className="text-sm font-semibold text-zinc-700">No financial activity found</p>
+                                        <p className="mt-1 text-xs text-zinc-500">This filter returned no activity.</p>
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+                <footer className="flex flex-col gap-3 border-t border-zinc-100 px-5 py-3 text-[10px] font-medium text-zinc-400 sm:flex-row sm:items-center sm:justify-between">
+                    <span>{listQuery.isFetching && listQuery.data ? 'Updating… · ' : ''}{total == null ? 'Activity count unavailable' : `Showing ${rangeStart}–${rangeEnd} of ${total}`}</span>
+                    {pages > 1 && (
+                        <div className="flex items-center gap-3">
+                            <span>Page {page} of {pages}</span>
+                            <button type="button" aria-label="Previous page" disabled={page <= 1} onClick={() => setPage((current) => current - 1)} className="rounded-lg border border-zinc-200 px-3 py-1.5 disabled:opacity-40">Previous</button>
+                            <button type="button" aria-label="Next page" disabled={page >= pages} onClick={() => setPage((current) => current + 1)} className="rounded-lg border border-zinc-200 px-3 py-1.5 disabled:opacity-40">Next</button>
                         </div>
                     )}
-                </div>
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                    <div className="px-6 py-4 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between">
-                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Page {page} of {totalPages}</p>
-                        <div className="flex items-center gap-2">
-                            <button 
-                                disabled={page === 1}
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-white border border-zinc-200 rounded-lg text-[11px] font-bold text-zinc-500 hover:bg-zinc-50 disabled:opacity-50 transition-colors"
-                            >
-                                <ChevronLeft size={14} /> Previous
-                            </button>
-
-                            <div className="hidden sm:flex items-center gap-1 mx-2">
-                                {Array.from({ length: totalPages }, (_, i) => i + 1).reduce((acc, p) => {
-                                    if (p === 1 || p === totalPages || Math.abs(p - page) <= 1) {
-                                        acc.push(p);
-                                    } else if (acc[acc.length - 1] !== '...') {
-                                        acc.push('...');
-                                    }
-                                    return acc;
-                                }, []).map((p, index) => (
-                                    p === '...' ? (
-                                        <span key={`dots-${index}`} className="text-zinc-400 text-[11px] px-1">...</span>
-                                    ) : (
-                                        <button
-                                            key={p}
-                                            onClick={() => setPage(p)}
-                                            className={`min-w-[28px] h-7 px-2 flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
-                                                page === p 
-                                                    ? 'bg-emerald-600 text-white shadow-sm border-emerald-600' 
-                                                    : 'bg-white text-zinc-500 hover:bg-zinc-50 border border-zinc-200'
-                                            }`}
-                                        >
-                                            {p}
-                                        </button>
-                                    )
-                                ))}
-                            </div>
-
-                            <button 
-                                disabled={page === totalPages}
-                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-white border border-zinc-200 rounded-lg text-[11px] font-bold text-zinc-500 hover:bg-zinc-50 disabled:opacity-50 transition-colors"
-                            >
-                                Next <ChevronRight size={14} />
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            <TransactionModal 
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                transaction={selectedTransaction}
-            />
+                </footer>
+            </section>
+            <WalletCustomDateModal isOpen={isDateModalOpen} dates={draftDates} onDatesChange={setDraftDates} onClose={closeDateModal} onApply={(dates) => { setCustomDates(dates); setDateFilter('custom'); setPage(1); setIsDateModalOpen(false); }} />
+            {selectedActivityId && <FinancialActivityDetailsPanel key={selectedActivityId} activityId={selectedActivityId} onClose={() => setSelectedActivityId(null)} />}
         </div>
     );
 };

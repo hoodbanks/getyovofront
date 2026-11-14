@@ -4,15 +4,16 @@ import {
     Store,
     Bike,
     ShoppingBag,
-    ArrowUpRight,
-    ArrowDownRight,
     DollarSign,
-    Search,
     ChevronRight,
     ChevronLeft,
     Briefcase,
     Wallet,
+    BadgeCheck,
+    UserRoundX,
+    Clock3,
     Eye,
+    ArrowRight,
     Loader2,
     X,
     AlertTriangle
@@ -27,9 +28,9 @@ import {
     ResponsiveContainer,
     Cell
 } from 'recharts';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
 import api from '../../api/api';
+import { API_BASE_URL } from '../../config/apiConfig';
 import { useAuthStore } from '../../store/useAuthStore';
 import OrderModal from '../../components/admin/OrderModal';
 import VendorModal from '../../components/admin/VendorModal';
@@ -37,31 +38,31 @@ import RiderModal from '../../components/admin/RiderModal';
 import CustomerModal from '../../components/admin/CustomerModal';
 import CreateVendorModal from '../../components/admin/CreateVendorModal';
 import CreateRiderModal from '../../components/admin/CreateRiderModal';
-import { formatName, formatDate, capitalizeFirst } from '../../utils/formatters';
+import { formatName, formatDate, formatCompactChartDate, capitalizeFirst } from '../../utils/formatters';
 
-const StatCard = ({ label, value, icon: Icon, color, trend, iconBg, gradient }) => (
-    <div className="relative overflow-hidden bg-white p-6 rounded-3xl border border-zinc-200/50 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 group">
+const formatCompactOrderDate = (value) => {
+    if (!value) return '—';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? formatDate(value) : new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
+};
+
+const StatCard = ({ label, value, description, icon: Icon, color, iconBg, gradient, isLoading }) => (
+    <div className="relative overflow-hidden bg-white p-4 rounded-3xl border border-zinc-200/50 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 group">
         {/* Glow Effect Background */}
         <div className={`absolute -top-10 -right-10 w-40 h-40 ${gradient} opacity-8 blur-[20px] rounded-full transition-all duration-500 group-hover:scale-125 group-hover:opacity-15`} />
 
         <div className="relative z-10">
-            <div className="flex justify-between items-start mb-4">
-                <div>
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
                     <p className="text-[11px] font-medium text-zinc-500 mb-1">{label}</p>
-                    <h3 className="text-xl font-medium text-zinc-900">{value}</h3>
+                    {isLoading ? <div aria-label={`Loading ${label}`} className="mt-2 h-6 w-24 animate-pulse rounded bg-zinc-200" /> : <h3 className="text-lg font-medium text-zinc-900">{value}</h3>}
                 </div>
                 {/* Icon Container with backdrop-blur */}
-                <div className={`relative p-2 rounded-xl ${iconBg} shadow-sm backdrop-blur-md border border-white/20 group-hover:rotate-6 transition-all duration-300`}>
+                <div className={`relative shrink-0 p-2 rounded-xl ${iconBg} shadow-sm backdrop-blur-md border border-white/20 group-hover:rotate-6 transition-all duration-300`}>
                     <Icon size={18} className={color} />
                 </div>
             </div>
-            {/* <div className="flex items-center gap-1.5">
-                <div className={`flex items-center font-medium text-xs ${trend > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {trend > 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                    {Math.abs(trend)}%
-                </div>
-                <span className="text-xs text-zinc-400 font-medium">vs last month</span>
-            </div> */}
+            <p className="mt-2 w-full text-[10px] leading-4 text-zinc-500">{description}</p>
         </div>
     </div>
 );
@@ -72,6 +73,9 @@ const StatusBadge = ({ status }) => {
         'Picked up': 'bg-blue-50 text-blue-600 border-blue-100',
         Cancelled: 'bg-rose-50 text-rose-600 border-rose-100',
         Accepted: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+        'Rider accepted': 'bg-indigo-50 text-indigo-600 border-indigo-100',
+        Ready: 'bg-amber-50 text-amber-700 border-amber-100',
+        'Out for delivery': 'bg-blue-50 text-blue-600 border-blue-100',
         Delivered: 'bg-emerald-50 text-emerald-600 border-emerald-100',
         Inactive: 'bg-zinc-100 text-zinc-600 border-zinc-200',
         Suspended: 'bg-rose-50 text-rose-600 border-rose-100',
@@ -87,6 +91,64 @@ const StatusBadge = ({ status }) => {
     );
 };
 
+const orderStatusLabel = (status) => {
+    const labels = {
+        RIDER_ACCEPTED: 'Rider accepted',
+        ACCEPTED: 'Accepted',
+        READY: 'Ready',
+        OUT_FOR_DELIVERY: 'Out for delivery',
+        DELIVERED: 'Delivered',
+        CANCELLED: 'Cancelled',
+        PENDING: 'Pending',
+        RECEIVED: 'Received',
+    };
+    const key = String(status || 'Unknown').toUpperCase();
+    return labels[key] || key.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+};
+
+const formatCount = (value) => value == null ? '—' : Number(value).toLocaleString('en-NG');
+const formatCurrency = (value) => Number.isFinite(value) ? new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value) : '—';
+const explicitMoney = (summary, nairaKey, koboKey) => Number.isFinite(summary?.[nairaKey]) ? summary[nairaKey] : Number.isFinite(summary?.[koboKey]) ? summary[koboKey] / 100 : undefined;
+const finiteMetric = (value) => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '') {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) return parsed;
+    }
+    return null;
+};
+
+const validateDashboardResponse = (response) => {
+    const data = response?.data;
+    const summary = data?.summary;
+    if (!summary || typeof summary !== 'object' || !Array.isArray(data?.orders?.data) || !Array.isArray(data?.topVendors?.data) || !Array.isArray(data?.topRiders?.data) || !data?.riderActivity || typeof data.riderActivity !== 'object') {
+        throw new Error('Dashboard response is incomplete. Please retry or contact support if the issue continues.');
+    }
+    const metricValues = [
+        summary.totalCustomers ?? summary.totalUsers,
+        summary.verifiedCustomers,
+        summary.unverifiedCustomers,
+        summary.totalVendors,
+        summary.totalRiders,
+        summary.totalOrders,
+        summary.ordersToday,
+        summary.pendingVendorWithdrawals,
+        summary.pendingReferralWithdrawals,
+    ];
+    if (metricValues.some((value) => typeof value !== 'number' || !Number.isFinite(value))) {
+        throw new Error('Dashboard response is missing one or more summary metrics. Please retry or contact support.');
+    }
+    const online = finiteMetric(data.riderActivity.online);
+    const offline = finiteMetric(data.riderActivity.offline);
+    const rawAverage = finiteMetric(data.riderActivity.avgDeliveryTime);
+    if (online == null || offline == null) {
+        throw new Error('Dashboard response is missing rider activity metrics. Please retry or contact support.');
+    }
+    const avgDeliveryTime = rawAverage != null && rawAverage > 0 && rawAverage <= 180 ? rawAverage : null;
+    data.riderActivity = { ...data.riderActivity, online, offline, avgDeliveryTime };
+    return response;
+};
+
 const Dashboard = () => {
     const { accessToken } = useAuthStore();
     const [view, setView] = React.useState('revenue');
@@ -97,6 +159,8 @@ const Dashboard = () => {
     const [selectedOrder, setSelectedOrder] = React.useState(null);
     const [selectedVendor, setSelectedVendor] = React.useState(null);
     const [selectedRider, setSelectedRider] = React.useState(null);
+    const [riderProfileLoading, setRiderProfileLoading] = React.useState(false);
+    const [riderProfileError, setRiderProfileError] = React.useState('');
     const [selectedCustomer, setSelectedCustomer] = React.useState(null);
     const [isCreateVendorOpen, setIsCreateVendorOpen] = React.useState(false);
     const [isCreateRiderOpen, setIsCreateRiderOpen] = React.useState(false);
@@ -107,9 +171,9 @@ const Dashboard = () => {
     const [riderPage, setRiderPage] = React.useState(1);
     const ITEMS_PER_PAGE = 5;
 
-    const { data: adminData, isLoading, error } = useQuery({
+    const { data: adminData, isLoading, error: dashboardError, refetch: refetchDashboard } = useQuery({
         queryKey: ['adminDashboard'],
-        queryFn: () => api.get('/superadmin/dashboard', accessToken)
+        queryFn: async () => validateDashboardResponse(await api.get('/superadmin/dashboard?page=1&limit=20', accessToken)),
     });
 
     const dashboard = adminData?.data || {
@@ -118,6 +182,32 @@ const Dashboard = () => {
         topVendors: { data: [] },
         topRiders: { data: [] },
         riderActivity: {}
+    };
+
+    const openRiderFromOrder = async (order) => {
+        const orderRider = order?.rider;
+        if (!orderRider) return;
+        setSelectedRider(orderRider);
+        setRiderProfileLoading(true);
+        setRiderProfileError('');
+        const riderName = orderRider.name || [orderRider.firstname, orderRider.lastname].filter(Boolean).join(' ');
+        const riderId = order?.riderId || order?.rider_id || orderRider.id || orderRider._id || orderRider.riderId || orderRider.uid;
+        try {
+            if (!riderName) throw new Error('This order does not include a rider name to look up the full profile.');
+            const params = new URLSearchParams({ query: riderName, page: '1' });
+            const response = await api.get(`/superadmin/riders/search?${params}`, accessToken);
+            const matches = response?.data?.data;
+            if (!Array.isArray(matches)) throw new Error('The Rider search response was not in the expected format.');
+            const byId = riderId ? matches.find((item) => [item.id, item._id, item.riderId, item.uid].includes(riderId)) : null;
+            const exactNameMatches = matches.filter((item) => String(item.name || '').trim().toLocaleLowerCase() === riderName.trim().toLocaleLowerCase());
+            const riderProfile = byId || (exactNameMatches.length === 1 ? exactNameMatches[0] : null);
+            if (!riderProfile) throw new Error('Could not safely match this order to one Rider profile. Open the Rider page to find the correct account.');
+            setSelectedRider(riderProfile);
+        } catch (error) {
+            setRiderProfileError(error.message || 'Could not load the full Rider profile.');
+        } finally {
+            setRiderProfileLoading(false);
+        }
     };
 
     const timeOptions = [
@@ -154,7 +244,6 @@ const Dashboard = () => {
         enabled: !!accessToken && selectedTime !== 'Last 7 days'
     });
 
-    const queryClient = useQueryClient();
 
 
     // Sync modal states with fresh dashboard data when it updates
@@ -213,125 +302,74 @@ const Dashboard = () => {
         if (!rawData) return [];
 
         return rawData.map(d => ({
-            name: formatDate(d.day),
+            name: formatCompactChartDate(d.day),
             [view]: d.total
         }));
     };
 
     const chartData = getChartData();
+    const summary = dashboard.summary;
+    const summaryCards = [
+        { label: 'Total Customers', value: formatCount(summary.totalCustomers ?? summary.totalUsers), description: 'All registered customer accounts.', icon: Users, color: 'text-white', iconBg: 'bg-emerald-900', gradient: 'bg-emerald-500' },
+        { label: 'Verified Customers', value: formatCount(summary.verifiedCustomers), description: 'Customers who verified their phone number.', icon: BadgeCheck, color: 'text-white', iconBg: 'bg-teal-900', gradient: 'bg-teal-500' },
+        { label: 'Unverified Customers', value: formatCount(summary.unverifiedCustomers), description: 'Customers who have not verified their phone number.', icon: UserRoundX, color: 'text-white', iconBg: 'bg-amber-900', gradient: 'bg-amber-500' },
+        { label: 'Total Vendors', value: formatCount(summary.totalVendors), description: 'All registered vendor accounts.', icon: Store, color: 'text-white', iconBg: 'bg-blue-900', gradient: 'bg-blue-500' },
+        { label: 'Total Riders', value: formatCount(summary.totalRiders), description: 'All registered rider accounts.', icon: Bike, color: 'text-white', iconBg: 'bg-purple-900', gradient: 'bg-purple-500' },
+        { label: 'Paid Orders', value: formatCount(summary.totalOrders), description: 'Orders with confirmed payment.', icon: ShoppingBag, color: 'text-white', iconBg: 'bg-orange-900', gradient: 'bg-orange-500' },
+        { label: 'Paid Orders Today', value: formatCount(summary.ordersToday), description: 'Paid orders whose payment time is on the current Lagos calendar day.', icon: ShoppingBag, color: 'text-white', iconBg: 'bg-rose-900', gradient: 'bg-rose-500' },
+        { label: 'Gross paid order value', value: formatCurrency(explicitMoney(summary, 'grossPaidOrderValueNaira', 'grossPaidOrderValueKobo')), description: 'Historical paid-order value, including delivery fees; may include orders later cancelled.', icon: DollarSign, color: 'text-white', iconBg: 'bg-indigo-900', gradient: 'bg-indigo-500' },
+        { label: 'Customer Wallet refunds', value: formatCurrency(explicitMoney(summary, 'customerOrderRefundsNaira', 'customerOrderRefundsKobo')), description: 'Order-related credits to customer spending Wallets; not Paystack refunds.', icon: Wallet, color: 'text-white', iconBg: 'bg-purple-900', gradient: 'bg-purple-500' },
+        { label: 'Paid cancelled orders', value: formatCount(summary.paidCancelledOrderCount), description: `Current paid cancellations · original order value ${formatCurrency(explicitMoney(summary, 'paidCancelledOrderValueNaira', 'paidCancelledOrderValueKobo'))}; not refund total.`, icon: X, color: 'text-white', iconBg: 'bg-rose-900', gradient: 'bg-rose-500' },
+        { label: 'Delivery fees on paid orders', value: formatCurrency(explicitMoney(summary, 'deliveryFeesOnPaidOrdersNaira', 'deliveryFeesOnPaidOrdersKobo')), description: 'Delivery fees attached to paid orders; not earned platform revenue.', icon: Briefcase, color: 'text-white', iconBg: 'bg-blue-900', gradient: 'bg-blue-500' },
+        { label: 'Platform fees earned', value: formatCurrency(explicitMoney(summary, 'platformFeesEarnedNaira', 'platformFeesEarnedKobo')), description: 'Fees earned only on paid orders currently delivered.', icon: Briefcase, color: 'text-white', iconBg: 'bg-indigo-900', gradient: 'bg-indigo-500' },
+        { label: 'Pending Vendor Withdrawals', value: formatCount(summary.pendingVendorWithdrawals), description: 'Vendor requests awaiting admin action.', icon: Clock3, color: 'text-white', iconBg: 'bg-amber-900', gradient: 'bg-amber-500' },
+        { label: 'Pending Referral Withdrawals', value: formatCount(summary.pendingReferralWithdrawals), description: 'Referral requests awaiting review.', icon: Clock3, color: 'text-white', iconBg: 'bg-pink-900', gradient: 'bg-pink-500' },
+    ];
+
+    if (dashboardError) {
+        const dashboardEndpoint = `${API_BASE_URL}/superadmin/dashboard?page=1&limit=20`;
+        const responseStatus = dashboardError.status || dashboardError.statusCode;
+        return <div className="mx-auto flex min-h-[420px] max-w-2xl items-center justify-center p-6">
+            <section role="alert" className="w-full rounded-3xl border border-rose-100 bg-white p-8 text-center shadow-sm">
+                <AlertTriangle className="mx-auto text-rose-600" size={30} />
+                <h1 className="mt-4 text-lg font-bold text-zinc-900">Dashboard data couldn’t load</h1>
+                <p className="mt-2 text-sm text-zinc-500">{dashboardError.message || 'Please check your connection and try again.'}</p>
+                <p className="mt-3 break-all text-xs text-zinc-400">Request: {dashboardEndpoint}{responseStatus ? ` · HTTP ${responseStatus}` : ''}</p>
+                <button type="button" onClick={() => refetchDashboard()} className="mt-5 rounded-xl bg-[#1C5E20] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#174D1A]">Retry</button>
+            </section>
+        </div>;
+    }
 
     return (
         <div className="space-y-8 max-w-[1600px] mx-auto">
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                <StatCard
-                    label="Total Users"
-                    value={dashboard.summary.totalUsers?.toLocaleString() || '0'}
-                    icon={Users}
-                    color="text-white"
-                    iconBg="bg-emerald-900"
-                    gradient="bg-emerald-500"
-                    trend={12}
-                />
-                <StatCard
-                    label="Total Vendors"
-                    value={dashboard.summary.totalVendors?.toLocaleString() || '0'}
-                    icon={Store}
-                    color="text-white"
-                    iconBg="bg-blue-900"
-                    gradient="bg-blue-500"
-                    trend={8}
-                />
-                <StatCard
-                    label="Total Riders"
-                    value={dashboard.summary.totalRiders?.toLocaleString() || '0'}
-                    icon={Bike}
-                    color="text-white"
-                    iconBg="bg-purple-900"
-                    gradient="bg-purple-500"
-                    trend={-2}
-                />
-                <StatCard
-                    label="Total Orders"
-                    value={dashboard.summary.totalOrders?.toLocaleString() || '0'}
-                    icon={ShoppingBag}
-                    color="text-white"
-                    iconBg="bg-orange-900"
-                    gradient="bg-orange-500"
-                    trend={24}
-                />
-                <StatCard
-                    label="Orders Today"
-                    value={dashboard.summary.ordersToday?.toLocaleString() || '0'}
-                    icon={ShoppingBag}
-                    color="text-white"
-                    iconBg="bg-rose-900"
-                    gradient="bg-rose-500"
-                    trend={18}
-                />
-                <StatCard
-                    label="Revenue Generated"
-                    value={`₦${dashboard.summary.totalRevenue?.toLocaleString() || '0'}`}
-                    icon={DollarSign}
-                    color="text-white"
-                    iconBg="bg-indigo-900"
-                    gradient="bg-indigo-500"
-                    trend={32}
-                />
-                <StatCard
-                    label="Platform Commission"
-                    value={`₦${dashboard.summary.platformCommission?.toLocaleString() || '0'}`}
-                    icon={Briefcase}
-                    color="text-white"
-                    iconBg="bg-indigo-900"
-                    gradient="bg-indigo-500"
-                    trend={15}
-                />
-                <StatCard
-                    label="Vendor Payout"
-                    value={`₦${dashboard.summary.vendorPayout?.toLocaleString() || '0'}`}
-                    icon={Wallet}
-                    color="text-white"
-                    iconBg="bg-orange-900"
-                    gradient="bg-orange-500"
-                    trend={10}
-                />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                {summaryCards.map((card) => <StatCard key={card.label} {...card} isLoading={isLoading} />)}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-5">
                 {/* Table - Orders Overview */}
-                <div className="lg:col-span-2 bg-white rounded-3xl border border-zinc-200 overflow-hidden shadow-sm">
-                    <div className="p-4 md:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-zinc-100 gap-4">
+                <div className="min-w-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm lg:col-span-2">
+                    <div className="flex flex-col items-start justify-between gap-2 border-b border-zinc-100 px-4 py-3 sm:flex-row sm:items-center">
                         <div>
-                            <h3 className="text-sm font-medium text-zinc-900">Orders Overview</h3>
-                            <p className="text-xs text-zinc-500">All order activity in one view.</p>
+                            <h3 className="text-sm font-semibold text-zinc-900">Orders Overview</h3>
+                            <p className="text-[10px] text-zinc-500">Recent order activity.</p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-                            {/* <div className="relative flex-1 sm:flex-initial">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" size={16} />
-                                <input
-                                    type="text"
-                                    placeholder="Search"
-                                    className="pl-9 pr-4 py-3 w-full sm:w-50 bg-zinc-100 border-transparent rounded-3xl text-xs focus:bg-white focus:ring-1 focus:ring-indigo-500/20 outline-none"
-                                />
-                            </div>
-                            <button className="flex-1 sm:flex-none px-4 py-3 bg-green-900 text-white text-[10px] sm:text-xs font-medium rounded-3xl hover:bg-zinc-800 transition-colors whitespace-nowrap">
-                                Open Orders
-                            </button> */}
-                        </div>
+                        <a href="/admin/orders" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-[10px] font-semibold text-emerald-800 hover:bg-emerald-50">View all orders <ArrowRight size={13} /></a>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                    <div className="min-w-0 overflow-hidden">
+                        <table className="w-full table-fixed text-left">
+                            <colgroup><col className="w-[12%]"/><col className="w-[12%]"/><col className="w-[15%]"/><col className="w-[16%]"/><col className="w-[10%]"/><col className="w-[18%]"/><col className="w-[10%]"/><col className="w-[7%]"/></colgroup>
                             <thead>
                                 <tr className="bg-zinc-100 border-b border-zinc-100">
-                                    <th className="px-6 py-4 text-[10px] uppercase font-bold text-zinc-500">Order</th>
-                                    <th className="px-6 py-4 text-[10px] uppercase font-bold text-zinc-500">Time</th>
-                                    <th className="px-6 py-4 text-[10px] uppercase font-bold text-zinc-500">Customer</th>
-                                    <th className="px-6 py-4 text-[10px] uppercase font-bold text-zinc-500">Vendor</th>
-                                    <th className="px-6 py-4 text-[10px] uppercase font-bold text-zinc-500">Rider</th>
-                                    <th className="px-6 py-4 text-[10px] uppercase font-bold text-zinc-500">Status</th>
-                                    <th className="px-6 py-4 text-[10px] uppercase font-bold text-zinc-500">ETA</th>
-                                    <th className="px-6 py-4 text-[10px] uppercase font-bold text-zinc-500 text-center">Action</th>
+                                    <th className="whitespace-nowrap px-2.5 py-3 text-[9px] uppercase font-bold text-zinc-500">Order</th>
+                                    <th className="whitespace-nowrap px-2.5 py-3 text-[9px] uppercase font-bold text-zinc-500">Time</th>
+                                    <th className="whitespace-nowrap px-2.5 py-3 text-[9px] uppercase font-bold text-zinc-500">Customer</th>
+                                    <th className="whitespace-nowrap px-2.5 py-3 text-[9px] uppercase font-bold text-zinc-500">Vendor</th>
+                                    <th className="whitespace-nowrap px-2.5 py-3 text-[9px] uppercase font-bold text-zinc-500">Rider</th>
+                                    <th className="whitespace-nowrap px-2.5 py-3 text-[9px] uppercase font-bold text-zinc-500">Status</th>
+                                    <th className="whitespace-nowrap px-2.5 py-3 text-[9px] uppercase font-bold text-zinc-500">ETA</th>
+                                    <th className="px-1 py-3 text-center text-[9px] uppercase font-bold text-zinc-500">View</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-50">
@@ -351,40 +389,44 @@ const Dashboard = () => {
                                 ) : (
                                     dashboard.orders.data.slice((orderPage - 1) * ITEMS_PER_PAGE, orderPage * ITEMS_PER_PAGE).map((row, i) => (
                                         <tr key={i} className="hover:bg-zinc-50/50 transition-colors group">
-                                            <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{row.code}</td>
-                                            <td className="px-6 py-4 text-[11px] text-zinc-500">{formatDate(row.createdAt)}</td>
-                                            <td className="px-6 py-4 text-[11px] text-zinc-500">
+                                            <td className="truncate px-2.5 py-3 text-[10px] font-bold text-zinc-700" title={row.code}>{row.code}</td>
+                                            <td className="whitespace-nowrap px-2.5 py-3 text-[10px] text-zinc-500">{formatCompactOrderDate(row.createdAt)}</td>
+                                            <td className="truncate px-2.5 py-3 text-[10px] text-zinc-600">
                                                 <button 
                                                     onClick={() => setSelectedCustomer(row.customer)}
-                                                    className="hover:text-emerald-600 hover:underline font-bold text-left transition-colors"
+                                                    className="block max-w-full truncate text-left font-semibold transition-colors hover:text-emerald-600 hover:underline"
+                                                    title={formatName(row.customerName)}
                                                 >
                                                     {formatName(row.customerName)}
                                                 </button>
                                             </td>
-                                            <td className="px-6 py-4 text-[11px] text-zinc-500">
+                                            <td className="truncate px-2.5 py-3 text-[10px] text-zinc-600">
                                                 <button 
                                                     onClick={() => setSelectedVendor(row.vendor)}
-                                                    className="hover:text-emerald-600 hover:underline font-bold text-left transition-colors"
+                                                    className="block max-w-full truncate text-left font-semibold transition-colors hover:text-emerald-600 hover:underline"
+                                                    title={formatName(row.vendor?.storeName)}
                                                 >
                                                     {formatName(row.vendor?.storeName)}
                                                 </button>
                                             </td>
-                                            <td className="px-6 py-4 text-[11px] text-zinc-500">
+                                            <td className="truncate px-2.5 py-3 text-[10px] text-zinc-600">
                                                 {row.rider ? (
                                                     <button 
-                                                        onClick={() => setSelectedRider(row.rider)}
-                                                        className="hover:text-emerald-600 hover:underline font-bold text-left transition-colors"
+                                                        onClick={() => openRiderFromOrder(row)}
+                                                        className="block max-w-full truncate text-left font-semibold transition-colors hover:text-emerald-600 hover:underline"
+                                                        title={formatName(row.rider.name)}
                                                     >
                                                         {formatName(row.rider.name)}
                                                     </button>
                                                 ) : '---'}
                                             </td>
-                                            <td className="px-6 py-4"><StatusBadge status={row.status.charAt(0).toUpperCase() + row.status.slice(1).toLowerCase()} /></td>
-                                            <td className="px-6 py-4 text-[11px] text-zinc-400">{Number(row.etaMin || 0).toFixed(2)}-{Number(row.etaMax || 0).toFixed(2)} mins</td>
-                                            <td className="px-6 py-4">
+                                            <td className="whitespace-nowrap px-2 py-3"><StatusBadge status={orderStatusLabel(row.status)} /></td>
+                                            <td className="whitespace-nowrap px-2.5 py-3 text-[10px] text-zinc-500">{Number.isFinite(row.etaMin) && Number.isFinite(row.etaMax) ? `${row.etaMin}–${row.etaMax} min` : '—'}</td>
+                                            <td className="px-1 py-3">
                                                 <div className="flex justify-center">
                                                     <button 
                                                         onClick={() => setSelectedOrder(row)}
+                                                        aria-label={`Open details for ${row.code || 'order'}`}
                                                         className="p-2 bg-indigo-50 text-indigo-500 rounded-lg hover:bg-indigo-500 hover:text-white transition-all shadow-sm"
                                                     >
                                                         <Eye size={14} />
@@ -424,14 +466,14 @@ const Dashboard = () => {
                 </div>
 
                 {/* Revenue Chart */}
-                <div className="bg-white rounded-3xl border border-zinc-200 p-4 md:p-6 shadow-sm flex flex-col min-h-[450px] lg:h-full relative">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 relative z-[10]">
+                <div className="min-w-0 overflow-hidden bg-white rounded-3xl border border-zinc-200 p-3 sm:p-4 shadow-sm flex flex-col min-h-[450px] lg:h-full relative">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 relative z-[10]">
                         <div className="flex bg-zinc-100 p-1 rounded-xl">
                             <button
                                 onClick={() => setView('revenue')}
                                 className={`px-4 py-1.5 text-xs rounded-lg transition-all duration-300 ${view === 'revenue' ? 'bg-[#1C5B2B] text-white shadow-md' : 'text-zinc-500'}`}
                             >
-                                Revenue
+                                Gross paid order value
                             </button>
                             <button
                                 onClick={() => setView('orders')}
@@ -510,12 +552,12 @@ const Dashboard = () => {
                                     contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
                                     labelStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#1f2937' }}
                                     itemStyle={{ fontSize: '11px', fontWeight: '600' }}
-                                    formatter={(value) => view === 'revenue' ? `₦${value?.toLocaleString()}` : value?.toLocaleString()}
+                                    formatter={(value) => view === 'revenue' ? formatCurrency(value) : value?.toLocaleString()}
                                 />
                                 <Bar
                                     dataKey={view}
                                     radius={[8, 8, 0, 0]}
-                                    barSize={32}
+                                    barSize={14}
                                     animationDuration={1000}
                                     fill={view === 'revenue' ? "url(#revenueGradient)" : "url(#ordersGradient)"}
                                 />
@@ -525,22 +567,23 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-5">
                 {/* Top Vendors Table */}
-                <div className="lg:col-span-2 bg-white rounded-3xl border border-zinc-200 overflow-hidden shadow-sm">
-                    <div className="p-6 border-b border-zinc-100">
-                        <h3 className="text-sm font-medium text-zinc-900">Top vendors</h3>
-                        <p className="text-xs text-zinc-500">Highest performing vendors by orders</p>
+                <div className="min-w-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm lg:col-span-2">
+                    <div className="border-b border-zinc-100 px-4 py-3">
+                        <h3 className="text-sm font-semibold text-zinc-900">Top vendors</h3>
+                        <p className="text-[10px] text-zinc-500">Ranked from paid, delivered orders. Delivered sales exclude delivery fees and are not wallet earnings or completed withdrawals.</p>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                    <div className="min-w-0 overflow-hidden">
+                        <table className="w-full table-fixed text-left">
+                            <colgroup><col className="w-[35%]"/><col className="w-[15%]"/><col className="w-[22%]"/><col className="w-[18%]"/><col className="w-[10%]"/></colgroup>
                             <thead>
                                 <tr className="bg-zinc-50 border-b border-zinc-100">
-                                    <th className="px-6 py-4 text-[10px] uppercase font-bold text-zinc-500">Name</th>
-                                    <th className="px-6 py-4 text-[10px] uppercase font-bold text-zinc-500 text-center">Orders</th>
-                                    <th className="px-6 py-4 text-[10px] uppercase font-bold text-zinc-500">Revenue (NGN)</th>
-                                    <th className="px-6 py-4 text-[10px] uppercase font-bold text-zinc-500 text-center">Status</th>
-                                    <th className="px-6 py-4 text-[10px] uppercase font-bold text-zinc-500 text-center">Action</th>
+                                    <th className="whitespace-nowrap px-3 py-3 text-[9px] uppercase font-bold text-zinc-500">Name</th>
+                                    <th className="whitespace-nowrap px-2 py-3 text-center text-[9px] uppercase font-bold text-zinc-500">Orders</th>
+                                    <th className="whitespace-nowrap px-3 py-3 text-[9px] uppercase font-bold text-zinc-500">Delivered sales</th>
+                                    <th className="whitespace-nowrap px-2 py-3 text-center text-[9px] uppercase font-bold text-zinc-500">Status</th>
+                                    <th className="px-1 py-3 text-center text-[9px] uppercase font-bold text-zinc-500">View</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-50">
@@ -553,15 +596,23 @@ const Dashboard = () => {
                                         <td colSpan="5" className="py-10 text-center text-xs text-zinc-400">No data available</td>
                                     </tr>
                                 ) : (
-                                    dashboard.topVendors.data.slice((vendorPage - 1) * ITEMS_PER_PAGE, vendorPage * ITEMS_PER_PAGE).map((row, i) => (
+                                    dashboard.topVendors.data.slice((vendorPage - 1) * ITEMS_PER_PAGE, vendorPage * ITEMS_PER_PAGE).map((row, i) => {
+                                        const deliveredSales = explicitMoney(row, 'deliveredVendorSalesNaira', 'deliveredVendorSalesKobo');
+                                        const sales = Number.isFinite(deliveredSales) ? deliveredSales : Number.isFinite(row.revenue) ? row.revenue : undefined;
+                                        const salesTitle = Number.isFinite(sales)
+                                            ? `${Number.isFinite(deliveredSales) ? 'Delivered vendor sales' : 'Delivered vendor sales, from the compatibility alias'}: ${formatCurrency(sales)}`
+                                            : 'Delivered sales unavailable';
+                                        return (
                                         <tr key={i} className="hover:bg-zinc-50/50 transition-colors">
-                                            <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{formatName(row.name)}</td>
-                                            <td className="px-6 py-4 text-[11px] text-zinc-500 text-center font-medium">{row.totalOrders}</td>
-                                            <td className="px-6 py-4 text-[11px] text-zinc-500 font-bold">₦{row.revenue?.toLocaleString()}</td>
-                                            <td className="px-6 py-4 text-center"><StatusBadge status={capitalizeFirst(row.status)} /></td>
-                                            <td className="px-6 py-4">
+                                            <td className="truncate px-3 py-3 text-[10px] font-semibold text-zinc-700" title={formatName(row.name)}>{formatName(row.name)}</td>
+                                            <td className="whitespace-nowrap px-2 py-3 text-center text-[10px] font-medium text-zinc-600">{Number.isFinite(row.totalOrders) ? row.totalOrders.toLocaleString() : '—'}</td>
+                                            <td className="truncate whitespace-nowrap px-3 py-3 text-[10px] font-semibold text-zinc-700" title={salesTitle}>{formatCurrency(sales)}</td>
+                                            <td className="truncate px-2 py-3 text-center"><StatusBadge status={capitalizeFirst(row.status)} /></td>
+                                            <td className="px-1 py-3">
                                                 <div className="flex justify-center">
                                                     <button 
+                                                        type="button"
+                                                        aria-label={`View ${formatName(row.name)}`}
                                                         onClick={() => setSelectedVendor(row)}
                                                         className="p-2 bg-indigo-50 text-indigo-500 rounded-lg hover:bg-indigo-500 hover:text-white transition-all shadow-sm"
                                                     >
@@ -570,7 +621,8 @@ const Dashboard = () => {
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>
@@ -634,29 +686,31 @@ const Dashboard = () => {
                                 </div>
                                 <span className="text-sm font-medium text-zinc-700">Avg. Delivery Time</span>
                             </div>
-                            <span className="text-sm font-bold text-zinc-900">{Number(dashboard.riderActivity.avgDeliveryTime || 0).toFixed(2)} mins</span>
+                            <span className="text-sm font-bold text-zinc-900">{dashboard.riderActivity.avgDeliveryTime == null ? '—' : `${Number(dashboard.riderActivity.avgDeliveryTime).toFixed(2)} mins`}</span>
                         </div>
+                        <p className="text-[10px] leading-4 text-zinc-400">Pickup to delivery for the latest 100 trips in 30 days. Trips over 3 hours are left out.</p>
                     </div>
                 </div>
             </div>
 
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-5">
                 {/* Top Riders Table */}
-                <div className="lg:col-span-2 bg-white rounded-3xl border border-zinc-200 overflow-hidden shadow-sm">
-                    <div className="p-6 border-b border-zinc-100">
-                        <h3 className="text-sm font-medium text-zinc-900">Top Riders</h3>
-                        <p className="text-xs text-zinc-500">Best performing riders by deliveries</p>
+                <div className="min-w-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm lg:col-span-2">
+                    <div className="border-b border-zinc-100 px-4 py-3">
+                        <h3 className="text-sm font-semibold text-zinc-900">Top Riders</h3>
+                        <p className="text-[10px] text-zinc-500">Best performing riders by deliveries</p>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                    <div className="min-w-0 overflow-hidden">
+                        <table className="w-full table-fixed text-left">
+                            <colgroup><col className="w-[36%]"/><col className="w-[16%]"/><col className="w-[19%]"/><col className="w-[19%]"/><col className="w-[10%]"/></colgroup>
                             <thead>
                                 <tr className="bg-zinc-50 border-b border-zinc-100">
-                                    <th className="px-6 py-4 text-[10px] uppercase font-bold text-zinc-500">Name</th>
-                                    <th className="px-6 py-4 text-[10px] uppercase font-bold text-zinc-500 text-center">Delivered</th>
-                                    <th className="px-6 py-4 text-[10px] uppercase font-bold text-zinc-500 text-center">Avg. Time</th>
-                                    <th className="px-6 py-4 text-[10px] uppercase font-bold text-zinc-500 text-center">Status</th>
-                                    <th className="px-6 py-4 text-[10px] uppercase font-bold text-zinc-500 text-center">Action</th>
+                                    <th className="whitespace-nowrap px-3 py-3 text-[9px] uppercase font-bold text-zinc-500">Name</th>
+                                    <th className="whitespace-nowrap px-2 py-3 text-center text-[9px] uppercase font-bold text-zinc-500">Delivered</th>
+                                    <th className="whitespace-nowrap px-2 py-3 text-center text-[9px] uppercase font-bold text-zinc-500">Avg. Time</th>
+                                    <th className="whitespace-nowrap px-2 py-3 text-center text-[9px] uppercase font-bold text-zinc-500">Status</th>
+                                    <th className="px-1 py-3 text-center text-[9px] uppercase font-bold text-zinc-500">View</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-50">
@@ -671,17 +725,17 @@ const Dashboard = () => {
                                 ) : (
                                     dashboard.topRiders.data.slice((riderPage - 1) * ITEMS_PER_PAGE, riderPage * ITEMS_PER_PAGE).map((row, i) => (
                                         <tr key={i} className="hover:bg-zinc-50/50 transition-colors">
-                                            <td className="px-6 py-4 text-[11px] font-bold text-zinc-600">{formatName(row.name)}</td>
-                                            <td className="px-6 py-4 text-[11px] text-zinc-500 text-center font-medium">{row.deliveries}</td>
-                                            <td className="px-6 py-4 text-[11px] text-zinc-500 text-center font-medium">{Number(row.avgTime || 0).toFixed(2)} mins</td>
-                                            <td className="px-6 py-4 text-center">
+                                            <td className="truncate px-3 py-3 text-[10px] font-semibold text-zinc-700" title={formatName(row.name)}>{formatName(row.name)}</td>
+                                            <td className="whitespace-nowrap px-2 py-3 text-center text-[10px] font-medium text-zinc-600">{Number.isFinite(row.deliveries) ? row.deliveries.toLocaleString() : '-'}</td>
+                                            <td className="whitespace-nowrap px-2 py-3 text-center text-[10px] font-medium text-zinc-600">{(() => { const minutes = Number(row.avgTime); return row.avgTime !== null && row.avgTime !== '' && Number.isFinite(minutes) && minutes > 0 && minutes <= 180 ? `${minutes.toFixed(2)} mins` : '-'; })()}</td>
+                                            <td className="truncate px-2 py-3 text-center">
                                                 <StatusBadge 
                                                     status={
                                                         (row.isSuspended ?? (row.status?.toUpperCase() === 'SUSPENDED')) ? 'Suspended' : (row.status?.toUpperCase() === 'PENDING' ? 'Pending' : 'Active')
                                                     } 
                                                 />
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-1 py-3">
                                                 <div className="flex justify-center gap-2">
                                                     <button 
                                                         onClick={() => setSelectedRider(row)}
@@ -734,12 +788,13 @@ const Dashboard = () => {
                         {[
                             { title: 'Create Vendor', desc: 'Add a new vendor to the platform', action: () => setIsCreateVendorOpen(true) },
                             { title: 'Add Rider', desc: 'Register a rider and assign availability', action: () => setIsCreateRiderOpen(true) },
-                            { title: 'Approve vendors', desc: 'Review and activate pending vendors', action: () => {} },
-                            { title: 'Resolve support issues', desc: 'Handle and close customer or vendor complaints', action: () => {} },
-                        ].map((action, i) => (
-                            <button 
-                                key={i} 
-                                onClick={action.action}
+                            { title: 'Approve vendors', desc: 'Review pending vendor accounts', href: '/admin/vendors?filter=pending' },
+                            { title: 'Resolve support issues', desc: 'Contact support about customer or vendor complaints', href: 'mailto:support@getyovo.app?subject=Super%20Admin%20support%20issue' },
+                        ].map((action) => {
+                            const ActionElement = action.href ? 'a' : 'button';
+                            return <ActionElement
+                                key={action.title}
+                                {...(action.href ? { href: action.href } : { type: 'button', onClick: action.action })}
                                 className="w-full flex items-center justify-between px-2 py-2 bg-white hover:bg-zinc-50 rounded-2xl border border-transparent hover:border-zinc-200 transition-all group text-left"
                             >
                                 <div>
@@ -747,8 +802,8 @@ const Dashboard = () => {
                                     <p className="text-[10px] text-zinc-400 font-medium">{action.desc}</p>
                                 </div>
                                 <ChevronRight size={18} className="text-zinc-300 group-hover:text-indigo-500 transition-all group-hover:translate-x-1" />
-                            </button>
-                        ))}
+                            </ActionElement>;
+                        })}
                     </div>
                 </div>
             </div>
@@ -768,9 +823,10 @@ const Dashboard = () => {
 
             <RiderModal 
                 isOpen={!!selectedRider} 
-                onClose={() => setSelectedRider(null)} 
+                onClose={() => { setSelectedRider(null); setRiderProfileError(''); setRiderProfileLoading(false); }}
                 rider={selectedRider} 
-                variant="dashboard"
+                profileLoading={riderProfileLoading}
+                profileError={riderProfileError}
             />
 
             <CustomerModal 

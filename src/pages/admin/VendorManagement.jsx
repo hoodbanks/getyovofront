@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
     Plus, 
     Search, 
@@ -15,19 +15,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
 import { toast } from 'sonner';
+import { formatShortDateTime } from '../../utils/formatters';
 
 const ShopTypeModal = ({ isOpen, onClose, shopType = null }) => {
     const { accessToken } = useAuthStore();
     const queryClient = useQueryClient();
     const [name, setName] = useState(shopType?.name || '');
     const [description, setDescription] = useState(shopType?.description || '');
-
-    useEffect(() => {
-        if (isOpen) {
-            setName(shopType?.name || '');
-            setDescription(shopType?.description || '');
-        }
-    }, [shopType, isOpen]);
 
     const mutation = useMutation({
         mutationFn: (data) => {
@@ -199,12 +193,12 @@ const VendorManagement = () => {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-5">
             {/* Header & Stats Placeholder */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-                <div className="p-6 bg-white rounded-3xl border border-zinc-200 shadow-sm flex items-center gap-4 group hover:shadow-md transition-all">
-                    <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600 transition-all group-hover:rotate-6">
-                        <Layers size={24} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="p-5 bg-white rounded-2xl border border-zinc-200 shadow-sm flex items-center gap-4 group hover:shadow-md transition-all">
+                    <div className="p-3 rounded-xl bg-emerald-50 text-emerald-700 transition-transform group-hover:rotate-6">
+                        <Layers size={22} />
                     </div>
                     <div>
                         <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Total Types</p>
@@ -214,7 +208,7 @@ const VendorManagement = () => {
             </div>
 
             {/* Actions & Filters */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="relative flex-1 w-full sm:max-w-md">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
                     <input 
@@ -222,12 +216,12 @@ const VendorManagement = () => {
                         placeholder="Search shop types..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3.5 bg-white border border-zinc-200 rounded-3xl text-sm focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all shadow-sm placeholder:text-zinc-400"
+                        className="w-full pl-11 pr-4 py-3.5 bg-white border border-zinc-200 rounded-2xl text-sm focus:ring-2 focus:ring-emerald-500/10 focus:border-emerald-300 outline-none transition-all shadow-sm placeholder:text-zinc-400"
                     />
                 </div>
                 <button 
                     onClick={handleCreate}
-                    className="flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-800 text-white rounded-3xl text-sm font-bold hover:bg-emerald-900 transition-all shadow-lg shadow-emerald-900/10 active:scale-95"
+                    className="flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-800 text-white rounded-2xl text-sm font-bold hover:bg-emerald-900 transition-all shadow-lg shadow-emerald-900/10 active:scale-[0.98]"
                 >
                     <Plus size={18} />
                     Add Shop Type
@@ -235,14 +229,14 @@ const VendorManagement = () => {
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm overflow-x-auto min-h-[400px]">
+            <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-x-auto">
                 <table className="w-full text-left">
                     <thead>
-                        <tr className="bg-zinc-50/50 border-b border-zinc-100">
-                            <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Name</th>
-                            <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Description</th>
-                            <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Created At</th>
-                            <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider text-right">Actions</th>
+                        <tr className="border-b border-[#1F3655] bg-[#0F172B]">
+                            <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-zinc-300">Name</th>
+                            <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-zinc-300">Description</th>
+                            <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-zinc-300">Created At</th>
+                            <th className="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-wider text-zinc-300">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-50">
@@ -271,30 +265,37 @@ const VendorManagement = () => {
                             </tr>
                         ) : (
                             shopTypes.map((st) => (
-                                <tr key={st.id} className="hover:bg-zinc-50/50 transition-colors group">
+                                <tr key={st.id} className="hover:bg-emerald-50/30 transition-colors group">
                                     <td className="px-6 py-5">
                                         <span className="text-sm font-bold text-zinc-900 capitalize">{st.name}</span>
                                     </td>
                                     <td className="px-6 py-5">
-                                        <span className="text-xs font-medium text-zinc-500 max-w-md block">{st.description || 'No description provided.'}</span>
+                                        <span
+                                            className="block max-w-md truncate text-xs font-medium text-zinc-500"
+                                            title={st.description || 'No description provided.'}
+                                        >
+                                            {st.description || 'No description provided.'}
+                                        </span>
                                     </td>
                                     <td className="px-6 py-5">
-                                        <span className="text-xs font-medium text-zinc-400">{new Date(st.createdAt).toLocaleDateString()}</span>
+                                        <span className="whitespace-nowrap text-xs font-medium text-zinc-500">{formatShortDateTime(st.createdAt)}</span>
                                     </td>
                                     <td className="px-6 py-5">
                                         <div className="flex items-center justify-end gap-2">
                                             <button 
                                                 onClick={() => handleEdit(st)}
-                                                className="p-2 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
+                                                className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors"
                                                 title="Edit"
+                                                aria-label={`Edit ${st.name}`}
                                             >
                                                 <Edit2 size={16} />
                                             </button>
                                             <button 
                                                 onClick={() => handleDeleteClick(st)}
                                                 disabled={deleteMutation.isPending}
-                                                className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all disabled:opacity-30"
+                                                className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-colors disabled:opacity-30"
                                                 title="Delete"
+                                                aria-label={`Delete ${st.name}`}
                                             >
                                                 <Trash2 size={16} />
                                             </button>
@@ -307,11 +308,13 @@ const VendorManagement = () => {
                 </table>
             </div>
 
-            <ShopTypeModal 
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                shopType={selectedShopType}
-            />
+            {isModalOpen && (
+                <ShopTypeModal
+                    isOpen
+                    onClose={() => setIsModalOpen(false)}
+                    shopType={selectedShopType}
+                />
+            )}
 
             <DeleteConfirmModal 
                 isOpen={isDeleteModalOpen}

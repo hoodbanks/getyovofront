@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     Search,
     ChevronDown,
@@ -12,15 +12,34 @@ import {
     ChevronRight,
     ChevronLeft,
     X,
-    Calendar
 } from 'lucide-react';
-import { toast } from 'sonner';
 import RiderModal from '../../components/admin/RiderModal';
 import CreateRiderModal from '../../components/admin/CreateRiderModal';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
-import { formatName, capitalizeFirst, formatPlate, getInitials, exportToCSV, formatDate } from '../../utils/formatters';
+import { formatName, capitalizeFirst, formatPlate, getInitials, formatShortDateTime } from '../../utils/formatters';
+
+const pageErrorMessage = (error) => error?.message || 'Unable to load Rider data. Please try again.';
+const displayField = (value) => typeof value === 'string' && value.trim() ? value : 'Not provided';
+const riderStatusLabel = (rider) => {
+    if (rider.status === 'ON_DELIVERY') return 'Out for Delivery';
+    if (rider.status === 'RIDER_ACCEPTED') return 'Accepted';
+    if (rider.status === 'SUSPENDED') return 'Suspended';
+    if (rider.status === 'PENDING') return 'Pending';
+    if (rider.status === 'INACTIVE') return 'Inactive';
+    if (rider.status === 'ACTIVE') return 'Active';
+    return 'Not provided';
+};
+const riderStatusClass = (status) => ({
+    SUSPENDED: 'bg-rose-50 text-rose-600 border-rose-100',
+    PENDING: 'bg-zinc-100 text-zinc-600 border-zinc-200',
+    INACTIVE: 'bg-amber-50 text-amber-700 border-amber-100',
+    ON_DELIVERY: 'bg-blue-50 text-blue-700 border-blue-100',
+    ACTIVE: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+}[status] || 'bg-zinc-50 text-zinc-500 border-zinc-100');
+const moneyFromKobo = (kobo) => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 }).format(Number(kobo || 0) / 100);
+const summaryCount = (value) => Number.isFinite(value) ? value.toLocaleString() : '—';
 
 const StatCard = ({ label, value, subLabel, icon: Icon, color, bg, borderColor, cardBg, dotColor }) => (
     <div className={`relative overflow-hidden p-4 pb-6 rounded-xl ${cardBg} border ${borderColor} shadow-sm transition-all hover:shadow-md group flex-1 min-w-0`}>
@@ -46,7 +65,7 @@ const StatCard = ({ label, value, subLabel, icon: Icon, color, bg, borderColor, 
     </div>
 );
 
-const FilterDropdown = ({ selected, onSelect, options, labels }) => {
+const FilterDropdown = ({ selected, onSelect, options, labels, openUp = false }) => {
     const [isOpen, setIsOpen] = React.useState(false);
     const dropdownRef = React.useRef(null);
 
@@ -61,7 +80,7 @@ const FilterDropdown = ({ selected, onSelect, options, labels }) => {
     }, []);
 
     return (
-        <div className="relative flex-1 sm:flex-none" ref={dropdownRef}>
+        <div className={`relative flex-1 sm:flex-none ${isOpen ? 'z-30' : ''}`} ref={dropdownRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-zinc-50 border border-transparent rounded-xl text-[9px] font-bold text-zinc-500 hover:bg-zinc-100 transition-all uppercase tracking-tight"
@@ -71,7 +90,7 @@ const FilterDropdown = ({ selected, onSelect, options, labels }) => {
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 mt-2 w-40 bg-white border border-zinc-100 rounded-2xl shadow-xl z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
+                <div className={`absolute right-0 w-40 bg-white border border-zinc-100 rounded-2xl shadow-xl z-50 py-2 animate-in fade-in zoom-in-95 duration-200 ${openUp ? 'bottom-full mb-2' : 'top-full mt-2'}`}>
                     {options.map((opt) => (
                         <button
                             key={opt}
@@ -93,7 +112,6 @@ const FilterDropdown = ({ selected, onSelect, options, labels }) => {
 
 const Riders = () => {
     const token = useAuthStore((state) => state.accessToken);
-    const queryClient = useQueryClient();
     const [selectedRider, setSelectedRider] = useState(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -101,71 +119,80 @@ const Riders = () => {
     const [page, setPage] = useState(1);
     const [ordersPage, setOrdersPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [orderSearch, setOrderSearch] = useState('');
+    const [debouncedOrderSearch, setDebouncedOrderSearch] = useState('');
+    const [shopTypeId, setShopTypeId] = useState('');
     const [filter, setFilter] = useState('all');
     const [sortBy, setSortBy] = useState('date_newest');
 
-    // Fetch Riders List
-    const { data: ridersData, isLoading: isLoadingRiders, error: ridersError, refetch: refetchRiders } = useQuery({
-        queryKey: ['riders', page, searchQuery, filter, sortBy],
-        queryFn: async () => {
-            if (searchQuery) {
-                return await api.get(`/superadmin/riders/search?query=${searchQuery}&page=${page}&limit=20`, token);
-            }
-            return await api.get(`/superadmin/riders?page=${page}&limit=20&filter=${filter}&sortBy=${sortBy}`, token);
-        },
-        placeholderData: (previousData) => previousData
+    React.useEffect(() => {
+        const timeout = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300);
+        return () => clearTimeout(timeout);
+    }, [searchQuery]);
+
+    React.useEffect(() => {
+        const timeout = setTimeout(() => setDebouncedOrderSearch(orderSearch.trim()), 300);
+        return () => clearTimeout(timeout);
+    }, [orderSearch]);
+
+    const riderListQuery = useQuery({
+        queryKey: ['riders', page, filter, sortBy],
+        queryFn: () => api.get(`/superadmin/riders?${new URLSearchParams({ filter, sortBy, page: String(page) })}`, token),
+        enabled: activeTab === 'riders',
+        placeholderData: (previousData) => previousData,
     });
 
-
+    const riderSearchQuery = useQuery({
+        queryKey: ['riders-search', page, debouncedSearch],
+        queryFn: () => api.get(`/superadmin/riders/search?${new URLSearchParams({ query: debouncedSearch, page: String(page) })}`, token),
+        enabled: activeTab === 'riders' && Boolean(debouncedSearch),
+        placeholderData: (previousData) => previousData,
+    });
 
     // Fetch Available Orders (Monitoring View)
-    const { data: availableOrdersData, isLoading: isLoadingOrders } = useQuery({
-        queryKey: ['available-orders', ordersPage],
-        queryFn: () => api.get(`/rider/orders/available?page=${ordersPage}&limit=20`, token), // Assuming admin can view or it's bridged
-        enabled: activeTab === 'available_orders'
+    const orderPoolQuery = useQuery({
+        queryKey: ['rider-order-pool', ordersPage, debouncedOrderSearch, shopTypeId],
+        queryFn: () => {
+            const params = new URLSearchParams({ page: String(ordersPage) });
+            if (debouncedOrderSearch) params.set('query', debouncedOrderSearch);
+            if (shopTypeId) params.set('shopTypeId', shopTypeId);
+            return api.get(`/superadmin/riders/order-pool?${params}`, token);
+        },
+        enabled: activeTab === 'available_orders',
+        placeholderData: (previousData) => previousData,
+    });
+    const shopTypesQuery = useQuery({
+        queryKey: ['rider-order-pool-shop-types'],
+        queryFn: () => api.get('/shop-types/get-all', token),
+        enabled: activeTab === 'available_orders',
     });
 
-    const allRiders = ridersData?.data?.riders?.data || ridersData?.data?.data || (Array.isArray(ridersData?.data) ? ridersData.data : []);
-    
-    // Apply client-side date filtering
-    const riders = allRiders.filter(r => {
-        let matchesDate = true;
-        const riderDate = r.createdAt || r.joinedAt;
-        if (riderDate) {
-            const txDate = new Date(riderDate);
-            if (startDate) {
-                const start = new Date(startDate);
-                start.setHours(0, 0, 0, 0);
-                if (txDate < start) matchesDate = false;
-            }
-            if (endDate) {
-                const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999);
-                if (txDate > end) matchesDate = false;
-            }
-        } else if (startDate || endDate) {
-            matchesDate = false;
-        }
-        return matchesDate;
-    });
-
-    const lastSummaryRef = React.useRef({
-        total: 0,
-        active: 0,
-        inactive: 0,
-        suspended: 0,
-        onDelivery: 0
-    });
-
-    if (ridersData?.data?.summary) {
-        lastSummaryRef.current = ridersData.data.summary;
-    }
-
-    const summary = ridersData?.data?.summary || lastSummaryRef.current;
-    const totalItems = ridersData?.data?.riders?.total || ridersData?.data?.total || (Array.isArray(ridersData?.data) ? ridersData.data.length : 0);
-    const totalPages = ridersData?.data?.riders?.totalPages || ridersData?.data?.totalPages || Math.ceil(totalItems / 20) || 1;
+    const ridersData = debouncedSearch ? riderSearchQuery.data : riderListQuery.data;
+    const ridersError = debouncedSearch ? riderSearchQuery.error : riderListQuery.error;
+    const isLoadingRiders = debouncedSearch ? riderSearchQuery.isLoading : riderListQuery.isLoading;
+    const riders = useMemo(() => (debouncedSearch ? ridersData?.data?.data : ridersData?.data?.riders?.data) || [], [debouncedSearch, ridersData]);
+    const ridersShapeValid = debouncedSearch
+        ? Array.isArray(ridersData?.data?.data) && Number.isFinite(ridersData?.data?.total) && Number.isFinite(ridersData?.data?.pageSize)
+        : Array.isArray(ridersData?.data?.riders?.data)
+            && Number.isFinite(ridersData?.data?.riders?.total)
+            && Number.isFinite(ridersData?.data?.riders?.pageSize)
+            && riderListQuery.data?.data?.summary
+            && typeof riderListQuery.data.data.summary === 'object';
+    const ridersRefetch = debouncedSearch ? riderSearchQuery.refetch : riderListQuery.refetch;
+    const summary = riderListQuery.data?.data?.summary && typeof riderListQuery.data.data.summary === 'object' ? riderListQuery.data.data.summary : null;
+    const totalItems = debouncedSearch ? ridersData?.data?.total : ridersData?.data?.riders?.total;
+    const totalPages = Math.max(1, Math.ceil((totalItems || 0) / 20));
+    const availableOrdersData = orderPoolQuery.data;
+    const availableOrders = availableOrdersData?.data?.data;
+    const orderPoolShapeValid = Array.isArray(availableOrders)
+        && Number.isFinite(availableOrdersData?.data?.total)
+        && Number.isFinite(availableOrdersData?.data?.pageSize)
+        && availableOrders.every((order) => typeof order?.orderId === 'string' && Number.isFinite(order.totalAmountKobo));
+    const orderPoolTotal = availableOrdersData?.data?.total;
+    const orderPoolPages = Math.max(1, Math.ceil((orderPoolTotal || 0) / 20));
+    const shopTypes = Array.isArray(shopTypesQuery.data?.data) ? shopTypesQuery.data.data : [];
+    const shopTypesShapeInvalid = Boolean(shopTypesQuery.data && !Array.isArray(shopTypesQuery.data.data));
 
     const openDetailModal = (rider) => {
         setSelectedRider(rider);
@@ -179,7 +206,7 @@ const Riders = () => {
             const freshRider = riders.find(r => (r.id === rId || r._id === rId || r.riderId === rId));
             if (freshRider) setSelectedRider(freshRider);
         }
-    }, [riders]);
+    }, [riders, selectedRider]);
 
     return (
         <div className="space-y-6 max-w-[440px] md:max-w-[1600px] mx-auto pb-10">
@@ -188,7 +215,7 @@ const Riders = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 md:gap-4 p-4 rounded-xl">
                     <StatCard
                         label="Total Riders"
-                        value={summary.total?.toLocaleString() || '0'}
+                        value={summaryCount(summary?.total)}
                         subLabel="Registered system-wide"
                         icon={Bike}
                         color="text-white"
@@ -199,7 +226,7 @@ const Riders = () => {
                     />
                     <StatCard
                         label="Active Riders"
-                        value={summary.active?.toLocaleString() || '0'}
+                        value={summaryCount(summary?.active)}
                         subLabel="On-duty & verified"
                         icon={Activity}
                         color="text-white"
@@ -210,7 +237,7 @@ const Riders = () => {
                     />
                     <StatCard
                         label="Suspended"
-                        value={summary.suspended?.toLocaleString() || '0'}
+                        value={summaryCount(summary?.suspended)}
                         subLabel="Violations/Blocked"
                         icon={UserX}
                         color="text-white"
@@ -220,8 +247,8 @@ const Riders = () => {
                         dotColor="#f43f5e"
                     />
                     <StatCard
-                        label="On Delivery"
-                        value={summary.onDelivery?.toLocaleString() || '0'}
+                        label="Out for Delivery"
+                        value={summaryCount(summary?.onDelivery)}
                         subLabel="Currently in transit"
                         icon={Navigation}
                         color="text-white"
@@ -231,78 +258,63 @@ const Riders = () => {
                         dotColor="#f59e0b"
                     />
                 </div>
+                {riderListQuery.isError && (
+                    <div role="alert" className="mx-4 mt-2 flex items-center justify-between gap-3 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+                        <span>Rider summary could not load: {pageErrorMessage(riderListQuery.error)}</span>
+                        <button type="button" onClick={() => riderListQuery.refetch()} className="shrink-0 font-bold underline">Retry</button>
+                    </div>
+                )}
 
                 {/* Tabs & Search */}
-                <div className="px-4 flex flex-col sm:flex-row items-center justify-between mt-4 gap-4">
+                <div className="px-4 mt-4 grid grid-cols-1 gap-3 lg:grid-cols-[auto_minmax(240px,1fr)_auto] lg:items-center">
                     <div className="flex gap-1 bg-zinc-100 p-1 rounded-2xl w-full sm:w-auto">
                         <button
-                            onClick={() => setActiveTab('riders')}
+                            onClick={() => { setActiveTab('riders'); setPage(1); }}
                             className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-[11px] font-bold transition-all ${activeTab === 'riders' ? 'bg-white text-emerald-800 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
                         >
                             All Riders
                         </button>
                         <button
-                            onClick={() => setActiveTab('available_orders')}
+                            onClick={() => { setActiveTab('available_orders'); setOrdersPage(1); }}
                             className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-[11px] font-bold transition-all ${activeTab === 'available_orders' ? 'bg-white text-emerald-800 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
                         >
                             Order Pool
                         </button>
                     </div>
 
-                    <div className="relative w-full sm:max-w-md sm:ml-4">
+                    <div className="relative w-full min-w-0">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
                         <input
                             type="text"
-                            value={searchQuery}
-                            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-                            placeholder="Search name, phone, email"
-                            className="w-full pl-12 pr-6 py-4 bg-zinc-100 border-none rounded-3xl text-sm focus:ring-2 focus:ring-emerald-500/10 placeholder:text-zinc-500 outline-none transition-all"
+                            maxLength={activeTab === 'riders' ? 50 : 100}
+                            value={activeTab === 'riders' ? searchQuery : orderSearch}
+                            onChange={(e) => {
+                                if (activeTab === 'riders') { setSearchQuery(e.target.value); setPage(1); }
+                                else { setOrderSearch(e.target.value); setOrdersPage(1); }
+                            }}
+                            placeholder={activeTab === 'riders' ? 'Search name, email, phone, or plate' : 'Search order, customer, or store'}
+                            className="w-full rounded-2xl border border-transparent bg-zinc-100 py-3 pl-11 pr-4 text-sm outline-none transition-colors placeholder:text-zinc-500 focus:border-emerald-700/20 focus:bg-white focus:ring-2 focus:ring-emerald-700/10"
                         />
                     </div>
-                </div>
-
-                {/* Date Filters Row */}
-                {activeTab === 'riders' && (
-                    <div className="px-4 mt-3 flex flex-wrap items-center justify-end gap-3">
-                        {/* From Date */}
-                        <div className="relative flex items-center bg-zinc-100 rounded-3xl px-4 py-3 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
-                            <span className="text-[10px] font-bold text-zinc-400 uppercase mr-2 select-none">From</span>
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
-                                className="bg-transparent border-none text-xs font-bold text-zinc-700 focus:ring-0 p-0 outline-none cursor-pointer [color-scheme:light]"
-                            />
-                            <Calendar className="text-zinc-400 ml-2" size={14} />
-                        </div>
-
-                        {/* To Date */}
-                        <div className="relative flex items-center bg-zinc-100 rounded-3xl px-4 py-3 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
-                            <span className="text-[10px] font-bold text-zinc-400 uppercase mr-2 select-none">To</span>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
-                                className="bg-transparent border-none text-xs font-bold text-zinc-700 focus:ring-0 p-0 outline-none cursor-pointer [color-scheme:light]"
-                            />
-                            <Calendar className="text-zinc-400 ml-2" size={14} />
-                        </div>
-
-                        {/* Reset Button */}
-                        {(searchQuery || startDate || endDate) && (
+                    {((activeTab === 'riders' && searchQuery) || (activeTab === 'available_orders' && orderSearch)) && (
+                        <div className="flex justify-end">
                             <button
+                                type="button"
                                 onClick={() => {
-                                    setSearchQuery('');
-                                    setStartDate('');
-                                    setEndDate('');
-                                    setPage(1);
+                                    if (activeTab === 'riders') { setSearchQuery(''); setPage(1); }
+                                    else { setOrderSearch(''); setOrdersPage(1); }
                                 }}
-                                className="flex items-center gap-2 px-5 py-3 bg-zinc-900 text-white rounded-3xl text-[10px] font-bold hover:bg-zinc-800 transition-all hover:scale-[1.02] active:scale-[0.98] uppercase tracking-widest group shadow-sm cursor-pointer"
+                                className="flex min-h-11 items-center gap-1.5 rounded-2xl px-3 text-[11px] font-semibold text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800"
                             >
-                                <X size={14} className="group-hover:rotate-90 transition-transform duration-300" />
-                                Reset
+                                <X size={14} /> Clear
                             </button>
-                        )}
+                        </div>
+                    )}
+                </div>
+                {activeTab === 'available_orders' && (shopTypesQuery.isError || shopTypesShapeInvalid) && (
+                    <div role="alert" className="mx-4 mb-3 flex items-center justify-between gap-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+                        <span>Shop-type filter options could not load: {pageErrorMessage(shopTypesQuery.error || new Error('Unexpected shop-type response.'))}</span>
+                        <button type="button" onClick={() => shopTypesQuery.refetch()} className="shrink-0 font-bold underline">Retry</button>
                     </div>
                 )}
             </div>
@@ -311,13 +323,14 @@ const Riders = () => {
             <div className="bg-white rounded-[1.5rem] border border-zinc-200 overflow-hidden shadow-sm">
                 <div className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-zinc-100 gap-4">
                     <div>
-                        <h3 className="text-sm md:text-base font-medium text-zinc-900">Riders</h3>
-                        <p className="text-[10px] text-zinc-500 font-medium">All rider operations in one place.</p>
+                        <h3 className="text-sm md:text-base font-medium text-zinc-900">{activeTab === 'riders' ? 'Riders' : 'Available order pool'}</h3>
+                        <p className="text-[10px] text-zinc-500 font-medium">{activeTab === 'riders' ? 'All rider operations in one place.' : 'Paid, ready orders waiting for a Rider. This view is read-only.'}</p>
                     </div>
                      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+                        {activeTab === 'riders' && <>
                         <FilterDropdown 
                             selected={sortBy}
-                            onSelect={setSortBy}
+                            onSelect={(value) => { setSortBy(value); setPage(1); }}
                             options={['date_newest', 'date_oldest', 'name_asc', 'name_desc']}
                             labels={{
                                 'date_newest': 'Newest First',
@@ -328,7 +341,7 @@ const Riders = () => {
                         />
                         <FilterDropdown 
                             selected={filter}
-                            onSelect={setFilter}
+                            onSelect={(value) => { setFilter(value); setPage(1); }}
                             options={['all', 'active', 'inactive', 'suspended', 'pending', 'on_delivery']}
                             labels={{
                                 'all': 'All Status',
@@ -336,7 +349,7 @@ const Riders = () => {
                                 'inactive': 'Inactive',
                                 'suspended': 'Suspended',
                                 'pending': 'Pending',
-                                'on_delivery': 'On Delivery'
+                                'on_delivery': 'Out for Delivery'
                             }}
                         />
                         <button
@@ -345,6 +358,16 @@ const Riders = () => {
                         >
                             Create Rider
                         </button>
+                        </>}
+                        {activeTab === 'available_orders' && (
+                            <FilterDropdown
+                                selected={shopTypeId || 'all'}
+                                onSelect={(value) => { setShopTypeId(value === 'all' ? '' : value); setOrdersPage(1); }}
+                                options={['all', ...shopTypes.map((shopType) => shopType.id)]}
+                                labels={{ all: 'All shop types', ...Object.fromEntries(shopTypes.map((shopType) => [shopType.id, shopType.name])) }}
+                                openUp
+                            />
+                        )}
                     </div>
                 </div>
 
@@ -353,14 +376,14 @@ const Riders = () => {
                         <table className="w-full">
                             <thead>
                                 <tr className="bg-zinc-50/50 border-b border-zinc-100">
-                                    <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Rider Name</th>
-                                    <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Vehicle</th>
-                                    <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Plate</th>
-                                    <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Phone</th>
-                                    <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Deliveries</th>
-                                    <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Email</th>
-                                    <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Status</th>
-                                    <th className="px-3 py-3.5 text-center text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Action</th>
+                                    <th className="whitespace-nowrap px-3 py-3 text-left text-[10px] font-semibold tracking-wide text-zinc-400 uppercase">Rider Name</th>
+                                    <th className="whitespace-nowrap px-3 py-3 text-left text-[10px] font-semibold tracking-wide text-zinc-400 uppercase">Vehicle</th>
+                                    <th className="whitespace-nowrap px-3 py-3 text-left text-[10px] font-semibold tracking-wide text-zinc-400 uppercase">Plate</th>
+                                    <th className="whitespace-nowrap px-3 py-3 text-left text-[10px] font-semibold tracking-wide text-zinc-400 uppercase">Phone</th>
+                                    <th className="whitespace-nowrap px-3 py-3 text-left text-[10px] font-semibold tracking-wide text-zinc-400 uppercase">Deliveries</th>
+                                    <th className="whitespace-nowrap px-3 py-3 text-left text-[10px] font-semibold tracking-wide text-zinc-400 uppercase">Email</th>
+                                    <th className="whitespace-nowrap px-3 py-3 text-left text-[10px] font-semibold tracking-wide text-zinc-400 uppercase">Status</th>
+                                    <th className="whitespace-nowrap px-3 py-3 text-center text-[10px] font-semibold tracking-wide text-zinc-400 uppercase">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-100">
@@ -369,6 +392,13 @@ const Riders = () => {
                                         <td colSpan="8" className="py-20 text-center">
                                             <Loader2 size={32} className="text-emerald-600 animate-spin mx-auto mb-2" />
                                             <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Fetching Riders...</p>
+                                        </td>
+                                    </tr>
+                                ) : ridersError || !ridersShapeValid ? (
+                                    <tr>
+                                        <td colSpan="8" className="py-16 text-center">
+                                            <p role="alert" className="mb-3 text-sm text-rose-600">{pageErrorMessage(ridersError || new Error('Unexpected Rider response shape.'))}</p>
+                                            <button type="button" onClick={() => ridersRefetch()} className="rounded-lg bg-emerald-800 px-4 py-2 text-xs font-semibold text-white">Retry</button>
                                         </td>
                                     </tr>
                                 ) : riders.length === 0 ? (
@@ -383,21 +413,17 @@ const Riders = () => {
                                                     <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-[10px] font-bold text-zinc-500 overflow-hidden shrink-0 border border-zinc-200">
                                                         {getInitials(rider.name)}
                                                     </div>
-                                                    <span className="text-[12px] font-bold text-zinc-900">{formatName(rider.name)}</span>
+                                                    <span className="text-[12px] font-semibold text-zinc-900">{rider.name ? formatName(rider.name) : 'Not provided'}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-600 truncate max-w-[100px]">{capitalizeFirst(rider.vehicleName)}</td>
-                                            <td className="px-3 py-3.5 text-[12px] font-bold text-zinc-500 whitespace-nowrap">{formatPlate(rider.vehiclePlate)}</td>
-                                            <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 whitespace-nowrap">{rider.phone}</td>
-                                            <td className="px-3 py-3.5 text-[12px] font-extrabold text-zinc-900 text-center">{rider.deliveriesDone || 0}</td>
-                                            <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-400 truncate max-w-[120px] lowercase">{rider.email}</td>
+                                            <td className="max-w-[120px] truncate px-3 py-3 text-[11px] font-medium text-zinc-600">{displayField(rider.vehicleName) === 'Not provided' ? 'Not provided' : capitalizeFirst(rider.vehicleName)}</td>
+                                            <td className="whitespace-nowrap px-3 py-3 text-[11px] font-medium text-zinc-500">{displayField(rider.vehiclePlate) === 'Not provided' ? 'Not provided' : formatPlate(rider.vehiclePlate)}</td>
+                                            <td className="whitespace-nowrap px-3 py-3 text-[11px] font-medium text-zinc-500">{displayField(rider.phone)}</td>
+                                            <td className="px-3 py-3 text-center text-[11px] font-semibold text-zinc-800">{Number.isFinite(rider.deliveriesDone) ? rider.deliveriesDone : '—'}</td>
+                                            <td className="max-w-[150px] truncate px-3 py-3 text-[11px] font-medium lowercase text-zinc-500">{displayField(rider.email)}</td>
                                             <td className="px-3 py-3.5">
-                                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border whitespace-nowrap uppercase tracking-tighter ${
-                                                    (rider.isSuspended ?? (rider.status?.toUpperCase() === 'SUSPENDED')) 
-                                                        ? 'bg-rose-50 text-rose-600 border-rose-100' 
-                                                        : (rider.status === 'PENDING' ? 'bg-zinc-100 text-zinc-500 border-zinc-200' : 'bg-emerald-50 text-emerald-600 border-emerald-100')
-                                                }`}>
-                                                    {(rider.isSuspended ?? (rider.status?.toUpperCase() === 'SUSPENDED')) ? 'Suspended' : (rider.status === 'PENDING' ? 'Pending' : 'Active')}
+                                                <span className={`rounded-full border px-2 py-1 text-[9px] font-semibold whitespace-nowrap ${riderStatusClass(rider.status)}`}>
+                                                    {riderStatusLabel(rider)}
                                                 </span>
                                             </td>
                                             <td className="px-3 py-3.5">
@@ -417,48 +443,40 @@ const Riders = () => {
                             </tbody>
                         </table>
                     ) : (
-                        <table className="w-full">
+                        <table className="w-full min-w-[900px]">
                             <thead>
                                 <tr className="bg-zinc-50/50 border-b border-zinc-100">
-                                    <th className="px-3 py-3.5 text-left text-[11px] font-bold text-zinc-400 uppercase">Vendor</th>
-                                    <th className="px-3 py-3.5 text-left text-[11px] font-bold text-zinc-400 uppercase">Type</th>
-                                    <th className="px-3 py-3.5 text-left text-[11px] font-bold text-zinc-400 uppercase">Items</th>
-                                    <th className="px-3 py-3.5 text-left text-[11px] font-bold text-zinc-400 uppercase">Customer</th>
-                                    <th className="px-3 py-3.5 text-left text-[11px] font-bold text-zinc-400 uppercase">Amount</th>
-                                    <th className="px-3 py-3.5 text-left text-[11px] font-bold text-zinc-400 uppercase">Time</th>
+                                    <th className="px-3 py-3 text-left text-[10px] font-semibold tracking-wide text-zinc-400 uppercase">Order</th>
+                                    <th className="px-3 py-3 text-left text-[10px] font-semibold tracking-wide text-zinc-400 uppercase">Store</th>
+                                    <th className="px-3 py-3 text-left text-[10px] font-semibold tracking-wide text-zinc-400 uppercase">Customer</th>
+                                    <th className="px-3 py-3 text-left text-[10px] font-semibold tracking-wide text-zinc-400 uppercase">Pickup & drop-off</th>
+                                    <th className="px-3 py-3 text-left text-[10px] font-semibold tracking-wide text-zinc-400 uppercase">Total</th>
+                                    <th className="px-3 py-3 text-left text-[10px] font-semibold tracking-wide text-zinc-400 uppercase">Ready at</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-100">
-                                {isLoadingOrders ? (
+                                {orderPoolQuery.isLoading ? (
                                     <tr>
                                         <td colSpan="6" className="py-20 text-center">
                                             <Loader2 size={32} className="text-emerald-600 animate-spin mx-auto mb-2" />
-                                            <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Scanning Orders...</p>
+                                            <p className="text-xs font-medium text-zinc-500">Loading order pool…</p>
                                         </td>
                                     </tr>
-                                ) : availableOrdersData?.data?.data?.length === 0 ? (
+                                ) : orderPoolQuery.isError || !orderPoolShapeValid ? (
+                                    <tr><td colSpan="6" className="py-16 text-center"><p role="alert" className="mb-3 text-sm text-rose-600">{pageErrorMessage(orderPoolQuery.error || new Error('Unexpected order-pool response shape.'))}</p><button type="button" onClick={() => orderPoolQuery.refetch()} className="rounded-lg bg-emerald-800 px-4 py-2 text-xs font-semibold text-white">Retry</button></td></tr>
+                                ) : availableOrders.length === 0 ? (
                                     <tr>
                                         <td colSpan="6" className="py-20 text-center text-zinc-500 text-sm font-medium">No available orders at the moment.</td>
                                     </tr>
                                 ) : (
-                                    availableOrdersData?.data?.data?.map((order) => (
+                                    availableOrders.map((order) => (
                                         <tr key={order.orderId} className="hover:bg-zinc-50/50 transition-colors">
-                                            <td className="px-3 py-4">
-                                                <span className="text-[12px] font-bold text-zinc-900">{order.vendorStoreName}</span>
-                                                <p className="text-[9px] text-zinc-400 truncate max-w-[120px]">{order.storeAddress}</p>
-                                            </td>
-                                            <td className="px-3 py-4">
-                                                <span className="px-2 py-0.5 bg-zinc-100 rounded-md text-[9px] font-bold text-zinc-600 uppercase tracking-tighter border border-zinc-200">
-                                                    {order.shopType}
-                                                </span>
-                                            </td>
-                                            <td className="px-3 py-4 text-[11px] font-medium text-zinc-600">{order.itemsString}</td>
-                                            <td className="px-3 py-4">
-                                                <span className="text-[12px] font-bold text-zinc-900">{order.customerName}</span>
-                                                <p className="text-[9px] text-zinc-400">{order.customerPhone}</p>
-                                            </td>
-                                            <td className="px-3 py-4 text-[12px] font-extrabold text-emerald-700 whitespace-nowrap">₦{order.totalAmount?.toLocaleString()}</td>
-                                            <td className="px-3 py-4 text-[11px] font-medium text-zinc-400 whitespace-nowrap">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                                            <td className="whitespace-nowrap px-3 py-3"><span className="text-[11px] font-semibold text-zinc-800">{order.code || 'N/A'}</span><p className="mt-0.5 text-[10px] text-zinc-400">{order.shopType?.name || 'Not provided'}</p></td>
+                                            <td className="px-3 py-3"><span className="text-[11px] font-medium text-zinc-800">{displayField(order.vendorStoreName)}</span></td>
+                                            <td className="px-3 py-3"><span className="text-[11px] font-medium text-zinc-800">{displayField(order.customerName)}</span><p className="mt-0.5 text-[10px] text-zinc-500">{displayField(order.customerPhone)}</p></td>
+                                            <td className="px-3 py-3"><p className="max-w-[240px] truncate text-[10px] text-zinc-600">From: {displayField(order.pickupAddress)}</p><p className="mt-1 max-w-[240px] truncate text-[10px] text-zinc-600">To: {displayField(order.deliveryAddress)}</p></td>
+                                            <td className="whitespace-nowrap px-3 py-3 text-[11px] font-semibold text-emerald-800">{moneyFromKobo(order.totalAmountKobo)}</td>
+                                            <td className="whitespace-nowrap px-3 py-3 text-[10px] text-zinc-500">{order.readyAt ? formatShortDateTime(order.readyAt) : 'Not provided'}</td>
                                         </tr>
                                     ))
                                 )}
@@ -521,9 +539,9 @@ const Riders = () => {
                         </div>
                     )
                 ) : (
-                    availableOrdersData?.data?.meta?.totalPages > 1 && (
+                    orderPoolPages > 1 && (
                         <div className="p-4 border-t border-zinc-100 flex items-center justify-between">
-                            <p className="text-[10px] text-zinc-500 font-medium">Page {ordersPage} of {availableOrdersData.data.meta.totalPages}</p>
+                            <p className="text-[10px] text-zinc-500 font-medium">Page {ordersPage} of {orderPoolPages} · {orderPoolTotal} orders</p>
                             <div className="flex items-center gap-2">
                                 <button
                                     disabled={ordersPage === 1}
@@ -534,8 +552,8 @@ const Riders = () => {
                                 </button>
 
                                 <div className="hidden sm:flex items-center gap-1 mx-2">
-                                    {Array.from({ length: availableOrdersData.data.meta.totalPages }, (_, i) => i + 1).reduce((acc, p) => {
-                                        if (p === 1 || p === availableOrdersData.data.meta.totalPages || Math.abs(p - ordersPage) <= 1) {
+                                    {Array.from({ length: orderPoolPages }, (_, i) => i + 1).reduce((acc, p) => {
+                                        if (p === 1 || p === orderPoolPages || Math.abs(p - ordersPage) <= 1) {
                                             acc.push(p);
                                         } else if (acc[acc.length - 1] !== '...') {
                                             acc.push('...');
@@ -561,8 +579,8 @@ const Riders = () => {
                                 </div>
 
                                 <button
-                                    disabled={ordersPage === availableOrdersData.data.meta.totalPages}
-                                    onClick={() => setOrdersPage(p => Math.min(availableOrdersData.data.meta.totalPages, p + 1))}
+                                    disabled={ordersPage === orderPoolPages}
+                                    onClick={() => setOrdersPage(p => Math.min(orderPoolPages, p + 1))}
                                     className="flex items-center gap-1 px-3 py-1.5 bg-zinc-50 rounded-lg text-[11px] font-bold text-zinc-500 hover:bg-zinc-100 disabled:opacity-50 transition-colors"
                                 >
                                     Next <ChevronRight size={14} />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Loader2, Save } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/api';
@@ -9,20 +9,10 @@ const DeliveryFeeModal = ({ isOpen, onClose, settingsMap }) => {
     const token = useAuthStore((state) => state.accessToken);
     const queryClient = useQueryClient();
 
-    // Local states initialized with settingsMap values
-    const [baseFeeKobo, setBaseFeeKobo] = useState('');
-    const [baseDistanceKm, setBaseDistanceKm] = useState('');
-    const [perKmFeeKobo, setPerKmFeeKobo] = useState('');
-    const [maxDistanceKm, setMaxDistanceKm] = useState('');
-
-    useEffect(() => {
-        if (settingsMap) {
-            setBaseFeeKobo(settingsMap.DELIVERY_BASE_FEE_KOBO || '80000');
-            setBaseDistanceKm(settingsMap.DELIVERY_BASE_DISTANCE_KM || '3');
-            setPerKmFeeKobo(settingsMap.DELIVERY_PER_KM_FEE_KOBO || '15000');
-            setMaxDistanceKm(settingsMap.ORDER_MAX_DISTANCE_KM || '25');
-        }
-    }, [settingsMap, isOpen]);
+    const [baseFeeKobo, setBaseFeeKobo] = useState(settingsMap?.DELIVERY_BASE_FEE_KOBO || '80000');
+    const [baseDistanceKm, setBaseDistanceKm] = useState(settingsMap?.DELIVERY_BASE_DISTANCE_KM || '3');
+    const [perKmFeeKobo, setPerKmFeeKobo] = useState(settingsMap?.DELIVERY_PER_KM_FEE_KOBO || '15000');
+    const [maxDistanceKm, setMaxDistanceKm] = useState(settingsMap?.ORDER_MAX_DISTANCE_KM || '25');
 
     const updateMutation = useMutation({
         mutationFn: async ({ key, value }) => {
@@ -51,8 +41,9 @@ const DeliveryFeeModal = ({ isOpen, onClose, settingsMap }) => {
 
             toast.success('Settings updated successfully');
             onClose();
-        } catch (err) {
-            // Error handled in mutation
+        } catch {
+            // The mutation already shows an error toast; keep the form open.
+            return;
         }
     };
 

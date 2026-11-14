@@ -24,6 +24,7 @@ const CreateRiderModal = ({ isOpen, onClose }) => {
                 setSuccess(true);
                 // Refresh the riders list if needed
                 queryClient.invalidateQueries({ queryKey: ['riders'] });
+                queryClient.invalidateQueries({ queryKey: ['riders-search'] });
                 
                 setTimeout(() => {
                     handleClose();
@@ -38,14 +39,26 @@ const CreateRiderModal = ({ isOpen, onClose }) => {
     const handleSubmit = (e) => {
         e.preventDefault();
         setError(null);
-        
+
+        const cleanName = name.trim();
+        const cleanPhone = phonenumber.trim();
+        const cleanAddress = address.trim();
+        const cleanVehicleName = vehicleName.trim();
+        const cleanVehiclePlate = vehiclePlate.trim();
+        if (cleanName.length < 3 || cleanName.length > 100) return setError('Name must be between 3 and 100 characters.');
+        if (!/^(0\d{10}|234\d{10}|\+234\d{10})$/.test(cleanPhone)) return setError('Enter a Nigerian phone number in 0XXXXXXXXXX, 234XXXXXXXXXX, or +234XXXXXXXXXX format.');
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setError('Enter a valid email address.');
+        if (cleanAddress.length < 3 || cleanAddress.length > 150) return setError('Address must be between 3 and 150 characters.');
+        if (!/^[A-Za-z0-9 ]{2,50}$/.test(cleanVehicleName)) return setError('Vehicle name must be 2–50 letters, numbers, or spaces.');
+        if (!/^[A-Za-z0-9 -]{2,10}$/.test(cleanVehiclePlate)) return setError('Vehicle plate must be 2–10 letters, numbers, dashes, or spaces.');
+
         createRiderMutation.mutate({
-            name,
-            phonenumber,
-            email,
-            vehicleName,
-            vehiclePlate,
-            address,
+            name: cleanName,
+            phonenumber: cleanPhone,
+            email: email.trim(),
+            vehicleName: cleanVehicleName,
+            vehiclePlate: cleanVehiclePlate,
+            address: cleanAddress,
         });
     };
 
@@ -73,23 +86,23 @@ const CreateRiderModal = ({ isOpen, onClose }) => {
 
             <div className={`relative w-full max-w-lg bg-white h-full shadow-2xl flex flex-col animate-slide-in overflow-hidden`}>
                 {/* Header */}
-                <div className="p-4 border-b border-zinc-100 flex items-center justify-between bg-white shrink-0">
-                    <h2 className="text-sm font-bold text-zinc-900">Create Rider</h2>
+                <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#0F172B] shrink-0">
+                    <h2 className="text-sm font-bold text-white">Create Rider</h2>
                     <button
                         onClick={handleClose}
-                        className="p-1.5 hover:bg-zinc-100 rounded-lg transition-colors text-zinc-400"
+                        className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-slate-300 hover:text-white"
                     >
                         <X size={18} />
                     </button>
                 </div>
 
                 {/* Form Content */}
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8">
+                <form id="create-rider-form" noValidate onSubmit={handleSubmit} className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8">
                     {success ? (
                         <div className="flex flex-col items-center justify-center py-20 animate-in zoom-in duration-300">
                             <CheckCircle2 size={48} className="text-emerald-500 mb-4" />
-                            <h3 className="text-sm font-bold text-zinc-900">Rider Created Successfully!</h3>
-                            <p className="text-[10px] text-zinc-500 font-medium mt-1">The new rider has been added to the system.</p>
+                            <h3 className="text-sm font-bold text-zinc-900">Rider Created</h3>
+                            <p className="mt-1 text-center text-[10px] font-medium text-zinc-500">The account starts pending verification and offline. It has not been assigned an order.</p>
                         </div>
                     ) : (
                         <>
@@ -112,6 +125,8 @@ const CreateRiderModal = ({ isOpen, onClose }) => {
                                         <input
                                             type="text"
                                             required
+                                            minLength={3}
+                                            maxLength={100}
                                             value={name}
                                             onChange={(e) => setName(e.target.value)}
                                             placeholder="e.g John"
@@ -124,6 +139,7 @@ const CreateRiderModal = ({ isOpen, onClose }) => {
                                         <input
                                             type="tel"
                                             required
+                                            pattern="(0[0-9]{10}|234[0-9]{10}|\+234[0-9]{10})"
                                             value={phonenumber}
                                             onChange={(e) => setPhonenumber(e.target.value)}
                                             placeholder="e.g. 08012345678"
@@ -148,6 +164,8 @@ const CreateRiderModal = ({ isOpen, onClose }) => {
                                         <input
                                             type="text"
                                             required
+                                            minLength={3}
+                                            maxLength={150}
                                             value={address}
                                             onChange={(e) => setAddress(e.target.value)}
                                             placeholder="e.g. 12 Admiralty Way, Lekki, Lagos"
@@ -168,6 +186,7 @@ const CreateRiderModal = ({ isOpen, onClose }) => {
                                         <input
                                             type="text"
                                             required
+                                            pattern="[A-Za-z0-9 ]{2,50}"
                                             value={vehicleName}
                                             onChange={(e) => setVehicleName(e.target.value)}
                                             placeholder="e.g Toyota Corolla"
@@ -180,6 +199,7 @@ const CreateRiderModal = ({ isOpen, onClose }) => {
                                         <input
                                             type="text"
                                             required
+                                            pattern="[A-Za-z0-9 -]{2,10}"
                                             value={vehiclePlate}
                                             onChange={(e) => setVehiclePlate(e.target.value)}
                                             placeholder="e.g ABC-123XY"
@@ -204,7 +224,8 @@ const CreateRiderModal = ({ isOpen, onClose }) => {
                             Cancel
                         </button>
                         <button 
-                            onClick={handleSubmit}
+                            type="submit"
+                            form="create-rider-form"
                             disabled={createRiderMutation.isPending || success}
                             className="px-6 py-3 bg-emerald-800 text-white rounded-2xl text-[11px] font-bold hover:bg-emerald-900 transition-all shadow-md shadow-emerald-900/10 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                         >

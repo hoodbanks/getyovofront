@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { messaging, getToken, onMessage } from '../firebase';
+import { API_BASE_URL } from '../config/apiConfig';
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
-const BASE_URL = 'https://api.getyovo.app/api/v1';
 
 /**
  * useFCM — Requests notification permission, retrieves the FCM token,
@@ -49,7 +49,7 @@ const useFCM = (accessToken, onForegroundMessage) => {
                 registeredToken.current = token;
 
                 // 4. Register token with backend
-                const response = await fetch(`${BASE_URL}/device-token/rider`, {
+                const response = await fetch(`${API_BASE_URL}/device-token/rider`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

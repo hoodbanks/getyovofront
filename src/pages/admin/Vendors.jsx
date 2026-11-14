@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
     Search,
     ChevronDown,
@@ -19,9 +20,12 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
-import { formatName, formatDate, getInitials } from '../../utils/formatters';
+import { formatName, formatShortDate, getInitials } from '../../utils/formatters';
 import VendorModal from '../../components/admin/VendorModal';
 import CreateVendorModal from '../../components/admin/CreateVendorModal';
+import { WalletCustomDateModal } from '../../components/admin/wallet/WalletControls';
+import { getVendorAccountStatus } from '../../utils/vendorAccountStatus';
+
 
 const StatCard = ({ label, value, subLabel, icon: Icon, color, bg, borderColor, cardBg, dotColor }) => (
     <div className={`relative overflow-hidden p-4 pb-6 rounded-xl ${cardBg} border ${borderColor} shadow-sm transition-all hover:shadow-md group flex-1 min-w-0`}>
@@ -49,6 +53,7 @@ const StatCard = ({ label, value, subLabel, icon: Icon, color, bg, borderColor, 
 
 const Vendors = () => {
     const token = useAuthStore((state) => state.accessToken);
+    const [searchParams] = useSearchParams();
     const [selectedVendor, setSelectedVendor] = useState(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -57,10 +62,12 @@ const Vendors = () => {
     const [showSortDropdown, setShowSortDropdown] = useState(false);
     const [showFilterDropdown, setShowFilterDropdown] = useState(false);
     const [selectedSort, setSelectedSort] = useState('date_newest');
-    const [selectedFilter, setSelectedFilter] = useState('all');
+    const [selectedFilter, setSelectedFilter] = useState(() => ['all', 'active', 'pending', 'suspended'].includes(searchParams.get('filter')) ? searchParams.get('filter') : 'all');
     const [searchQuery, setSearchQuery] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [draftDates, setDraftDates] = useState({ start: '', end: '' });
+    const [isDateRangeOpen, setIsDateRangeOpen] = useState(false);
     const [page, setPage] = useState(1);
 
     // Labels
@@ -87,16 +94,14 @@ const Vendors = () => {
             }
             return await api.get(`/superadmin/vendors?filter=${selectedFilter}&sortBy=${selectedSort}&page=${page}&limit=20`, token);
         },
-        keepPreviousData: true
+        placeholderData: (previousData) => previousData
     });
 
-    const lastSummaryRef = useRef({ totalVendors: 0, pendingVendors: 0, activeVendors: 0, suspendedVendors: 0 });
-
-    if (vendorsData?.data?.summary) {
-        lastSummaryRef.current = vendorsData.data.summary;
-    }
-
-    const summary = vendorsData?.data?.summary || lastSummaryRef.current;
+    const { data: summaryResponse, isLoading: isSummaryLoading, isError: isSummaryError, error: summaryError, refetch: refetchSummary } = useQuery({
+        queryKey: ['vendors-platform-summary'],
+        queryFn: () => api.get('/superadmin/vendors?filter=all&sortBy=date_newest&page=1&limit=1', token),
+    });
+    const summary = summaryResponse?.data?.summary;
     const allVendors = vendorsData?.data?.data || [];
     
     // Apply client-side date filtering
@@ -135,8 +140,8 @@ const Vendors = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 md:gap-4 p-4 rounded-xl">
                     <StatCard
                         label="Total Vendors"
-                        value={summary.totalVendors?.toLocaleString()}
-                        subLabel="Approved + Suspended"
+                        value={isSummaryLoading ? '…' : (typeof summary?.totalVendors === 'number' ? summary.totalVendors.toLocaleString() : '—')}
+                        subLabel="All vendor accounts"
                         icon={Store}
                         color="text-white"
                         bg="bg-emerald-900"
@@ -146,8 +151,8 @@ const Vendors = () => {
                     />
                     <StatCard
                         label="Pending Vendors"
-                        value={summary.pendingVendors?.toLocaleString()}
-                        subLabel="Awaiting approval"
+                        value={isSummaryLoading ? '…' : (typeof summary?.pendingVendors === 'number' ? summary.pendingVendors.toLocaleString() : '—')}
+                        subLabel="Not yet approved"
                         icon={Clock}
                         color="text-white"
                         bg="bg-blue-900"
@@ -157,8 +162,8 @@ const Vendors = () => {
                     />
                     <StatCard
                         label="Approved Vendors"
-                        value={summary.activeVendors?.toLocaleString()}
-                        subLabel="Active Vendors"
+                        value={isSummaryLoading ? '…' : (typeof summary?.approvedVendors === 'number' ? summary.approvedVendors.toLocaleString() : '—')}
+                        subLabel="Approved, store open or closed"
                         icon={CheckCircle}
                         color="text-white"
                         bg="bg-purple-900"
@@ -168,8 +173,8 @@ const Vendors = () => {
                     />
                     <StatCard
                         label="Suspended"
-                        value={summary.suspendedVendors?.toLocaleString()}
-                        subLabel="Inactive Vendors"
+                        value={isSummaryLoading ? '…' : (typeof summary?.suspendedVendors === 'number' ? summary.suspendedVendors.toLocaleString() : '—')}
+                        subLabel="Suspended vendor accounts"
                         icon={AlertTriangle}
                         color="text-white"
                         bg="bg-amber-900"
@@ -179,8 +184,13 @@ const Vendors = () => {
                     />
                 </div>
 
-                {/* Search & Filters Row */}
-                <div className="p-4 flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
+                {isSummaryError && <div role="alert" className="mx-4 mb-2 rounded-xl bg-rose-50 p-3 text-xs text-rose-700">{summaryError?.message || 'Could not load vendor summary.'}<button type="button" onClick={() => refetchSummary()} className="ml-2 font-bold underline">Retry</button></div>}
+
+            </div>
+
+            {/* Search & Filters Row */}
+            <div className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm">
+                <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
                     {/* Search Bar */}
                     <div className="relative flex-1 max-w-md">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
@@ -195,29 +205,11 @@ const Vendors = () => {
 
                     {/* Date Filters & Reset Button */}
                     <div className="flex flex-wrap items-center gap-3">
-                        {/* From Date */}
-                        <div className="relative flex items-center bg-zinc-100 rounded-3xl px-4 py-3 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
-                            <span className="text-[10px] font-bold text-zinc-400 uppercase mr-2 select-none">From</span>
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
-                                className="bg-transparent border-none text-xs font-bold text-zinc-700 focus:ring-0 p-0 outline-none cursor-pointer [color-scheme:light]"
-                            />
-                            <Calendar className="text-zinc-400 ml-2" size={14} />
-                        </div>
-
-                        {/* To Date */}
-                        <div className="relative flex items-center bg-zinc-100 rounded-3xl px-4 py-3 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
-                            <span className="text-[10px] font-bold text-zinc-400 uppercase mr-2 select-none">To</span>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
-                                className="bg-transparent border-none text-xs font-bold text-zinc-700 focus:ring-0 p-0 outline-none cursor-pointer [color-scheme:light]"
-                            />
-                            <Calendar className="text-zinc-400 ml-2" size={14} />
-                        </div>
+                        <button type="button" onClick={() => { setDraftDates({ start: startDate, end: endDate }); setIsDateRangeOpen(true); }} className="flex items-center gap-2 rounded-3xl bg-zinc-100 px-4 py-3 text-xs font-semibold text-zinc-600 hover:bg-zinc-200" aria-label="Choose vendor date range">
+                            <span className="text-[10px] font-bold uppercase text-zinc-400">Date range</span>
+                            <span>{startDate && endDate ? `${startDate} – ${endDate}` : 'From – To'}</span>
+                            <Calendar className="text-zinc-400" size={15}/>
+                        </button>
 
                         {/* Reset Button */}
                         {(searchQuery || startDate || endDate) && (
@@ -236,7 +228,6 @@ const Vendors = () => {
                         )}
                     </div>
                 </div>
-
             </div>
 
             {/* Table Section */}
@@ -301,24 +292,23 @@ const Vendors = () => {
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full">
+                    <table className="w-full min-w-[1100px] table-fixed">
                         <thead>
                             <tr className="bg-zinc-50/50 border-b border-zinc-100">
-                                <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Store</th>
-                                <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Vendor</th>
-                                <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Phone</th>
-                                <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Email</th>
-                                <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Address</th>
-                                <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Joined</th>
-                                <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Orders</th>
-                                <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Status</th>
-                                <th className="px-3 py-3.5 text-center text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Action</th>
+                                <th className="w-[16%] px-2.5 py-3 text-left text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Store</th>
+                                <th className="w-[14%] px-2.5 py-3 text-left text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Vendor</th>
+                                <th className="w-[17%] px-2.5 py-3 text-left text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Phone</th>
+                                <th className="w-[19%] px-2.5 py-3 text-left text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Address</th>
+                                <th className="w-[13%] px-2.5 py-3 text-left text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Joined</th>
+                                <th className="w-[7%] px-2.5 py-3 text-left text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Orders</th>
+                                <th className="w-[9%] px-2.5 py-3 text-left text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Status</th>
+                                <th className="w-[5%] px-2.5 py-3 text-center text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-100">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan="9" className="py-20 text-center">
+                                    <td colSpan="8" className="py-20 text-center">
                                         <div className="flex flex-col items-center gap-3">
                                             <Loader2 size={32} className="text-emerald-600 animate-spin" />
                                             <p className="text-sm font-medium text-zinc-500">Loading vendors...</p>
@@ -327,7 +317,7 @@ const Vendors = () => {
                                 </tr>
                             ) : error ? (
                                 <tr>
-                                    <td colSpan="9" className="py-20 text-center">
+                                    <td colSpan="8" className="py-20 text-center">
                                         <div className="flex flex-col items-center gap-3">
                                             <AlertCircle size={32} className="text-rose-500" />
                                             <p className="text-sm font-medium text-rose-500">{error.message || 'Failed to load vendors'}</p>
@@ -337,39 +327,43 @@ const Vendors = () => {
                                 </tr>
                             ) : vendors.length === 0 ? (
                                 <tr>
-                                    <td colSpan="9" className="py-20 text-center text-zinc-500 font-medium text-sm">No vendors found.</td>
+                                    <td colSpan="8" className="py-20 text-center text-zinc-500 font-medium text-sm">No vendors found.</td>
                                 </tr>
                             ) : (
-                                vendors.map((vendor) => (
-                                    <tr key={vendor.id} className="hover:bg-zinc-50/50 transition-colors group">
-                                        <td className="px-3 py-3.5">
+                                vendors.map((vendor) => {
+                                    const status = getVendorAccountStatus(vendor);
+                                    const statusClass = status === 'ACTIVE'
+                                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                        : status === 'SUSPENDED'
+                                            ? 'bg-rose-50 text-rose-600 border-rose-100'
+                                            : status === 'PENDING'
+                                                ? 'bg-amber-50 text-amber-600 border-amber-100'
+                                                : 'bg-zinc-100 text-zinc-600 border-zinc-200';
+                                    return (
+                                    <tr key={vendor.vendorId || vendor.id} className="hover:bg-zinc-50/50 transition-colors group">
+                                        <td className="px-2.5 py-3">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-[8px] font-bold text-zinc-500 overflow-hidden shrink-0">
                                                     {getInitials(vendor.storeName)}
                                                 </div>
-                                                <span className="text-[12px] font-bold text-zinc-900 max-w-[80px]">{formatName(vendor.storeName)}</span>
+                                                <span title={formatName(vendor.storeName)} className="max-w-[130px] truncate text-[12px] font-semibold text-zinc-900">{formatName(vendor.storeName)}</span>
                                             </div>
                                         </td>
-                                        <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 truncate max-w-[80px]">{formatName(vendor.ownerName)}</td>
-                                        <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 whitespace-nowrap">{vendor.phonenumber}</td>
-                                        <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 truncate max-w-[100px] lowercase">{vendor.email}</td>
-                                        <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 max-w-[120px] truncate">{vendor.address}</td>
-                                        <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 whitespace-nowrap">{formatDate(vendor.createdAt)}</td>
-                                        <td className="px-3 py-3.5 text-[12px] font-bold text-zinc-900">{vendor.totalOrders}</td>
-                                        <td className="px-3 py-3.5">
-                                            <span className={`px-2 py-0.5 rounded-full text-[12px] font-bold border capitalize ${vendor.status === 'ACTIVE'
-                                                ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                                                : vendor.status === 'SUSPENDED'
-                                                    ? 'bg-rose-50 text-rose-600 border-rose-100'
-                                                    : 'bg-amber-50 text-amber-600 border-amber-100'
-                                                }`}>
-                                                {vendor.status?.toLowerCase()}
+                                        <td title={formatName(vendor.ownerName)} className="max-w-0 truncate px-2.5 py-3 text-[12px] font-normal text-zinc-600">{formatName(vendor.ownerName)}</td>
+                                        <td className="px-2.5 py-3 text-[11px] font-normal text-zinc-600 whitespace-nowrap">{vendor.phonenumber}</td>
+                                        <td title={vendor.address || ''} className="max-w-0 truncate px-2.5 py-3 text-[11px] font-normal text-zinc-600">{vendor.address}</td>
+                                        <td className="px-2.5 py-3 text-[11px] font-normal text-zinc-600 whitespace-nowrap">{formatShortDate(vendor.createdAt)}</td>
+                                        <td className="px-2.5 py-3 text-[12px] font-semibold text-zinc-800">{vendor.totalOrders}</td>
+                                        <td className="px-2.5 py-3">
+                                            <span className={`px-2 py-0.5 rounded-full text-[12px] font-bold border capitalize ${statusClass}`}>
+                                                {status.toLowerCase()}
                                             </span>
                                         </td>
-                                        <td className="px-3 py-3.5">
+                                        <td className="px-2.5 py-3">
                                             <div className="flex justify-center">
                                                 <button
                                                     onClick={() => openDetailModal(vendor)}
+                                                    aria-label={`View details for ${vendor.storeName || vendor.ownerName || 'vendor'}`}
                                                     className="p-1.5 bg-indigo-50 text-indigo-500 rounded-lg hover:bg-indigo-500 hover:text-white transition-all"
                                                 >
                                                     <Eye size={12} />
@@ -377,7 +371,7 @@ const Vendors = () => {
                                             </div>
                                         </td>
                                     </tr>
-                                ))
+                                ); })
                             )}
                         </tbody>
                     </table>
@@ -446,6 +440,13 @@ const Vendors = () => {
             <CreateVendorModal
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
+            />
+            <WalletCustomDateModal
+                isOpen={isDateRangeOpen}
+                dates={draftDates}
+                onDatesChange={setDraftDates}
+                onClose={() => setIsDateRangeOpen(false)}
+                onApply={(dates) => { setStartDate(dates.start); setEndDate(dates.end); setPage(1); setIsDateRangeOpen(false); }}
             />
         </div>
     );

@@ -7,16 +7,21 @@ import {
     Bike,
     ShoppingBag,
     CreditCard,
+    Wallet,
+    Gift,
+    Megaphone,
     Settings,
     LogOut,
     PanelLeftClose,
     PanelLeftOpen,
     Bell,
-    Layers,
     History,
+    ShieldCheck,
+    ScrollText,
+    Radio,
     X
 } from 'lucide-react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useStore } from '../../store/useStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useMutation } from '@tanstack/react-query';
@@ -70,7 +75,6 @@ const SidebarGroup = ({ title, children, collapsed }) => (
 );
 
 const Sidebar = () => {
-    const location = useLocation();
     const navigate = useNavigate();
     const { accessToken, logout: storeLogout, superAdmin } = useAuthStore();
     const {
@@ -179,7 +183,7 @@ const Sidebar = () => {
 
                 {/* Navigation */}
                 <div className="flex-1 px-2 overflow-y-auto scrollbar-hide pb-6">
-                    <div className="space-y-1 mb-6">
+                    <SidebarGroup title="Overview" collapsed={isSidebarCollapsed}>
                         <SidebarItem
                             icon={LayoutDashboard}
                             label="Dashboard"
@@ -193,7 +197,7 @@ const Sidebar = () => {
                             to="/admin/analytics"
                             collapsed={isSidebarCollapsed}
                         />
-                    </div>
+                    </SidebarGroup>
 
                     <SidebarGroup title="User Management" collapsed={isSidebarCollapsed}>
                         <SidebarItem icon={Users} label="Customer" to="/admin/customers" collapsed={isSidebarCollapsed} />
@@ -201,12 +205,31 @@ const Sidebar = () => {
                         <SidebarItem icon={Bike} label="Rider" to="/admin/riders" collapsed={isSidebarCollapsed} />
                     </SidebarGroup>
 
-                    <SidebarGroup title="Orders & Payments" collapsed={isSidebarCollapsed}>
+                    <SidebarGroup title="Operations" collapsed={isSidebarCollapsed}>
                         <SidebarItem icon={ShoppingBag} label="Orders" to="/admin/orders" collapsed={isSidebarCollapsed} />
+                    </SidebarGroup>
+
+                    <SidebarGroup title="Finance" collapsed={isSidebarCollapsed}>
                         <SidebarItem icon={History} label="Transactions" to="/admin/transactions" collapsed={isSidebarCollapsed} />
                         <SidebarItem icon={CreditCard} label="Payments" to="/admin/payments" collapsed={isSidebarCollapsed} />
+                    </SidebarGroup>
+
+                    <SidebarGroup title="Wallet" collapsed={isSidebarCollapsed}>
+                        <SidebarItem icon={Wallet} label="User Wallet" to="/admin/wallet/user" collapsed={isSidebarCollapsed} />
+                        <SidebarItem icon={Wallet} label="Vendor Wallet" to="/admin/wallet/vendor" collapsed={isSidebarCollapsed} />
+                        <SidebarItem icon={Gift} label="Referral Wallet / Activities" to="/admin/referral-activities" collapsed={isSidebarCollapsed} />
+                    </SidebarGroup>
+
+                    <SidebarGroup title="Growth & Marketing" collapsed={isSidebarCollapsed}>
+                        <SidebarItem icon={Megaphone} label="Promotions" to="/admin/promotions" collapsed={isSidebarCollapsed} />
                         <SidebarItem icon={Bell} label="Push Notification" to="/admin/push-notifications" collapsed={isSidebarCollapsed} />
+                        <SidebarItem icon={Radio} label="Broadcast" to="/admin/broadcast" collapsed={isSidebarCollapsed} />
+                    </SidebarGroup>
+
+                    <SidebarGroup title="Platform" collapsed={isSidebarCollapsed}>
                         <SidebarItem icon={Settings} label="Settings" to="/admin/settings" collapsed={isSidebarCollapsed} />
+                        <SidebarItem icon={ShieldCheck} label="Super Admin Accounts" to="/admin/accounts" collapsed={isSidebarCollapsed} />
+                        <SidebarItem icon={ScrollText} label="Audit trail" to="/admin/audit" collapsed={isSidebarCollapsed} />
                     </SidebarGroup>
 
                 </div>

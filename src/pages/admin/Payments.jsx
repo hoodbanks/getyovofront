@@ -114,11 +114,10 @@ const Payments = () => {
         keepPreviousData: true
     });
 
-    const summary = dashboardData?.data?.summary || {
-        totalOrders: 0,
-        totalAmountToPay: 0,
-        totalPaidAmount: 0
-    };
+    const summary = dashboardData?.data?.summary;
+    const legacyNaira = (value) => Number.isFinite(value)
+        ? `₦${value.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : '—';
 
     const vendors = dashboardData?.data?.vendors?.data || [];
     const totalPages = dashboardData?.data?.vendors?.pagination?.totalPages || 1;
@@ -131,12 +130,13 @@ const Payments = () => {
     return (
         <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
             <div className='bg-white py-6 rounded-2xl'>
+                <p className="px-4 text-[11px] leading-5 text-zinc-500">Legacy delivered-order payout queue. Amounts are order subtotals with vendor payment still marked pending or paid. They are not Vendor Wallet balances, net earnings, or completed withdrawals, and a completed Vendor Wallet withdrawal is only an admin-recorded manual transfer.</p>
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4">
                     <StatCard
-                        label="Pending to Pay Vendors"
-                        value={`₦${summary.totalAmountToPay?.toLocaleString()}`}
-                        subLabel="Delivered orders only"
+                        label="Legacy amount still to record"
+                        value={isLoading ? '…' : legacyNaira(summary?.totalAmountToPay)}
+                        subLabel="Delivered paid orders still marked pending in this queue"
                         icon={Wallet}
                         color="text-white"
                         bg="bg-amber-900"
@@ -145,9 +145,9 @@ const Payments = () => {
                         dotColor="#f59e0b"
                     />
                     <StatCard
-                        label="Total Paid Amount"
-                        value={`₦${summary.totalPaidAmount?.toLocaleString()}`}
-                        subLabel="Paid within selected range"
+                        label="Legacy amount marked paid"
+                        value={isLoading ? '…' : legacyNaira(summary?.totalPaidAmount)}
+                        subLabel="Delivered orders marked paid in this queue, not a bank-verified payout"
                         icon={ShoppingBag}
                         color="text-white"
                         bg="bg-emerald-900"
@@ -176,8 +176,8 @@ const Payments = () => {
             <div className="bg-white rounded-[2rem] border border-zinc-200 overflow-hidden shadow-sm">
                 <div className="p-4 md:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-zinc-100 gap-4">
                     <div>
-                        <h3 className="text-sm md:text-base font-bold text-zinc-900">Payments</h3>
-                        <p className="text-[10px] text-zinc-500 font-medium tracking-tight">Click a vendor row to see all orders + amount to pay</p>
+                        <h3 className="text-sm md:text-base font-bold text-zinc-900">Legacy Payments queue</h3>
+                        <p className="text-[10px] text-zinc-500 font-medium tracking-tight">Not the Vendor Wallet withdrawal list. Open a row for this queue’s order subtotal.</p>
                     </div>
                      <FilterDropdown 
                         selected={filter} 
@@ -236,8 +236,8 @@ const Payments = () => {
 
                                 <div className="text-right flex items-center gap-4">
                                     <div>
-                                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-tight">Amount to pay</p>
-                                        <h3 className="text-base font-bold text-zinc-900 leading-tight">₦{(vendor.amountToPay || 0).toLocaleString()}</h3>
+                                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-tight">Legacy queue amount</p>
+                                        <h3 className="text-base font-bold text-zinc-900 leading-tight">{legacyNaira(vendor.amountToPay)}</h3>
                                     </div>
                                     <ChevronRight size={18} className="text-zinc-300 group-hover:translate-x-1 transition-transform" />
                                 </div>

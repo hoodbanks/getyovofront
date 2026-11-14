@@ -11,9 +11,10 @@ const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState(null);
     const navigate = useNavigate();
     const location = useLocation();
+    const disabledNotice = new URLSearchParams(location.search).get('reason') === 'disabled';
+    const [error, setError] = useState(disabledNotice ? 'This Super Admin account has been disabled. Contact another Super Admin if you believe this is an error.' : null);
     const { setAuth, isAuthenticated, superAdmin } = useAuthStore();
 
     const from = location.state?.from?.pathname || '/admin';
@@ -37,7 +38,9 @@ const Login = () => {
             if (err.status === 404) {
                 setError('User does not exist');
             } else if (err.status === 401) {
-                setError('Invalid credentials');
+                setError(err.message || 'Login was rejected. Please check your credentials and try again.');
+            } else if (err.status === 403 && /verify your email/i.test(err.message || '') && !/\b(disabled|deactivated|inactive)\b/i.test(err.message || '')) {
+                setError(err.message);
             } else {
                 setError(err.message || 'Login failed. Please check your credentials.');
             }
@@ -69,7 +72,10 @@ const Login = () => {
                 <form onSubmit={handleLogin} className="space-y-6">
                     {error && (
                         <div className="p-3 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 text-xs font-medium animate-in fade-in slide-in-from-top-1">
-                            {error}
+                            <p>{error}</p>
+                            {/verify your email/i.test(error) && !/\b(disabled|deactivated|inactive)\b/i.test(error) && (
+                                <Link to="/admin/verify-email" state={email.trim() ? { email: email.trim() } : undefined} className="mt-2 inline-flex font-bold underline">Verify this email</Link>
+                            )}
                         </div>
                     )}
 
@@ -130,6 +136,10 @@ const Login = () => {
                         Don't remember Password?{' '}
                         <Link to="/admin/forgot-password" className="text-[#00B074] font-bold hover:underline">
                             Reset Password
+                        </Link>
+                        <span className="mx-1 text-zinc-300">·</span>
+                        <Link to="/admin/verify-email" state={email.trim() ? { email: email.trim() } : undefined} className="text-[#00B074] font-bold hover:underline">
+                            Verify email
                         </Link>
                     </p>
                 </div>

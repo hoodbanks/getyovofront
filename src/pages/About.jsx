@@ -12,6 +12,7 @@ import bgImage2 from '../assets/images/login-background3.png';
 import bgImage3 from '../assets/images/login-background4.png';
 import doublePhoneImg from '../assets/images/double-phone-img.png';
 import aboutImg from '../assets/images/about-image.png';
+import { APP_STORE_URL, GOOGLE_PLAY_URL, openAppStoreBadges } from '../config/appStores';
 
 const useReveal = () => {
     useEffect(() => {
@@ -38,6 +39,10 @@ const useReveal = () => {
 const About = () => {
     useReveal();
     useEffect(() => {
+        if (window.location.hash === '#get-the-app') {
+            openAppStoreBadges();
+            return;
+        }
         window.scrollTo(0, 0);
     }, []);
 
@@ -210,11 +215,11 @@ const About = () => {
                                 </p>
                             </div>
 
-                            <div className="flex flex-col md:flex-row justify-start gap-4">
-                                <a href="#" className="transition-transform hover:scale-105">
+                            <div id="get-the-app" className="flex flex-col md:flex-row justify-start gap-4">
+                                <a href={GOOGLE_PLAY_URL} target="_blank" rel="noopener noreferrer" className="transition-transform hover:scale-105">
                                     <img src={googlePlayImg} alt="Get it on Google Play" className="h-12 md:h-14" />
                                 </a>
-                                <a href="#" className="transition-transform hover:scale-105">
+                                <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" className="transition-transform hover:scale-105">
                                     <img src={appleStoreImg} alt="Download on the App Store" className="h-12 md:h-14" />
                                 </a>
                             </div>

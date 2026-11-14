@@ -7,6 +7,7 @@ import {
     Clock,
     Truck,
     CheckCircle2,
+    XCircle,
     Download,
     X,
     Calendar
@@ -15,8 +16,9 @@ import OrderModal from '../../components/admin/OrderModal';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
-import { formatName, formatDate, formatDateTime, exportToCSV } from '../../utils/formatters';
+import { formatName, exportToCSV } from '../../utils/formatters';
 import { Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { WalletCustomDateModal } from '../../components/admin/wallet/WalletControls';
 
 const FilterDropdown = ({ selected, onSelect, options, label }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -92,77 +94,77 @@ const StatCard = ({ label, value, subLabel, icon: Icon, color, bg, borderColor, 
     </div>
 );
 
+const formatDateRangeLabel = (start, end) => {
+    if (!start || !end) return 'Filter by date range';
+    const formatDate = (value) => new Date(`${value}T00:00:00`).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
+    return `${formatDate(start)} to ${formatDate(end)}`;
+};
+
+const formatLagosDateTime = (value) => {
+    if (!value) return 'Not available';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Not available';
+    return new Intl.DateTimeFormat('en-NG', {
+        timeZone: 'Africa/Lagos', day: 'numeric', month: 'short', year: 'numeric',
+        hour: 'numeric', minute: '2-digit',
+    }).format(date);
+};
+const formatNaira = (value) => typeof value === 'number' && Number.isFinite(value)
+    ? new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 2 }).format(value)
+    : 'Not available';
+
+const cardCount = (value, isLoading) => isLoading ? '…' : Number.isFinite(value) ? value.toLocaleString() : '—';
+
 const Orders = () => {
     const token = useAuthStore((state) => state.accessToken);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [filter, setFilter] = useState('all');
-    const [status, setStatus] = useState('all');
+    const [sortBy, setSortBy] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [draftDates, setDraftDates] = useState({ start: '', end: '' });
+    const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
     const [page, setPage] = useState(1);
 
-    // Fetch Orders Data
-    const { data: dashboardData, isLoading, error, refetch } = useQuery({
-        queryKey: ['order-dashboard', filter, page, searchQuery],
-        queryFn: async () => {
-            if (searchQuery) {
-                return await api.get(`/superadmin/orders/search?query=${searchQuery}&page=${page}&limit=20`, token);
+    const trimmedQuery = searchQuery.trim();
+    const ordersQuery = useQuery({
+        queryKey: ['order-dashboard', page, filter, sortBy, trimmedQuery, startDate, endDate],
+        queryFn: () => {
+            const params = new URLSearchParams({ page: String(page), filter, sortBy });
+            if (trimmedQuery) params.set('query', trimmedQuery);
+            if (filter === 'custom' && startDate && endDate) {
+                params.set('from', startDate);
+                params.set('to', endDate);
             }
-            return await api.get(`/superadmin/orders?filter=${filter}&page=${page}&limit=20`, token);
+            return api.get(`/superadmin/orders?${params.toString()}`, token);
         },
-        keepPreviousData: true
+        placeholderData: (previousData) => previousData,
     });
-
-    const summary = dashboardData?.data?.summary || {
-        totalOrders: 0,
-        pendingOrders: 0,
-        inTransitOrders: 0,
-        deliveredToday: 0,
-        cancelledOrders: 0
-    };
-
-    const allOrders = dashboardData?.data?.latestOrders || dashboardData?.data?.data || [];
-
-    // Apply client-side status and date filtering
-    const orders = allOrders.filter(o => {
-        if (status !== 'all' && o.status?.toUpperCase() !== status.toUpperCase().replace(/ /g, '_')) {
-            return false;
-        }
-        
-        const orderDateStr = o.orderTime || o.placedAt || o.createdAt;
-        if (orderDateStr) {
-            const txDate = new Date(orderDateStr);
-            if (startDate) {
-                const start = new Date(startDate);
-                start.setHours(0, 0, 0, 0);
-                if (txDate < start) return false;
-            }
-            if (endDate) {
-                const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999);
-                if (txDate > end) return false;
-            }
-        } else if (startDate || endDate) {
-            return false;
-        }
-        return true;
-    });
-
-    const totalItems = dashboardData?.data?.total || summary.totalOrders || orders.length || 0;
-    const totalPages = dashboardData?.data?.totalPages || (totalItems ? Math.ceil(totalItems / 20) : 1);
+    const dashboardData = ordersQuery.data;
+    const summary = dashboardData?.data?.summary;
+    const ordersPage = dashboardData?.data?.orders;
+    const orders = ordersPage?.data;
+    const ordersShapeValid = Boolean(summary && ordersPage && Array.isArray(orders)
+        && Number.isFinite(ordersPage.total) && Number.isFinite(ordersPage.page)
+        && Number.isFinite(ordersPage.pageSize));
+    const isLoading = ordersQuery.isLoading;
+    const error = ordersQuery.error || (dashboardData && !ordersShapeValid ? new Error('Unexpected orders response shape.') : null);
+    const refetch = ordersQuery.refetch;
+    const totalItems = ordersShapeValid ? ordersPage.total : 0;
+    const totalPages = ordersShapeValid ? Math.max(1, Math.ceil(ordersPage.total / ordersPage.pageSize)) : 1;
 
     const handleExport = () => {
-        const exportData = orders.map(o => ({
+        const exportData = (orders || []).map(o => ({
             'Order Code': o.orderCode || o.code,
             'Customer': o.customerName,
             'Vendor': o.vendorStoreName,
             'Rider': o.riderName || 'Not Assigned',
             'Status': o.status,
             'Amount (NGN)': o.totalAmount,
-            'Order Time': formatDateTime(o.orderTime || o.placedAt || o.createdAt),
-            'ETA / Delivered': formatDateTime(o.etaOrDelivered || o.deliveredAt)
+            'Order Time': formatLagosDateTime(o.orderTime),
+            'ETA / Delivered': formatLagosDateTime(o.etaOrDelivered)
         }));
         exportToCSV(exportData, 'Orders');
     };
@@ -176,11 +178,11 @@ const Orders = () => {
         <div className="space-y-6 max-w-[440px] md:max-w-[1600px] mx-auto pb-10">
             <div className='bg-white py-5 rounded-2xl'>
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 md:gap-4 p-4 rounded-xl">
+                <div className="grid grid-cols-1 gap-3 rounded-xl p-4 md:grid-cols-2 md:gap-4 xl:grid-cols-3">
                     <StatCard
-                        label="Total Orders"
-                        value={summary.totalOrders?.toLocaleString()}
-                        subLabel="All-time"
+                        label="Paid Orders"
+                        value={cardCount(summary?.totalOrders, isLoading)}
+                        subLabel="Paid orders only"
                         icon={ShoppingBag}
                         color="text-white"
                         bg="bg-emerald-900"
@@ -190,8 +192,8 @@ const Orders = () => {
                     />
                     <StatCard
                         label="Pending Orders"
-                        value={summary.pendingOrders?.toLocaleString()}
-                        subLabel="Awaiting action"
+                        value={cardCount(summary?.pendingOrders, isLoading)}
+                        subLabel="Paid; awaiting Vendor action"
                         icon={Clock}
                         color="text-white"
                         bg="bg-blue-900"
@@ -201,8 +203,8 @@ const Orders = () => {
                     />
                     <StatCard
                         label="In Transit"
-                        value={summary.inTransitOrders?.toLocaleString()}
-                        subLabel="On the way"
+                        value={cardCount(summary?.inTransitOrders, isLoading)}
+                        subLabel="Out for Delivery"
                         icon={Truck}
                         color="text-white"
                         bg="bg-purple-900"
@@ -212,8 +214,8 @@ const Orders = () => {
                     />
                     <StatCard
                         label="Delivered Today"
-                        value={summary.deliveredToday?.toLocaleString()}
-                        subLabel="Completed"
+                        value={cardCount(summary?.deliveredToday, isLoading)}
+                        subLabel="Completed today"
                         icon={CheckCircle2}
                         color="text-white"
                         bg="bg-amber-900"
@@ -221,58 +223,59 @@ const Orders = () => {
                         borderColor="border-amber-500"
                         dotColor="#f59e0b"
                     />
+                    <StatCard
+                        label="Cancelled Orders"
+                        value={cardCount(summary?.cancelledOrders, isLoading)}
+                        subLabel="Count of paid vendor orders currently cancelled. Not a refund amount."
+                        icon={XCircle}
+                        color="text-white"
+                        bg="bg-rose-900"
+                        cardBg="bg-rose-100/20"
+                        borderColor="border-rose-500"
+                        dotColor="#f43f5e"
+                    />
                 </div>
+                <p className="px-4 pb-4 text-[11px] leading-5 text-zinc-500">This page counts paid orders that have a vendor. The order total is the original order amount. Customer Wallet refunds are a separate ledger credit and are not shown or subtracted here.</p>
+            </div>
 
-                {/* Search & Filters Row */}
-                <div className="px-4 flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
+            {/* Search and date filter are separate from the summary cards. */}
+            <div className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     {/* Search Bar */}
-                    <div className="relative flex-1 max-w-md">
+                    <div className="relative w-full min-w-0 lg:max-w-md">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
                         <input
                             type="text"
+                            maxLength={50}
                             value={searchQuery}
                             onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
                             placeholder="Search code, store, product..."
-                            className="w-full pl-12 pr-6 py-4 bg-zinc-100 border-none rounded-3xl text-sm focus:ring-2 focus:ring-emerald-500/10 placeholder:text-zinc-500 outline-none transition-all font-medium"
+                            className="w-full rounded-2xl border border-transparent bg-zinc-100 py-3 pl-11 pr-4 text-sm outline-none transition-colors placeholder:text-zinc-500 focus:border-emerald-700/20 focus:bg-white focus:ring-2 focus:ring-emerald-700/10"
                         />
                     </div>
 
-                    {/* Date Filters & Reset Button */}
-                    <div className="flex flex-wrap items-center gap-3">
-                        {/* From Date */}
-                        <div className="relative flex items-center bg-zinc-100 rounded-3xl px-4 py-3 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
-                            <span className="text-[10px] font-bold text-zinc-400 uppercase mr-2 select-none">From</span>
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
-                                className="bg-transparent border-none text-xs font-bold text-zinc-700 focus:ring-0 p-0 outline-none cursor-pointer [color-scheme:light]"
-                            />
-                            <Calendar className="text-zinc-400 ml-2" size={14} />
-                        </div>
-
-                        {/* To Date */}
-                        <div className="relative flex items-center bg-zinc-100 rounded-3xl px-4 py-3 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
-                            <span className="text-[10px] font-bold text-zinc-400 uppercase mr-2 select-none">To</span>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
-                                className="bg-transparent border-none text-xs font-bold text-zinc-700 focus:ring-0 p-0 outline-none cursor-pointer [color-scheme:light]"
-                            />
-                            <Calendar className="text-zinc-400 ml-2" size={14} />
-                        </div>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                        <button
+                            type="button"
+                            onClick={() => { setDraftDates({ start: startDate, end: endDate }); setIsDateFilterOpen(true); }}
+                            className="flex min-h-11 items-center gap-2 rounded-xl border border-zinc-100 bg-zinc-50 px-4 text-[11px] font-semibold text-zinc-600 transition-colors hover:bg-zinc-100"
+                        >
+                            <Calendar size={15} className="text-zinc-500" />
+                            {formatDateRangeLabel(startDate, endDate)}
+                        </button>
 
                         {/* Reset Button */}
-                        {(searchQuery || startDate || endDate) && (
+                                {(searchQuery || startDate || endDate) && (
                             <button
                                 onClick={() => {
                                     setSearchQuery('');
                                     setStartDate('');
                                     setEndDate('');
+                                    setFilter('all');
+                                    setSortBy('all');
                                     setPage(1);
                                 }}
-                                className="flex items-center gap-2 px-5 py-3 bg-zinc-900 text-white rounded-3xl text-[10px] font-bold hover:bg-zinc-800 transition-all hover:scale-[1.02] active:scale-[0.98] uppercase tracking-widest group shadow-sm cursor-pointer"
+                                className="flex min-h-11 items-center gap-2 rounded-xl bg-zinc-900 px-4 text-[10px] font-bold uppercase tracking-widest text-white shadow-sm transition-all hover:bg-zinc-800"
                             >
                                 <X size={14} className="group-hover:rotate-90 transition-transform duration-300" />
                                 Reset
@@ -287,25 +290,23 @@ const Orders = () => {
                 <div className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-zinc-100 gap-4">
                     <div>
                         <h3 className="text-sm md:text-base font-medium text-zinc-900">Orders</h3>
-                        <p className="text-[10px] text-zinc-500 font-medium">All Order operations in one place.</p>
+                        <p className="text-[10px] text-zinc-500 font-medium">Paid vendor orders. Cancelled rows keep their original order amount.</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
                         <FilterDropdown
-                            selected={status}
-                            onSelect={(val) => { setStatus(val); setPage(1); }}
+                            selected={sortBy}
+                            onSelect={(val) => { setSortBy(val); setPage(1); }}
                             label="All Status"
                             options={[
                                 { value: 'all', label: 'All Status' },
-                                { value: 'preparing', label: 'Preparing' },
-                                { value: 'ready', label: 'Ready' },
-                                { value: 'out_for_delivery', label: 'Out for Delivery' },
+                                { value: 'pending', label: 'Pending' },
+                                { value: 'in_transit', label: 'Out for Delivery' },
                                 { value: 'delivered', label: 'Delivered' },
                                 { value: 'cancelled', label: 'Cancelled' },
                             ]}
                         />
                         <FilterDropdown
                             selected={filter}
-                            onSelect={(val) => { setFilter(val); setPage(1); }}
                             label="All Time"
                             options={[
                                 { value: 'all', label: 'All Time' },
@@ -314,30 +315,48 @@ const Orders = () => {
                                 { value: 'last7days', label: 'Last 7 Days' },
                                 { value: 'last30days', label: 'Last 30 Days' },
                                 { value: 'thisMonth', label: 'This Month' },
+                                { value: 'lastMonth', label: 'Last Month' },
+                                { value: 'custom', label: 'Custom range' },
                             ]}
+                            onSelect={(val) => {
+                                if (val === 'custom') {
+                                    setDraftDates({ start: startDate, end: endDate });
+                                    setIsDateFilterOpen(true);
+                                    return;
+                                }
+                                setFilter(val);
+                                setStartDate('');
+                                setEndDate('');
+                                setPage(1);
+                            }}
                         />
                         <button 
                             onClick={handleExport}
                             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 md:py-2 bg-emerald-800 rounded-3xl text-[10px] font-bold text-white hover:bg-emerald-900 transition-all shadow-md shadow-emerald-900/10 whitespace-nowrap"
                         >
                             <Download size={14} />
-                            Export CSV
+                            Export this page
                         </button>
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full">
+                <div className="w-full overflow-x-hidden">
+                    <table className="mx-auto w-full max-w-[1200px] table-fixed">
+                        <colgroup>
+                            <col className="w-[10%]" /><col className="w-[15%]" /><col className="w-[15%]" />
+                            <col className="w-[12%]" /><col className="w-[11%]" /><col className="w-[15%]" />
+                            <col className="w-[12%]" /><col className="w-[10%]" />
+                        </colgroup>
                         <thead>
                             <tr className="bg-zinc-50/50 border-b border-zinc-100">
-                                <th className="px-3 py-3.5 text-left text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Order ID</th>
-                                <th className="px-3 py-3.5 text-left text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Customer Name</th>
-                                <th className="px-3 py-3.5 text-left text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Vendor</th>
-                                <th className="px-3 py-3.5 text-left text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Rider</th>
-                                <th className="px-3 py-3.5 text-left text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Status</th>
-                                <th className="px-3 py-3.5 text-left text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Order Time</th>
-                                <th className="px-3 py-3.5 text-left text-[9px] font-bold text-zinc-400 uppercase tracking-wider">ETA/Delivered</th>
-                                <th className="px-3 py-3.5 text-center text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Action</th>
+                                <th className="truncate px-1.5 py-3 text-left text-[9px] font-bold text-zinc-400 uppercase tracking-wide">Order ID</th>
+                                <th className="truncate px-1.5 py-3 text-left text-[9px] font-bold text-zinc-400 uppercase tracking-wide">Customer</th>
+                                <th className="truncate px-1.5 py-3 text-left text-[9px] font-bold text-zinc-400 uppercase tracking-wide">Vendor</th>
+                                <th className="truncate px-1.5 py-3 text-left text-[9px] font-bold text-zinc-400 uppercase tracking-wide">Rider</th>
+                                <th className="truncate px-1.5 py-3 text-left text-[9px] font-bold text-zinc-400 uppercase tracking-wide">Status</th>
+                                <th className="truncate px-1.5 py-3 text-left text-[9px] font-bold text-zinc-400 uppercase tracking-wide">Order Time</th>
+                                <th className="truncate px-1.5 py-3 text-center text-[9px] font-bold text-zinc-400 uppercase tracking-wide" title="Original order amount in naira. Not a Customer Wallet refund.">Order total</th>
+                                <th className="truncate px-1.5 py-3 text-center text-[9px] font-bold text-zinc-400 uppercase tracking-wide">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-100">
@@ -355,7 +374,7 @@ const Orders = () => {
                                     <td colSpan="8" className="py-20 text-center">
                                         <div className="flex flex-col items-center gap-3">
                                             <AlertCircle size={32} className="text-rose-500" />
-                                            <p className="text-sm font-bold text-rose-500">Failed to load orders</p>
+                                            <p className="text-sm font-bold text-rose-600" role="alert">{error.message || 'Orders could not be loaded.'}</p>
                                             <button onClick={() => refetch()} className="text-[10px] font-bold text-zinc-500 underline uppercase mt-2">Try again</button>
                                         </div>
                                     </td>
@@ -365,35 +384,34 @@ const Orders = () => {
                                     <td colSpan="8" className="py-20 text-center text-xs font-bold text-zinc-400 uppercase tracking-widest">No orders found</td>
                                 </tr>
                             ) : (
-                                orders.map((order, idx) => (
-                                    <tr key={idx} className="hover:bg-zinc-50/50 transition-colors group">
-                                        <td className="px-3 py-3.5 text-[10px] font-bold text-zinc-800 uppercase">{order.orderCode || order.code}</td>
-                                        <td className="px-3 py-3.5 text-[10px] font-bold text-zinc-900 truncate max-w-[120px]">{formatName(order.customerName)}</td>
-                                        <td className="px-3 py-3.5 text-[10px] font-medium text-zinc-600 truncate max-w-[120px]">{formatName(order.vendorStoreName)}</td>
-                                        <td className="px-3 py-3.5 text-[10px] font-medium text-zinc-600">{order.riderName ? formatName(order.riderName) : 'Not Assigned'}</td>
-                                        <td className="px-3 py-3.5">
+                                orders.map((order) => (
+                                    <tr key={order.id} className="hover:bg-zinc-50/50 transition-colors group">
+                                        <td className="truncate px-1.5 py-3 text-[10px] font-bold uppercase text-zinc-800" title={order.orderCode}>{order.orderCode}</td>
+                                        <td className="truncate px-1.5 py-3 text-[10px] font-semibold text-zinc-900" title={order.customerName}>{formatName(order.customerName)}</td>
+                                        <td className="truncate px-1.5 py-3 text-[10px] font-medium text-zinc-600" title={order.vendorStoreName}>{formatName(order.vendorStoreName)}</td>
+                                        <td className="truncate px-1.5 py-3 text-[10px] font-medium text-zinc-600" title={order.riderName || 'Not available'}>{order.riderName ? formatName(order.riderName) : 'Not available'}</td>
+                                        <td className="px-1.5 py-3">
                                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border whitespace-nowrap uppercase tracking-tighter ${
                                                 order.status === 'DELIVERED'
                                                     ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
                                                     : order.status === 'CANCELLED'
                                                         ? 'bg-rose-50 text-rose-600 border-rose-100'
-                                                        : order.status === 'OUT_FOR_DELIVERY' || order.status === 'IN_TRANSIT'
+                                                        : order.status === 'OUT_FOR_DELIVERY'
                                                             ? 'bg-blue-50 text-blue-600 border-blue-100'
                                                             : 'bg-amber-50 text-amber-600 border-amber-100'
                                                 }`}>
                                                 {order.status?.replace(/_/g, ' ')}
                                             </span>
                                         </td>
-                                        <td className="px-3 py-3.5 text-[10px] font-medium text-zinc-400 whitespace-nowrap">
-                                            {formatDateTime(order.orderTime || order.placedAt || order.createdAt)}
+                                        <td className="whitespace-nowrap px-1.5 py-3 text-[10px] font-medium text-zinc-500">
+                                            {formatLagosDateTime(order.orderTime)}
                                         </td>
-                                        <td className="px-3 py-3.5 text-[10px] font-bold text-zinc-900 whitespace-nowrap">
-                                            {formatDateTime(order.etaOrDelivered || order.deliveredAt)}
-                                        </td>
-                                        <td className="px-3 py-3.5">
+                                        <td className="whitespace-nowrap px-1.5 py-3 text-center text-[10px] font-semibold tabular-nums text-zinc-800">{formatNaira(order.totalAmount)}</td>
+                                        <td className="px-1.5 py-3">
                                             <div className="flex justify-center">
                                                 <button
                                                     onClick={() => openModal(order)}
+                                                    aria-label={`Open details for ${order.orderCode || order.code || 'order'}`}
                                                     className="p-1.5 bg-indigo-50 text-indigo-500 rounded-lg hover:bg-indigo-500 hover:text-white transition-all shadow-sm"
                                                 >
                                                     <Eye size={12} />
@@ -407,11 +425,12 @@ const Orders = () => {
                     </table>
                 </div>
                 {/* Pagination */}
-                {totalPages > 1 && (
+                {!isLoading && !error && ordersShapeValid && (
                     <div className="px-4 py-3 bg-zinc-50 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-4">
                         <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
-                            Showing {Math.min((page - 1) * 20 + 1, totalItems)} to {Math.min(page * 20, totalItems)} of {totalItems} items
+                            Showing {totalItems === 0 ? 0 : Math.min((ordersPage.page - 1) * ordersPage.pageSize + 1, totalItems)} to {Math.min(ordersPage.page * ordersPage.pageSize, totalItems)} of {totalItems} orders
                         </p>
+                        {totalPages > 1 && (
                         <div className="flex items-center gap-2">
                             <button 
                                 disabled={page === 1}
@@ -456,6 +475,7 @@ const Orders = () => {
                                 Next <ChevronRight size={14} />
                             </button>
                         </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -464,6 +484,19 @@ const Orders = () => {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 order={selectedOrder}
+            />
+            <WalletCustomDateModal
+                isOpen={isDateFilterOpen}
+                dates={draftDates}
+                onDatesChange={setDraftDates}
+                onClose={() => setIsDateFilterOpen(false)}
+                onApply={(dates) => {
+                    setStartDate(dates.start);
+                    setEndDate(dates.end);
+                    setFilter('custom');
+                    setPage(1);
+                    setIsDateFilterOpen(false);
+                }}
             />
         </div>
     );

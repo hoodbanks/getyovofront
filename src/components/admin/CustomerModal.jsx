@@ -1,487 +1,304 @@
-import React, { useState, useRef, useEffect } from 'react';
-import {
-    X,
-    ChevronDown,
-    AlertCircle,
-    CheckCircle2,
-    AlertTriangle,
-    Loader2
-} from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useEffect, useState } from 'react';
+import { AlertCircle, CheckCircle2, Loader2, X } from 'lucide-react';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
-import { formatName, formatDate, getInitials } from '../../utils/formatters';
+import { formatDate, formatName } from '../../utils/formatters';
+import { CustomerAvatar } from './CustomerAvatar';
+import { WalletCustomDateModal, WalletFilterDropdown } from './wallet/WalletControls';
 
-const ConfirmationModal = ({ isOpen, onClose, type, customer, onConfirm }) => {
+const orderFilters = [
+    { value: 'all', label: 'All time' }, { value: 'today', label: 'Today' },
+    { value: 'yesterday', label: 'Yesterday' }, { value: 'last7days', label: 'Last 7 days' },
+    { value: 'last30days', label: 'Last 30 days' }, { value: 'thisMonth', label: 'This month' },
+    { value: 'lastMonth', label: 'Last month' }, { value: 'custom', label: 'Custom range' },
+];
+
+const naira = (amount) => Number.isFinite(amount) ? `₦${amount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Not available';
+const overviewMoney = (nairaValue, koboValue) => Number.isFinite(nairaValue) ? naira(nairaValue) : Number.isFinite(koboValue) ? naira(koboValue / 100) : 'Not available';
+const displayCount = (value) => Number.isFinite(value) ? value.toLocaleString() : '—';
+const dateOrFallback = (date, fallback = 'Not available') => date ? formatDate(date) : fallback;
+const LIST_PREVIEW = 3;
+const LIST_STEP = 5;
+
+function ConfirmAction({ type, busy, onClose, onConfirm }) {
     const [reason, setReason] = useState('');
-    const [otherReason, setOtherReason] = useState('');
-    const [showReasons, setShowReasons] = useState(false);
-    const dropdownRef = useRef(null);
-
-    const reasons = [
-        'Policy violation',
-        'Fraudulent activity',
-        'Repeated cancellations',
-        'Abuse or misconduct',
-        'Suspicious behavior',
-        'Other'
-    ];
-    
-    const isReasonValid = reason && (reason !== 'Other' || otherReason.trim() !== '');
-
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setShowReasons(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    if (!isOpen) return null;
-
-    const isActivate = type === 'activate';
     const isDelete = type === 'delete';
-
+    const isRestore = type === 'restore';
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-            <div className="relative bg-white rounded-[2rem] w-full max-w-sm overflow-hidden shadow-2xl animate-fade-in transition-all duration-300">
-                <div className="p-6 flex flex-col items-center text-center">
-                    <div className="flex justify-between w-full mb-4">
-                        <span className="text-sm font-bold text-zinc-900 capitalize">{type} account</span>
-                        <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 transition-colors">
-                            <X size={20} />
-                        </button>
-                    </div>
-
-                    {isActivate ? (
-                        <>
-                            <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mb-6">
-                                <CheckCircle2 size={40} className="text-emerald-600" />
-                            </div>
-                            <h3 className="text-xl font-bold text-zinc-900 mb-2">Confirm Account Activation</h3>
-                            <p className="text-xs text-zinc-400 font-medium leading-relaxed mb-8 px-4">
-                                Activating this account will allow the customer to log in and use all available features.
-                            </p>
-                        </>
-                    ) : (
-                        <>
-                            <div className="w-24 h-24 flex items-center justify-center mb-4">
-                                <div className="relative">
-                                    <div className="absolute inset-0 bg-rose-400 opacity-20 blur-xl rounded-full"></div>
-                                    <AlertTriangle size={60} className={isDelete ? "text-rose-500 relative z-10" : "text-amber-400 relative z-10"} fill="currentColor" />
-                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-1">
-                                        <span className="text-white font-bold text-xl">!</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <h3 className="text-lg font-bold text-zinc-900 mb-2">
-                                {isDelete ? 'Delete User Account' : 'Suspend User Account'}
-                            </h3>
-                            <p className="text-xs text-zinc-500 font-bold text-center mb-6 max-w-[200px]">
-                                {isDelete 
-                                    ? 'This action is PERMANENT and will remove all user data from the system.' 
-                                    : 'This will temporarily make this account inactive and restrict access to the platform.'}
-                            </p>
-
-                            {!isDelete && (
-                                <div className="w-full text-left space-y-4 mb-8">
-                                    <div>
-                                        <label className="text-xs font-bold text-zinc-900 mb-2 block tracking-tight">Suspension Reason *</label>
-                                        <div className="relative" ref={dropdownRef}>
-                                            <button
-                                                onClick={() => setShowReasons(!showReasons)}
-                                                className="w-full flex items-center justify-between px-4 py-4 bg-white border border-zinc-100 rounded-2xl text-xs font-medium text-zinc-400 hover:bg-zinc-50 transition-all"
-                                            >
-                                                <span>{reason || 'Reasons'}</span>
-                                                <ChevronDown size={18} className={`transition-transform duration-300 ${showReasons ? 'rotate-180' : ''}`} />
-                                            </button>
-
-                                            {showReasons && (
-                                                <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-zinc-100 rounded-2xl shadow-xl z-20 overflow-y-auto max-h-48 py-1 custom-scrollbar">
-                                                    {reasons.map((r) => (
-                                                        <button
-                                                            key={r}
-                                                            onClick={() => { setReason(r); setShowReasons(false); }}
-                                                            className="w-full text-left px-4 py-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
-                                                        >
-                                                            {r}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                    {reason === 'Other' && (
-                                        <textarea
-                                            placeholder="Give reasons if you select others..."
-                                            className="w-full px-4 py-4 bg-white border border-zinc-100 rounded-2xl text-xs font-medium text-zinc-700 focus:ring-1 focus:ring-rose-500/20 outline-none h-32 resize-none transition-all"
-                                            value={otherReason}
-                                            onChange={(e) => setOtherReason(e.target.value)}
-                                        />
-                                    )}
-                                </div>
-                            )}
-                        </>
-                    )}
-
-                    <div className="flex w-full gap-3">
-                        <button
-                            onClick={onClose}
-                            className="flex-1 py-4 bg-zinc-50 text-zinc-900 text-sm font-bold rounded-3xl hover:bg-zinc-100 transition-all"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            disabled={!isActivate && !isDelete && !isReasonValid}
-                            onClick={() => { onConfirm({ reason, otherReason }); onClose(); }}
-                            className={`flex-1 py-4 text-white text-sm font-bold rounded-3xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed ${isActivate
-                                    ? 'bg-emerald-800 hover:bg-emerald-900 shadow-emerald-900/10'
-                                    : 'bg-rose-600 hover:bg-rose-700 shadow-rose-900/10'
-                                }`}
-                        >
-                            {isActivate ? 'Activate' : (isDelete ? 'Delete' : 'Suspend')}
-                        </button>
-                    </div>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="presentation">
+            <button type="button" aria-label="Close confirmation" className="absolute inset-0 bg-black/50" onClick={onClose} />
+            <section role="dialog" aria-modal="true" aria-labelledby="customer-confirm-title" className="relative w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+                <div className="flex items-center justify-between">
+                    <h3 id="customer-confirm-title" className="text-base font-bold text-zinc-900">{isDelete ? 'Delete customer account?' : isRestore ? 'Restore customer account?' : 'Suspend customer account?'}</h3>
+                    <button type="button" aria-label="Close" onClick={onClose} className="rounded-full p-2 text-zinc-400 hover:bg-zinc-100"><X size={18} /></button>
                 </div>
-            </div>
+                <p className="mt-3 text-sm leading-6 text-zinc-500">{isDelete ? 'This permanently deletes the customer account. The request may be rejected if account safeguards prevent deletion.' : isRestore ? 'The customer will be able to access their account again.' : 'Suspending this customer restricts their access. Provide a reason if one is required.'}</p>
+                {!isDelete && !isRestore && <label className="mt-4 block text-xs font-semibold text-zinc-600">Reason (optional)<textarea value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} rows={3} className="mt-2 w-full rounded-xl border border-zinc-200 p-3 text-sm outline-none focus:border-emerald-600" placeholder="Enter a suspension reason" /></label>}
+                <div className="mt-5 flex justify-end gap-2">
+                    <button type="button" onClick={onClose} className="rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-semibold text-zinc-600">Cancel</button>
+                    <button type="button" disabled={busy} onClick={() => onConfirm(reason)} className={`rounded-xl px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50 ${isDelete ? 'bg-rose-600' : 'bg-emerald-800'}`}>{busy ? 'Please wait…' : isDelete ? 'Delete account' : isRestore ? 'Restore account' : 'Suspend account'}</button>
+                </div>
+            </section>
         </div>
     );
-};
+}
 
-const FilterDropdown = ({ selected, onSelect, options = ['today', 'yesterday', 'last7days', 'last30days', 'thisMonth', 'lastMonth', 'all'] }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const dropdownRef = useRef(null);
-
-    const labels = {
-        'today': 'Today',
-        'yesterday': 'Yesterday',
-        'last7days': 'Last 7 Days',
-        'last30days': 'Last 30 Days',
-        'thisMonth': 'This Month',
-        'lastMonth': 'Last Month',
-        'all': 'All Time'
-    };
-
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    return (
-        <div className="relative" ref={dropdownRef}>
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 rounded-xl text-[10px] font-bold text-zinc-500 group hover:bg-zinc-200 transition-all outline-none"
-            >
-                {labels[selected] || selected}
-                <ChevronDown size={14} className={`text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {isOpen && (
-                <div className="absolute right-0 mt-2 w-40 bg-white border border-zinc-100 rounded-2xl shadow-xl z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
-                    {options.map((opt) => (
-                        <button
-                            key={opt}
-                            onClick={() => {
-                                onSelect(opt);
-                                setIsOpen(false);
-                            }}
-                            className={`w-full text-left px-4 py-2 text-[10px] font-medium transition-colors ${selected === opt ? 'bg-zinc-50 text-emerald-600 font-bold' : 'text-zinc-600 hover:bg-zinc-50'
-                                }`}
-                        >
-                            {labels[opt] || opt}
-                        </button>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-};
-
-const CustomerModal = ({ isOpen, onClose, customer }) => {
+const CustomerModal = ({ isOpen, onClose, customer, initialTab = 'Overview', readOnly = false }) => {
     const token = useAuthStore((state) => state.accessToken);
     const queryClient = useQueryClient();
-    const [activeTab, setActiveTab] = useState('Overview');
-    const [showConfirm, setShowConfirm] = useState(false);
-    const [confirmType, setConfirmType] = useState(''); // 'activate', 'suspend', or 'delete'
-    const [filter, setFilter] = useState('last7days');
+    const [activeTab, setActiveTab] = useState(initialTab);
+    const [orderFilter, setOrderFilter] = useState('last7days');
+    const [lastOrderFilter, setLastOrderFilter] = useState('last7days');
+    const [ordersPage, setOrdersPage] = useState(1);
+    const [referralPages, setReferralPages] = useState(1);
+    const [walletVisible, setWalletVisible] = useState(LIST_PREVIEW);
+    const [referredVisible, setReferredVisible] = useState(LIST_PREVIEW);
+    const [dates, setDates] = useState({ start: '', end: '' });
+    const [draftDates, setDraftDates] = useState({ start: '', end: '' });
+    const [isCustomDateOpen, setIsCustomDateOpen] = useState(false);
+    const [confirmType, setConfirmType] = useState(null);
 
-    // Fetch Overview
-    const { data: overviewData, isLoading: isOverviewLoading } = useQuery({
-        queryKey: ['userOverview', customer?.id, filter],
-        queryFn: () => api.get(`/superadmin/users/${customer?.id}/overview?filter=${filter}`, token),
-        enabled: !!customer?.id && isOpen && activeTab === 'Overview'
+    const overviewQuery = useQuery({
+        queryKey: ['userOverview', customer?.id],
+        queryFn: () => api.get(`/superadmin/users/${encodeURIComponent(customer.id)}/overview`, token),
+        enabled: Boolean(isOpen && customer?.id),
     });
 
-    // Fetch Orders
-    const { data: ordersData, isLoading: isOrdersLoading } = useQuery({
-        queryKey: ['userOrders', customer?.id, filter],
-        queryFn: () => api.get(`/superadmin/users/${customer?.id}/orders?filter=${filter}&page=1`, token),
-        enabled: !!customer?.id && isOpen && activeTab === 'Orders'
-    });
-
-    // Mutations
-    const suspensionMutation = useMutation({
-        mutationFn: (data) => api.patch(`/superadmin/users/${customer?.id}/suspension`, data, token),
-        onSuccess: (res) => {
-            queryClient.invalidateQueries(['userOverview', customer?.id]);
-            queryClient.invalidateQueries(['users']);
-            setShowConfirm(false);
-            toast.success(res.message || 'Suspension status updated');
+    const ordersQuery = useQuery({
+        queryKey: ['userOrders', customer?.id, orderFilter, ordersPage, dates.from, dates.to],
+        queryFn: () => {
+            const params = new URLSearchParams({ page: String(ordersPage), filter: orderFilter });
+            if (orderFilter === 'custom') {
+                params.set('from', dates.start);
+                params.set('to', dates.end);
+            }
+            return api.get(`/superadmin/users/${encodeURIComponent(customer.id)}/orders?${params.toString()}`, token);
         },
-        onError: (err) => {
-            toast.error(err.message || 'Failed to update suspension');
-        }
+        enabled: Boolean(isOpen && customer?.id && activeTab === 'Orders' && (orderFilter !== 'custom' || (dates.start && dates.end))),
+    });
+
+    const referralsQuery = useQuery({
+        queryKey: ['userReferrals', customer?.id, 1],
+        queryFn: () => api.get(`/superadmin/users/${encodeURIComponent(customer.id)}/referrals?page=1`, token),
+        enabled: Boolean(isOpen && customer?.id && ['Overview', 'Referral Activities'].includes(activeTab)),
+    });
+    const moreReferralQueries = useQueries({
+        queries: Array.from({ length: Math.max(0, referralPages - 1) }, (_, index) => ({
+            queryKey: ['userReferrals', customer?.id, index + 2],
+            queryFn: () => api.get(`/superadmin/users/${encodeURIComponent(customer.id)}/referrals?page=${index + 2}`, token),
+            enabled: Boolean(isOpen && customer?.id && activeTab === 'Referral Activities'),
+        })),
+    });
+
+    useEffect(() => {
+        setReferralPages(1);
+        setWalletVisible(LIST_PREVIEW);
+        setReferredVisible(LIST_PREVIEW);
+    }, [customer?.id]);
+
+    const leaderboardQuery = useQuery({
+        queryKey: ['referral-leaderboard'],
+        queryFn: () => api.get('/superadmin/referral-activities/leaderboard', token),
+        enabled: Boolean(isOpen && customer?.id && activeTab === 'Referral Activities'),
+        retry: false,
+    });
+
+    const suspensionMutation = useMutation({
+        mutationFn: (body) => api.patch(`/superadmin/users/${encodeURIComponent(customer.id)}/suspension`, body, token),
+        onSuccess: (response) => {
+            queryClient.invalidateQueries({ queryKey: ['userOverview', customer.id] });
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+            setConfirmType(null);
+            toast.success(response.message || 'Customer status updated');
+        },
+        onError: (error) => toast.error(error.message || 'Could not update customer status'),
     });
 
     const deleteMutation = useMutation({
-        mutationFn: () => api.delete('/superadmin/users', { userId: customer?.id }, token),
-        onSuccess: (res) => {
-            queryClient.invalidateQueries(['users']);
-            toast.success(res.message || 'User deleted successfully');
+        mutationFn: () => api.delete('/superadmin/users', { userId: customer.id }, token),
+        onSuccess: (response) => {
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+            toast.success(response.message || 'Customer deleted');
+            setConfirmType(null);
             onClose();
         },
-        onError: (err) => {
-            toast.error(err.message || 'Failed to delete user');
-        }
+        onError: (error) => toast.error(error.message || 'Could not delete customer'),
     });
 
-    if (!isOpen) return null;
+    if (!isOpen || !customer) return null;
+    const overview = overviewQuery.data?.data || {};
+    const addressDetails = overview.addressDetails;
+    const ordersData = ordersQuery.data?.data || {};
+    const orders = ordersData.orders || [];
+    const referralData = referralsQuery.data?.data || {};
+    const referralsPageData = referralData.referrals || {};
+    const referrals = [
+        ...(referralsPageData.data || []),
+        ...moreReferralQueries.flatMap((query) => query.data?.data?.referrals?.data || []),
+    ];
+    const walletActivity = Array.isArray(referralData.walletActivity) ? referralData.walletActivity : [];
+    const visibleWalletActivity = walletActivity.slice(0, walletVisible);
+    const referredRows = referrals.flatMap((referral) => referredRewardModels(referral));
+    const visibleReferredRows = referredRows.slice(0, referredVisible);
+    const referredTotal = Number(referralsPageData.total || referrals.length);
+    const moreReferralsLoading = moreReferralQueries.some((query) => query.isLoading || query.isFetching);
+    const moreReferredRows = referredVisible < referredRows.length || referrals.length < referredTotal;
+    const walletExplained = Number.isFinite(Number(referralData.referralWithdrawnKobo))
+        && Number(referralData.totalRewardsEarnedKobo || 0) - Number(referralData.referralWithdrawnKobo) === Number(referralData.referralWalletBalanceKobo || 0)
+        && walletActivity.length > 0;
+    const leaderboardEntries = leaderboardQuery.data?.data?.data;
+    const leaderboardEntry = Array.isArray(leaderboardEntries)
+        ? leaderboardEntries.find((entry) => entry.referrerUserId === customer.id)
+        : null;
+    const ordersTotalPages = Math.max(1, Math.ceil((ordersData.total || 0) / (ordersData.pageSize || 20)));
+    const isSuspended = overview.isSuspended ?? customer.isSuspended ?? customer.status === 'SUSPENDED';
+    const verified = overview.isPhoneVerified ?? customer.isPhoneVerified;
+    const hasKnownStatus = overviewQuery.isSuccess || customer.isPhoneVerified != null || customer.isSuspended != null || Boolean(customer.status);
+    const profilePending = !hasKnownStatus && !overviewQuery.isError;
+    const statusLabel = profilePending ? 'Loading' : !hasKnownStatus ? 'Status unavailable' : isSuspended ? 'Suspended' : verified ? 'Verified' : 'Unverified';
+    const contactText = (value, fallback) => profilePending ? 'Loading...' : value || fallback;
+    const referralCode = overview.referralCode ?? customer.referralCode ?? referralData.referralCode ?? null;
 
-    const overview = overviewData?.data || {};
-    const orders = ordersData?.data?.orders || [];
-
-    const handleActionClick = () => {
-        setConfirmType(customer?.isSuspended ? 'activate' : 'suspend');
-        setShowConfirm(true);
-    };
-
-    const handleDeleteClick = () => {
-        setConfirmType('delete');
-        setShowConfirm(true);
-    };
-
-    const handleConfirm = (data) => {
-        if (confirmType === 'delete') {
-            deleteMutation.mutate();
-        } else {
-            suspensionMutation.mutate({
-                suspend: confirmType === 'suspend',
-                reason: data?.reason === 'Other' ? data?.otherReason : data?.reason
-            });
-        }
+    const confirm = (reason) => {
+        if (confirmType === 'delete') deleteMutation.mutate();
+        else suspensionMutation.mutate(confirmType === 'restore' ? { suspend: false } : { suspend: true, ...(reason.trim() ? { reason: reason.trim() } : {}) });
     };
 
     return (
         <>
             <div className="fixed inset-0 z-50 overflow-hidden">
-                {/* Backdrop */}
-                <div
-                    className={`absolute inset-0 bg-black/50 animate-fade-in`}
-                    onClick={onClose}
-                />
-
-                {/* Drawer */}
-                <div className={`absolute inset-y-0 right-0 max-w-lg w-full bg-white shadow-2xl animate-slide-in`}>
-                    <div className="h-full flex flex-col">
-                        {/* Header */}
-                        <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 font-bold text-sm">
-                                    {getInitials(`${customer?.firstname || ''} ${customer?.lastname || ''}`)}
-                                </div>
-                                <div>
-                                    <h2 className="text-xl font-bold text-zinc-900 leading-tight">{formatName(`${customer?.firstname || ''} ${customer?.lastname || ''}`)}</h2>
-                                    <h5 className="text-xs font-medium text-zinc-500 leading-tight">{customer?.id}</h5>
-                                    <div className="mt-1">
-                                        <span className={`px-3 py-0.5 rounded-full text-[10px] font-bold border capitalize ${!overview.isSuspended
-                                            ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                                            : 'bg-rose-50 text-rose-600 border-rose-100'
-                                            }`}>
-                                            {overview.isSuspended ? 'Inactive' : 'Active'}
-                                        </span>
-                                    </div>
-                                </div>
+                <button type="button" aria-label="Close customer details" className="absolute inset-0 h-full w-full bg-black/50" onClick={onClose} />
+                <aside role="dialog" aria-modal="true" aria-label="Customer details" className="absolute inset-y-0 right-0 flex w-full max-w-xl flex-col overflow-hidden bg-white shadow-2xl">
+                    <header className="flex shrink-0 items-center justify-between gap-4 border-b border-white/10 bg-[#0F172B] px-5 py-5 sm:px-6">
+                        <div className="flex min-w-0 items-center gap-3">
+                            <CustomerAvatar name={overview.name || `${customer.firstname || ''} ${customer.lastname || ''}`} photoUrl={overview.photoUrl ?? customer.photoUrl} className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-emerald-200/20 bg-emerald-400/10 text-sm font-bold text-emerald-300" />
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Customer profile</p>
+                                <h2 className="mt-1 truncate text-base font-bold text-white">{formatName(overview.name || `${customer.firstname || ''} ${customer.lastname || ''}`)}</h2>
+                                <p className="mt-1 truncate text-xs text-slate-300">{customer.id}</p>
                             </div>
-                            <button
-                                onClick={onClose}
-                                className="p-2 hover:bg-zinc-100 rounded-full transition-colors text-zinc-400 hover:text-zinc-600"
-                            >
-                                <X size={20} />
-                            </button>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${profilePending || !hasKnownStatus ? 'border-white/15 bg-white/5 text-slate-300' : isSuspended ? 'border-rose-300/30 bg-rose-400/10 text-rose-200' : verified ? 'border-emerald-300/30 bg-emerald-400/10 text-emerald-200' : 'border-amber-300/30 bg-amber-400/10 text-amber-200'}`}>{statusLabel}</span>
+                            <button type="button" aria-label="Close customer details" onClick={onClose} className="rounded-lg p-2 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"><X size={20} /></button>
+                        </div>
+                    </header>
+
+                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-zinc-50/70 custom-scrollbar">
+                        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-3 border-b border-zinc-200 bg-white px-5 py-3 sm:px-6">
+                            <nav aria-label="Customer information" className="inline-flex max-w-full gap-1 overflow-x-auto rounded-xl bg-zinc-100 p-1">
+                                {['Overview', 'Orders', 'Referral Activities'].map((tab) => <button type="button" key={tab} onClick={() => setActiveTab(tab)} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${activeTab === tab ? 'bg-white text-emerald-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'}`}>{tab}</button>)}
+                            </nav>
+                            {activeTab === 'Orders' && <div className="w-36 shrink-0"><WalletFilterDropdown label="Order date filter" selected={orderFilter} options={orderFilters} onSelect={(value) => { setOrdersPage(1); if (value === 'custom') { setOrderFilter('custom'); setDraftDates(dates); setIsCustomDateOpen(true); } else { setOrderFilter(value); setLastOrderFilter(value); } }} /></div>}
                         </div>
 
-                        <div className="flex-1 overflow-y-auto custom-scrollbar">
-                            {/* Contact Info */}
-                            <div className="p-6 space-y-4">
-                                <div className="bg-zinc-100 rounded-2xl p-5 border border-zinc-100 space-y-4">
-                                    <div>
-                                        <label className="text-sm font-bold text-zinc-900 tracking-wider block mb-1">Phone</label>
-                                        <p className="text-xs font-medium text-zinc-400">{overview.phone || customer?.phonenumber || 'N/A'}</p>
-                                    </div>
-                                    <div>
-                                        <label className="text-sm font-bold text-zinc-900 tracking-wider block mb-1">Email</label>
-                                        <p className="text-xs font-medium text-zinc-400">{overview.email || customer?.email || 'N/A'}</p>
-                                    </div>
-                                    <div>
-                                        <label className="text-sm font-bold text-zinc-900 tracking-wider block mb-1">Address</label>
-                                        <p className="text-xs font-medium text-zinc-400">{overview.address || 'N/A'}</p>
-                                    </div>
+                        {activeTab === 'Overview' && <div className="space-y-5 p-4 sm:p-5">
+                            {overviewQuery.isLoading ? <div className="flex justify-center py-10"><Loader2 className="animate-spin text-emerald-600" /></div> : overviewQuery.error ? <ErrorMessage error={overviewQuery.error} retry={() => overviewQuery.refetch()} /> : <>
+                                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                                    <p className="col-span-full text-[10px] text-zinc-500">All-time counts. All orders and All cancelled include unpaid or failed checkouts; paid counts match the Super Admin Orders scope. Paid cancelled is a count, not a refund. Total spent excludes currently cancelled paid orders, and Customer Wallet refunds are the amount actually credited.</p>
+                                    {[
+                                        ['All orders', overview.totalOrders], ['Delivered', overview.deliveredOrders], ['All cancelled', overview.cancelledOrders],
+                                        ['Paid orders', overview.paidOrders], ['Paid cancelled', overview.paidCancelledOrders],
+                                        ['Total Spent · excludes currently cancelled paid orders', overviewMoney(overview.totalSpent, overview.totalSpentKobo)], ['Customer Wallet refunds', overviewMoney(overview.customerOrderRefunds, overview.customerOrderRefundsKobo)], ['Spending Wallet Balance', overviewMoney(undefined, overview.walletBalanceKobo)], ['Total Referrals', overview.totalReferrals],
+                                    ].map(([label, value]) => <button type="button" key={label} onClick={label === 'Total Referrals' ? () => setActiveTab('Referral Activities') : undefined} className={`min-h-20 rounded-xl border border-zinc-200 bg-white p-3.5 text-left ${label === 'Total Referrals' ? 'transition-colors hover:border-emerald-200' : 'cursor-default'}`}><span className="block text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{label}</span><span className="mt-2 block text-base font-bold text-zinc-900">{['All orders', 'Delivered', 'All cancelled', 'Paid orders', 'Paid cancelled', 'Total Referrals'].includes(label) ? displayCount(value) : value}</span>{label === 'Total Referrals' && <span className="mt-1 block text-[9px] font-semibold text-emerald-800 underline">View referral activity</span>}</button>)}
                                 </div>
-                            </div>
-
-                            {/* Tabs */}
-                            <div className="px-4 flex items-center justify-between gap-4 mb-6">
-                                <div className="flex p-1.5 flex-1">
-                                    {['Overview', 'Orders'].map((tab) => (
-                                        <button
-                                            key={tab}
-                                            onClick={() => setActiveTab(tab)}
-                                            className={`flex-1 py-2.5 text-xs font-medium rounded-3xl transition-all ${activeTab === tab
-                                                ? 'bg-emerald-800 text-white shadow-sm'
-                                                : 'text-zinc-500 rounded-3xl bg-zinc-100 mx-2 hover:text-zinc-700'
-                                                }`}
-                                        >
-                                            {tab}
-                                        </button>
-                                    ))}
-                                </div>
-                                <FilterDropdown 
-                                    selected={filter} 
-                                    onSelect={setFilter} 
-                                />
-                            </div>
-
-                            {activeTab === 'Overview' ? (
-                                <div className="px-6 space-y-6">
-                                    {isOverviewLoading ? (
-                                        <div className="flex justify-center py-10">
-                                            <Loader2 className="text-emerald-600 animate-spin" size={32} />
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-2 gap-4">
-                                            {[
-                                                { label: 'Total Orders', value: overview.totalOrders || 0 },
-                                                { label: 'Delivered', value: overview.deliveredOrders || 0 },
-                                                { label: 'Cancelled', value: overview.cancelledOrders || 0 },
-                                                { label: 'Total Spent', value: `₦${(overview.totalSpent || 0).toLocaleString()}` },
-                                            ].map((stat, i) => (
-                                                <div key={i} className="bg-zinc-100 border border-zinc-100 p-5 rounded-2xl hover:bg-white hover:shadow-md transition-all group">
-                                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2 group-hover:text-zinc-500">{stat.label}</p>
-                                                    <p className="text-xl font-bold text-zinc-900">{stat.value}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* DetailsSection */}
-                                    <div className="bg-white border border-zinc-100 rounded-2xl p-6 shadow-sm">
-                                        <h3 className="text-sm font-bold text-zinc-900 mb-4">Details</h3>
-                                        <div className="space-y-4">
-                                            <div>
-                                                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Joined</label>
-                                                <p className="text-sm font-bold text-zinc-800">
-                                                    {formatDate(overview.joinedAt || customer?.createdAt)}
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Last Seen</label>
-                                                <p className="text-sm font-bold text-zinc-800">
-                                                    {formatDate(overview.lastSeenAt)}
-                                                </p>
-                                            </div>
-                                        </div>
+                                <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
+                                    <div className="border-b border-zinc-100 px-4 py-3.5"><h3 className="text-sm font-bold text-zinc-900">Details</h3><p className="mt-0.5 text-[11px] text-zinc-500">Contact, referral, and account activity</p></div>
+                                    {referralsQuery.isLoading && !referralCode && <p className="mt-2 text-[10px] text-zinc-400">Loading referral code...</p>}
+                                    {referralsQuery.error && !referralCode && <p className="mt-2 text-[10px] text-amber-700">Referral code could not be loaded.</p>}
+                                    <div className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-2">
+                                        <Detail label="Phone" value={contactText(overview.phone || customer.phonenumber, 'Not available')} />
+                                        <Detail label="Email" value={contactText(overview.email || customer.email, 'Not available')} />
+                                        <Detail label="Referral code" value={referralCode || 'Not available'} />
+                                        <p className="text-[10px] text-zinc-400 sm:col-span-2">This code belongs to this customer. People who join with it are attributed to them.</p>
+                                        <Detail label="Joined" value={dateOrFallback(overview.joinedAt || customer.createdAt)} />
+                                        <Detail label="Last seen" value={dateOrFallback(overview.lastSeenAt)} />
+                                        <Detail label="Last login" value={dateOrFallback(overview.lastLogin)} />
+                                        <Detail label="Last order" value={dateOrFallback(overview.lastOrderAt, 'No order yet')} />
+                                        <div className="min-w-0 rounded-lg bg-zinc-50 px-3 py-2.5 sm:col-span-2"><p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500">Address</p>{profilePending ? <p className="mt-1 text-xs font-semibold text-zinc-900">Loading...</p> : addressDetails ? <div className="mt-1 space-y-1 text-xs font-semibold text-zinc-900"><p>{addressDetails.label || 'Saved address'}{addressDetails.isDefault ? ' · Default' : ''}</p><p>{[addressDetails.street, addressDetails.city, addressDetails.state].filter(Boolean).join(', ') || 'Address details not provided'}</p>{addressDetails.formattedAddress && <p>{addressDetails.formattedAddress}</p>}</div> : <p className="mt-1 break-words text-xs font-semibold text-zinc-900">{overview.address || 'Not provided'}</p>}</div>
                                     </div>
+                                </section>
+                                {isSuspended && <div className="flex gap-3 rounded-2xl border border-rose-100 bg-rose-50 p-4 text-xs text-rose-800"><AlertCircle size={16} className="shrink-0" /><div><p className="font-bold">Customer account suspended</p><p className="mt-1">{overview.suspensionReason || 'No suspension reason provided.'}</p></div></div>}
+                            </>}
+                        </div>}
 
-                                    {overview.isSuspended && (
-                                        <div className="bg-rose-50/50 border border-rose-100 rounded-2xl p-5 flex items-start gap-3">
-                                            <AlertCircle className="text-rose-500 shrink-0" size={18} />
-                                            <div>
-                                                <p className="text-sm font-bold text-rose-900">User Account Inactive</p>
-                                                <p className="text-[11px] text-rose-600 font-medium leading-relaxed mt-1">
-                                                    {overview.suspensionReason || 'This account is currently inactive and cannot perform any transactions on the platform.'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="px-6 space-y-6">
-                                    {isOrdersLoading ? (
-                                        <div className="flex justify-center py-10">
-                                            <Loader2 className="text-emerald-600 animate-spin" size={32} />
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-4">
-                                            {orders.length === 0 ? (
-                                                <p className="text-center py-10 text-zinc-500 font-medium text-xs">No orders found.</p>
-                                            ) : (
-                                                orders.map((order, i) => (
-                                                    <div key={i} className="group relative flex items-center justify-between p-4 bg-zinc-100 border border-zinc-100 rounded-2xl hover:bg-white hover:shadow-md transition-all">
-                                                        <div className="flex flex-col gap-1">
-                                                            <div className="flex items-center justify-between gap-2">
-                                                                <span className="text-sm font-bold text-zinc-900">{order.code}</span>
-                                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${order.status === 'CANCELLED' ? 'bg-rose-50 text-rose-500' : 'bg-emerald-50 text-emerald-500'
-                                                                    }`}>
-                                                                    {order.status}
-                                                                </span>
-                                                            </div>
-                                                            <p className="text-[10px] font-medium text-zinc-400">
-                                                                {formatDate(order.date)} • {formatName(order.vendorStore)}
-                                                            </p>
-                                                            <div className="mt-2 text-[10px] font-bold text-zinc-400 flex justify-between items-center gap-1.5 uppercase tracking-wider">
-                                                                Amount <span className="text-zinc-900">₦{(order.amount || 0).toLocaleString()}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
+                        {activeTab === 'Orders' && <div className="space-y-3 p-4 sm:p-5">
+                            {orderFilter === 'custom' && (!dates.start || !dates.end) ? <p className="py-8 text-center text-xs text-zinc-500">Choose both dates to load orders.</p> : ordersQuery.isLoading ? <div className="flex justify-center py-10"><Loader2 className="animate-spin text-emerald-600" /></div> : ordersQuery.error ? <ErrorMessage error={ordersQuery.error} retry={() => ordersQuery.refetch()} /> : orders.length === 0 ? <p className="py-10 text-center text-xs font-medium text-zinc-500">No orders found.</p> : orders.map((order) => <article key={order.id} className="rounded-xl border border-zinc-100 bg-zinc-50 p-3.5"><div className="flex items-start justify-between gap-3"><div><h3 className="text-sm font-bold text-zinc-900">{order.code || 'Order'}</h3><p className="mt-1 text-[10px] text-zinc-500">{formatName(order.vendorStore)} · {formatDate(order.date)}{order.time ? ` · ${order.time}` : ''}</p></div><span className={`rounded-full px-2 py-1 text-[9px] font-bold ${order.status === 'CANCELLED' ? 'bg-rose-50 text-rose-700' : order.paymentStatus === 'PAID' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{order.status} · {order.paymentStatus}</span></div><p className="mt-3 text-xs font-semibold text-zinc-500">Order amount <span className="float-right text-zinc-900">{naira(order.amount)}</span></p>{order.status === 'CANCELLED' && <p className="mt-1 text-[10px] text-zinc-500">Original order amount. This is not the Customer Wallet refund.</p>}</article>)}
+                            {ordersTotalPages > 1 && <PageControl page={ordersPage} pages={ordersTotalPages} onPage={setOrdersPage} />}
+                        </div>}
 
-                        {/* Footer Actions */}
-                        <div className="p-6 border-t border-zinc-100 flex items-center gap-3">
-                            <button
-                                onClick={handleDeleteClick}
-                                disabled={deleteMutation.isPending}
-                                className="flex-1 py-3 text-xs font-bold text-emerald-800 border-2 border-emerald-800/20 rounded-3xl hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                            >
-                                {deleteMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : 'Delete account'}
-                            </button>
-                            <button
-                                onClick={handleActionClick}
-                                disabled={suspensionMutation.isPending}
-                                className={`flex-1 py-3 text-xs font-bold text-white rounded-3xl transition-all shadow-md shadow-emerald-900/10 flex items-center justify-center gap-2 disabled:opacity-50 ${overview.isSuspended ? 'bg-emerald-800' : 'bg-emerald-900 hover:bg-emerald-950'
-                                    }`}>
-                                {suspensionMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : (overview.isSuspended ? 'Activate account' : 'Suspend account')}
-                            </button>
-                        </div>
+                        {activeTab === 'Referral Activities' && <div className="space-y-4 p-4 sm:p-5">
+                            {referralsQuery.isLoading ? <div className="flex justify-center py-10"><Loader2 className="animate-spin text-emerald-600" /></div> : referralsQuery.error ? <ErrorMessage error={referralsQuery.error} retry={() => referralsQuery.refetch()} /> : <>
+                                <section className="rounded-xl border border-zinc-200 bg-white p-3.5"><p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Referral wallet balance</p><p className="mt-1 text-xl font-bold text-zinc-900">{naira(Number(referralData.referralWalletBalanceKobo || 0) / 100)}</p><p className="mt-1 text-[10px] text-zinc-500">Available referral earnings; separate from the spending wallet.</p>{walletExplained && <p className="mt-2 text-[10px] font-semibold text-zinc-700">{naira(Number(referralData.totalRewardsEarnedKobo || 0) / 100)} credited − {naira(Number(referralData.referralWithdrawnKobo || 0) / 100)} withdrawn = {naira(Number(referralData.referralWalletBalanceKobo || 0) / 100)}</p>}</section>
+                                {walletActivity.length > 0 && <section><h3 className="text-sm font-bold text-zinc-900">Wallet activity</h3><p className="mt-1 text-[10px] text-zinc-400">Each reward added to this Referral Wallet, and each withdrawal taken from it.</p><div className="mt-3 rounded-xl border border-zinc-100 bg-white px-3">{visibleWalletActivity.map((movement) => <WalletMovement key={`${movement.kind}-${movement.id}`} movement={movement} />)}</div><ListToggle label="wallet activity" shown={visibleWalletActivity.length} total={walletActivity.length} onMore={() => setWalletVisible((count) => count + LIST_STEP)} onLess={() => setWalletVisible(LIST_PREVIEW)} /></section>}
+                                <div className="grid grid-cols-2 gap-2.5"><Metric label="Total referrals" value={referralData.totalReferrals ?? 0} /><Metric label="Successful referrals" value={leaderboardQuery.isLoading ? 'Loading...' : leaderboardQuery.isError ? 'Unavailable' : leaderboardEntry?.successfulReferrals ?? 0} /><Metric label="Leaderboard rank" value={leaderboardQuery.isLoading ? 'Loading...' : leaderboardQuery.isError ? 'Unavailable' : leaderboardEntry?.rank ?? '—'} /><Metric label="Rewards earned" value={naira(referralData.totalRewardsEarnedNaira ?? Number(referralData.totalRewardsEarnedKobo || 0) / 100)} /></div>
+                                <section><h3 className="text-sm font-bold text-zinc-900">Referred users</h3>
+                                    {referrals.length === 0 ? <p className="py-8 text-center text-xs text-zinc-500">No referred users found.</p> : <div className="mt-3 overflow-x-auto rounded-xl border border-zinc-100"><table className="w-full min-w-[540px] text-left"><thead className="bg-zinc-50"><tr>{['Referred user', 'Account status', 'Reward status', 'Reward', 'Date'].map((heading) => <th key={heading} className="px-2.5 py-2.5 text-[9px] font-bold uppercase tracking-wide text-zinc-400">{heading}</th>)}</tr></thead><tbody className="divide-y divide-zinc-100">{visibleReferredRows.map((row) => <ReferralRow key={row.key} referral={row.referral} reward={row.reward} />)}</tbody></table></div>}
+                                    <ListToggle label="referred users" shown={visibleReferredRows.length} total={referrals.length < referredTotal ? null : referredRows.length} onMore={() => { if (referredVisible >= referredRows.length && referrals.length < referredTotal) setReferralPages((pages) => pages + 1); setReferredVisible((count) => count + LIST_STEP); }} onLess={() => setReferredVisible(LIST_PREVIEW)} busy={moreReferralsLoading} canMore={moreReferredRows} />
+                                </section>
+                            </>}
+                        </div>}
                     </div>
-                </div>
-            </div>
 
-            {/* Confirmation Modals */}
-            <ConfirmationModal
-                isOpen={showConfirm}
-                onClose={() => setShowConfirm(false)}
-                type={confirmType}
-                customer={customer}
-                onConfirm={handleConfirm}
-            />
+                    {!readOnly && <footer className="flex shrink-0 gap-3 border-t border-zinc-200 bg-white px-4 py-4 sm:px-5"><button type="button" onClick={() => setConfirmType('delete')} disabled={deleteMutation.isPending} className="flex-1 rounded-xl border border-rose-200 bg-white py-3 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-50 disabled:opacity-50">{deleteMutation.isPending ? 'Deleting...' : 'Delete account'}</button><button type="button" onClick={() => setConfirmType(isSuspended ? 'restore' : 'suspend')} disabled={suspensionMutation.isPending} className={`flex-1 rounded-xl py-3 text-xs font-semibold text-white transition-colors disabled:opacity-50 ${isSuspended ? 'bg-emerald-800 hover:bg-emerald-900' : 'bg-rose-600 hover:bg-rose-700'}`}>{suspensionMutation.isPending ? 'Please wait...' : isSuspended ? 'Restore account' : 'Suspend account'}</button></footer>}
+                </aside>
+            </div>
+            {confirmType && <ConfirmAction type={confirmType} busy={suspensionMutation.isPending || deleteMutation.isPending} onClose={() => setConfirmType(null)} onConfirm={confirm} />}
+            <WalletCustomDateModal isOpen={isCustomDateOpen} dates={draftDates} onDatesChange={setDraftDates} onClose={() => { setIsCustomDateOpen(false); if (!dates.start || !dates.end) setOrderFilter(lastOrderFilter); }} onApply={(selectedDates) => { setDates(selectedDates); setIsCustomDateOpen(false); }} />
         </>
     );
 };
+
+function Detail({ label, value }) { return <div className="min-w-0 rounded-lg bg-zinc-50 px-3 py-2.5"><p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500">{label}</p><p className="mt-1 break-words text-xs font-semibold text-zinc-900">{value}</p></div>; }
+function Metric({ label, value }) { return <div className="rounded-xl border border-zinc-200 bg-white p-3.5"><p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{label}</p><p className="mt-1 text-base font-bold text-zinc-900">{value}</p></div>; }
+function ErrorMessage({ error, retry }) { return <div role="alert" className="py-8 text-center text-xs text-rose-600">{error.message || 'Unable to load customer data.'}<button type="button" onClick={retry} className="ml-2 font-bold underline">Retry</button></div>; }
+function PageControl({ page, pages, onPage }) { return <div className="flex items-center justify-between text-xs"><span>Page {page} of {pages}</span><div className="flex gap-2"><button type="button" disabled={page <= 1} onClick={() => onPage((current) => current - 1)} className="rounded-lg border px-3 py-1 disabled:opacity-40">Previous</button><button type="button" disabled={page >= pages} onClick={() => onPage((current) => current + 1)} className="rounded-lg border px-3 py-1 disabled:opacity-40">Next</button></div></div>; }
+function referredRewardModels(referral) {
+    const rewards = Array.isArray(referral.rewards) ? referral.rewards : [];
+    if (rewards.length === 0) return [{ key: referral.referralId, referral, reward: null }];
+    return rewards.map((reward) => ({ key: reward.id, referral, reward }));
+}
+
+function ListToggle({ label, shown, total, onMore, onLess, busy = false, canMore }) {
+    const more = canMore ?? (Number.isFinite(total) && shown < total);
+    const less = shown > LIST_PREVIEW;
+    if (!more && !less) return null;
+    const countLabel = Number.isFinite(total) ? `Showing ${Math.min(shown, total)} of ${total}` : `Showing ${shown}`;
+    return (
+        <div className="mt-2 flex items-center justify-between gap-3">
+            <p className="text-[10px] text-zinc-400">{countLabel}</p>
+            <div className="flex gap-3">
+                {less && <button type="button" aria-label={`View less ${label}`} onClick={onLess} className="text-[11px] font-semibold text-zinc-500 underline">View less</button>}
+                {more && <button type="button" aria-label={`View more ${label}`} onClick={onMore} disabled={busy} className="text-[11px] font-semibold text-emerald-800 underline disabled:opacity-50">{busy ? 'Loading...' : 'View more'}</button>}
+            </div>
+        </div>
+    );
+}
+
+function WalletMovement({ movement }) {
+    const credit = movement.effect === 'CREDIT';
+    const returned = movement.effect === 'RETURNED';
+    const amount = naira(movement.amountNaira ?? Number(movement.amountKobo || 0) / 100);
+    const who = movement.referredName ? formatName(movement.referredName) : '';
+    const status = movement.kind === 'WITHDRAWAL' ? String(movement.status || '').toLowerCase() : '';
+    return (
+        <div className="flex items-start justify-between gap-3 border-b border-zinc-100 py-2.5 last:border-0">
+            <div>
+                <p className="text-xs font-semibold text-zinc-800">{movement.kind === 'REWARD' ? 'Reward' : returned ? 'Withdrawal returned' : 'Withdrawal'}{who ? ` · ${who}` : ''}</p>
+                <p className="mt-1 text-[10px] text-zinc-500">{formatDate(movement.createdAt)}{movement.orderCode ? ` · ${movement.orderCode}` : ''}{status ? ` · ${status}` : ''}</p>
+            </div>
+            <p className={`text-xs font-bold ${credit ? 'text-emerald-700' : returned ? 'text-zinc-500' : 'text-rose-700'}`}>{credit ? '+' : returned ? '' : '−'}{amount}</p>
+        </div>
+    );
+}
+
+function ReferralRow({ referral, reward }) {
+    const suspended = referral.isSuspended || referral.status === 'SUSPENDED';
+    const accountStatus = suspended ? 'Suspended' : referral.isPhoneVerified === true ? 'Verified' : 'Unverified';
+    const rewarded = referral.rewardState === 'REWARDED';
+    return <tr><td className="px-2.5 py-2.5"><p className="text-xs font-semibold text-zinc-800">{formatName(`${referral.firstname || ''} ${referral.lastname || ''}`)}</p><p className="mt-1 text-[9px] text-zinc-400">{referral.phonenumber || 'Phone unavailable'}</p></td><td className="px-2.5 py-2.5"><span className={`rounded-full px-2 py-1 text-[9px] font-bold ${suspended ? 'bg-rose-50 text-rose-700' : referral.isPhoneVerified ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{accountStatus}</span></td><td className="px-2.5 py-2.5"><span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9px] font-bold ${rewarded ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-600'}`}>{rewarded && <CheckCircle2 size={10} />}{rewarded ? 'Rewarded' : 'No reward yet'}</span></td><td className="whitespace-nowrap px-2.5 py-2.5 text-xs font-bold text-zinc-800">{naira(reward ? (reward.amountNaira ?? Number(reward.amountKobo || 0) / 100) : (referral.rewardAmountNaira ?? Number(referral.rewardAmountKobo || 0) / 100))}</td><td className="whitespace-nowrap px-2.5 py-2.5 text-[10px] text-zinc-500">{formatDate(reward ? reward.createdAt : referral.referredAt)}{reward?.orderCode ? ` · ${reward.orderCode}` : ''}</td></tr>;
+}
 
 export default CustomerModal;

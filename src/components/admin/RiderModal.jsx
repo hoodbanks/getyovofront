@@ -24,8 +24,9 @@ import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
 import { toast } from 'sonner';
 import { formatName, capitalizeFirst, formatPlate, formatDate, getInitials } from '../../utils/formatters';
+import { WalletCustomDateModal } from './wallet/WalletControls';
 
-const ConfirmationModal = ({ isOpen, onClose, type, rider, onConfirm }) => {
+const ConfirmationModal = ({ isOpen, onClose, type, onConfirm }) => {
     const [reason, setReason] = useState('');
     const [otherReason, setOtherReason] = useState('');
     const [showReasons, setShowReasons] = useState(false);
@@ -40,7 +41,7 @@ const ConfirmationModal = ({ isOpen, onClose, type, rider, onConfirm }) => {
         'Other'
     ];
 
-    const isReasonValid = reason && (reason !== 'Other' || otherReason.trim() !== '');
+    const isReasonValid = reason !== 'Other' || otherReason.trim().length > 0;
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -54,7 +55,7 @@ const ConfirmationModal = ({ isOpen, onClose, type, rider, onConfirm }) => {
 
     if (!isOpen) return null;
 
-    const isActivate = type === 'activate' || type === 'unsuspend';
+    const isRestore = type === 'restore';
     const isDelete = type === 'delete';
 
     return (
@@ -63,20 +64,20 @@ const ConfirmationModal = ({ isOpen, onClose, type, rider, onConfirm }) => {
             <div className="relative bg-white rounded-[2rem] w-full max-w-sm overflow-hidden shadow-2xl animate-fade-in transition-all duration-300">
                 <div className="p-6 flex flex-col items-center text-center">
                     <div className="flex justify-between w-full mb-4">
-                        <span className="text-sm font-bold text-zinc-900 capitalize">{isActivate ? 'Activate' : type} account</span>
+                        <span className="text-sm font-bold text-zinc-900 capitalize">{isRestore ? 'Restore' : type} account</span>
                         <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 transition-colors">
                             <X size={20} />
                         </button>
                     </div>
 
-                    {isActivate ? (
+                    {isRestore ? (
                         <>
                             <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mb-6">
                                 <CheckCircle2 size={40} className="text-emerald-600" />
                             </div>
-                            <h3 className="text-xl font-bold text-zinc-900 mb-2">Confirm Account Activation</h3>
+                            <h3 className="text-xl font-bold text-zinc-900 mb-2">Restore Rider Account</h3>
                             <p className="text-xs text-zinc-400 font-medium leading-relaxed mb-8 px-4">
-                                This will allow the rider to access the platform and start receiving orders again.
+                                This removes the suspension. It does not verify the Rider or put them online.
                             </p>
                         </>
                     ) : (
@@ -94,15 +95,15 @@ const ConfirmationModal = ({ isOpen, onClose, type, rider, onConfirm }) => {
                                 {isDelete ? 'Delete Rider Account' : 'Suspend Rider Account'}
                             </h3>
                             <p className="text-xs text-zinc-500 font-bold text-center mb-6 max-w-[200px]">
-                                {isDelete 
-                                    ? 'This action is PERMANENT and will remove all rider data from the system.' 
-                                    : 'This will temporarily make this account inactive and restrict access to the platform.'}
+                                {isDelete
+                                    ? 'Rider access and sessions will be deleted and assigned orders unassigned. Historical orders will remain.'
+                                    : 'This suspends the Rider and invalidates active sessions. Existing order statuses are not changed.'}
                             </p>
 
                             {!isDelete && (
                                 <div className="w-full text-left space-y-4 mb-8">
                                     <div>
-                                        <label className="text-xs font-bold text-zinc-900 mb-2 block tracking-tight">Suspension Reason *</label>
+                                            <label className="text-xs font-bold text-zinc-900 mb-2 block tracking-tight">Suspension reason (optional)</label>
                                         <div className="relative" ref={dropdownRef}>
                                             <button
                                                 type="button"
@@ -151,13 +152,13 @@ const ConfirmationModal = ({ isOpen, onClose, type, rider, onConfirm }) => {
                         </button>
                         <button
                             onClick={() => { onConfirm({ reason, otherReason }); onClose(); }}
-                            disabled={!isActivate && !isDelete && !isReasonValid}
-                            className={`flex-1 py-4 text-white text-sm font-bold rounded-3xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed ${isActivate
+                            disabled={!isRestore && !isDelete && !isReasonValid}
+                            className={`flex-1 py-4 text-white text-sm font-bold rounded-3xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed ${isRestore
                                     ? 'bg-emerald-800 hover:bg-emerald-900 shadow-emerald-900/10'
                                     : 'bg-rose-600 hover:bg-rose-700 shadow-rose-900/10'
-                                }`}
+                            }`}
                         >
-                            {isActivate ? 'Activate' : (isDelete ? 'Delete' : 'Suspend')}
+                            {isRestore ? 'Restore' : (isDelete ? 'Delete' : 'Suspend')}
                         </button>
                     </div>
                 </div>
@@ -171,11 +172,14 @@ const FilterDropdown = ({ selected, onSelect, options = ['today', 'last7days', '
     const dropdownRef = useRef(null);
 
     const labels = {
+        'all': 'All time',
         'today': 'Today',
+        'yesterday': 'Yesterday',
         'last7days': 'Last 7 Days',
         'last30days': 'Last 30 Days',
         'thisMonth': 'This Month',
-        'lastMonth': 'Last Month'
+        'lastMonth': 'Last Month',
+        'custom': 'Custom dates',
     };
 
     useEffect(() => {
@@ -219,35 +223,53 @@ const FilterDropdown = ({ selected, onSelect, options = ['today', 'last7days', '
     );
 };
 
-const RiderModal = ({ isOpen, onClose, rider, variant = 'full' }) => {
+const RiderModal = ({ isOpen, onClose, rider, variant = 'full', profileLoading = false, profileError = '' }) => {
     const isDashboard = variant === 'dashboard';
     const token = useAuthStore((state) => state.accessToken);
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState('overview');
-    const [filter, setFilter] = useState('last7days');
+    const [filter, setFilter] = useState('all');
     const [page, setPage] = useState(1);
+    const [customDates, setCustomDates] = useState({ start: '', end: '' });
+    const [draftCustomDates, setDraftCustomDates] = useState({ start: '', end: '' });
+    const [isCustomDateOpen, setIsCustomDateOpen] = useState(false);
     
     // Custom Confirmation Modal State
     const [showConfirm, setShowConfirm] = useState(false);
-    const [confirmType, setConfirmType] = useState(''); // 'suspend', 'activate', 'delete'
+    const [confirmType, setConfirmType] = useState(''); // 'suspend', 'restore', 'delete'
 
     // Robust ID detection: check top-level, nested, and common variants
     const riderData = rider?.rider || rider;
     const riderId = riderData?.id || riderData?._id || riderData?.riderId || riderData?.uid || riderData?.rider_id || rider?.id || rider?._id;
 
     // Fetch Overview Data
-    const { data: overviewData, isLoading: isLoadingOverview } = useQuery({
-        queryKey: ['rider-overview', riderId, filter],
-        queryFn: () => api.get(`/superadmin/riders/${riderId}/overview?filter=${filter}`, token),
+    const overviewParams = new URLSearchParams({ filter });
+    if (filter === 'custom' && customDates.start && customDates.end) {
+        overviewParams.set('from', customDates.start);
+        overviewParams.set('to', customDates.end);
+    }
+    const overviewQuery = useQuery({
+        queryKey: ['rider-overview', riderId, filter, customDates.start, customDates.end],
+        queryFn: () => api.get(`/superadmin/riders/${riderId}/overview?${overviewParams}`, token),
         enabled: !!isOpen && !!riderId && activeTab === 'overview'
     });
 
     // Fetch Deliveries Data
-    const { data: deliveriesData, isLoading: isLoadingDeliveries } = useQuery({
-        queryKey: ['rider-deliveries', riderId, page],
-        queryFn: () => api.get(`/superadmin/riders/${riderId}/deliveries?page=${page}`, token),
+    const deliveriesParams = new URLSearchParams({ filter, page: String(page) });
+    if (filter === 'custom' && customDates.start && customDates.end) {
+        deliveriesParams.set('from', customDates.start);
+        deliveriesParams.set('to', customDates.end);
+    }
+    const deliveriesQuery = useQuery({
+        queryKey: ['rider-deliveries', riderId, filter, page, customDates.start, customDates.end],
+        queryFn: () => api.get(`/superadmin/riders/${riderId}/deliveries?${deliveriesParams}`, token),
         enabled: !!isOpen && !!riderId && activeTab === 'deliveries'
     });
+    const overviewData = overviewQuery.data;
+    const deliveriesData = deliveriesQuery.data;
+    const isLoadingOverview = overviewQuery.isLoading;
+    const isLoadingDeliveries = deliveriesQuery.isLoading;
+    const dateFilterOptions = ['all', 'today', 'yesterday', 'last7days', 'last30days', 'thisMonth', 'lastMonth', 'custom'];
 
     // Suspension Mutation
     const suspensionMutation = useMutation({
@@ -255,12 +277,11 @@ const RiderModal = ({ isOpen, onClose, rider, variant = 'full' }) => {
         onSuccess: (res) => {
             toast.success(res.message || 'Rider status updated');
             queryClient.invalidateQueries({ queryKey: ['riders'] });
+            queryClient.invalidateQueries({ queryKey: ['riders-search'] });
             queryClient.invalidateQueries({ queryKey: ['adminDashboard'] });
             queryClient.invalidateQueries({ queryKey: ['rider-overview', riderId] });
         },
-        onError: (err) => {
-            toast.error(err.response?.data?.message || 'Failed to update suspension');
-        }
+        onError: (err) => toast.error(err.message || 'Failed to update Rider suspension status.'),
     });
 
     // Delete Mutation
@@ -269,27 +290,44 @@ const RiderModal = ({ isOpen, onClose, rider, variant = 'full' }) => {
         onSuccess: (res) => {
             toast.success(res.message || 'Rider deleted successfully');
             queryClient.invalidateQueries({ queryKey: ['riders'] });
+            queryClient.invalidateQueries({ queryKey: ['riders-search'] });
             queryClient.invalidateQueries({ queryKey: ['adminDashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['rider-order-pool'] });
             onClose();
         },
-        onError: (err) => {
-            toast.error(err.response?.data?.message || 'Failed to delete rider');
-        }
+        onError: (err) => toast.error(err.message || 'Failed to delete Rider.'),
     });
 
     if (!isOpen || !rider) return null;
 
-    const overview = overviewData?.data || {};
-    const metrics = overview.metrics || { totalKm: 0, completedOrders: 0, cancelledOrders: 0, avgKmPerOrder: 0 };
-    const summary = overview.summary || { totalOrders: 0, deliveredOrders: 0, cancelledOrders: 0 };
-    const riderInfo = overview.rider || rider;
+    const overview = overviewData?.data;
+    const metrics = overview?.metrics;
+    const profileSummary = overview?.summary;
+    const overviewShapeValid = Boolean(overview?.rider && overview?.metrics && overview?.summary);
+    const riderInfo = overview?.rider || rider;
     
     // Derive suspension status with proper fallbacks
-    const derivedStatus = (overview.status || riderInfo.status || rider.status || '').toUpperCase();
-    const isSuspended = overview.isSuspended ?? riderInfo.isSuspended ?? rider.isSuspended ?? (derivedStatus === 'SUSPENDED');
+    const derivedStatus = (riderInfo.status || rider.status || '').toUpperCase();
+    const isSuspended = overview?.isSuspended ?? riderInfo.isSuspended ?? rider.isSuspended ?? (derivedStatus === 'SUSPENDED');
     const isPending = derivedStatus === 'PENDING';
+    const riderStatusLabel = isSuspended ? 'Suspended' : ({
+        PENDING: 'Pending', ACTIVE: 'Active', INACTIVE: 'Inactive', ON_DELIVERY: 'Out for Delivery', RIDER_ACCEPTED: 'Accepted',
+    }[derivedStatus] || 'Not provided');
     
-    const deliveries = deliveriesData?.data?.orders || [];
+    const deliveries = deliveriesData?.data?.orders;
+    const deliveriesShapeValid = Array.isArray(deliveries)
+        && Number.isFinite(deliveriesData?.data?.total)
+        && Number.isFinite(deliveriesData?.data?.pageSize);
+
+    const handleDateFilter = (value) => {
+        if (value === 'custom') {
+            setDraftCustomDates(customDates);
+            setIsCustomDateOpen(true);
+            return;
+        }
+        setFilter(value);
+        setPage(1);
+    };
 
     const handleActionClick = (type) => {
         setConfirmType(type);
@@ -300,10 +338,10 @@ const RiderModal = ({ isOpen, onClose, rider, variant = 'full' }) => {
         if (confirmType === 'delete') {
             deleteMutation.mutate();
         } else {
-            suspensionMutation.mutate({
-                suspend: confirmType === 'suspend',
-                reason: data?.reason === 'Other' ? data?.otherReason : data?.reason
-            });
+            const reason = data?.reason === 'Other' ? data?.otherReason?.trim() : data?.reason?.trim();
+            suspensionMutation.mutate(confirmType === 'suspend'
+                ? { suspend: true, ...(reason ? { reason } : {}) }
+                : { suspend: false });
         }
     };
 
@@ -314,43 +352,44 @@ const RiderModal = ({ isOpen, onClose, rider, variant = 'full' }) => {
                 onClick={onClose}
             />
 
-            <div className={`relative w-full max-w-lg bg-white h-full shadow-2xl flex flex-col animate-slide-in overflow-hidden`}>
+            <div className="relative flex h-full w-full max-w-xl animate-slide-in flex-col overflow-hidden bg-white shadow-2xl">
                 {/* Header */}
-                <div className="p-4 border-b border-zinc-100 flex items-center justify-between bg-white shrink-0">
+                <div className="flex shrink-0 items-center justify-between gap-4 border-b border-white/10 bg-[#0F172B] px-5 py-5 sm:px-6">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-xs">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-emerald-200/20 bg-emerald-400/10 text-sm font-bold text-emerald-300">
                             {getInitials(riderInfo.name)}
                         </div>
-                        <div>
-                            <h2 className="text-sm font-bold text-zinc-900">{formatName(riderInfo.name)}</h2>
-                            <p className="text-[10px] text-zinc-500 font-medium tracking-tight uppercase">{riderId?.substring(0, 8)}</p>
+                        <div className="min-w-0">
+                            <h2 className="truncate text-base font-bold text-white">{riderInfo.name ? formatName(riderInfo.name) : 'Rider profile'}</h2>
+                            <p className="mt-1 truncate text-xs text-slate-300">{riderInfo.phone || riderInfo.phonenumber || riderId?.substring(0, 12) || 'Rider details'}</p>
                         </div>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-1.5 hover:bg-zinc-100 rounded-lg transition-colors text-zinc-400"
+                        aria-label="Close rider details"
+                        className="shrink-0 rounded-lg p-2 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
                     >
                         <X size={18} />
                     </button>
                 </div>
 
                 {!isDashboard && (
-                    <div className="px-4 py-2 border-b border-zinc-100 flex items-center justify-between shrink-0">
-                        <div className="flex gap-1 bg-zinc-100 p-0.5 rounded-3xl">
+                    <div className="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-200 bg-white px-5 py-3 sm:px-6">
+                        <div className="inline-flex gap-1 rounded-xl bg-zinc-100 p-1">
                             <button
                                 onClick={() => setActiveTab('overview')}
-                                className={`px-6 py-2 rounded-3xl text-[11px] font-bold transition-all ${activeTab === 'overview'
-                                        ? 'bg-emerald-800 text-white shadow-md'
-                                        : 'text-zinc-500 hover:text-zinc-700'
+                                className={`rounded-lg px-4 py-2 text-xs font-semibold transition-all ${activeTab === 'overview'
+                                        ? 'bg-white text-emerald-900 shadow-sm'
+                                        : 'text-zinc-500 hover:text-zinc-800'
                                     }`}
                             >
                                 Overview
                             </button>
                             <button
                                 onClick={() => setActiveTab('deliveries')}
-                                className={`px-6 py-2 rounded-3xl text-[11px] font-bold transition-all ${activeTab === 'deliveries'
-                                        ? 'bg-emerald-800 text-white shadow-md'
-                                        : 'text-zinc-500 hover:text-zinc-700'
+                                className={`rounded-lg px-4 py-2 text-xs font-semibold transition-all ${activeTab === 'deliveries'
+                                        ? 'bg-white text-emerald-900 shadow-sm'
+                                        : 'text-zinc-500 hover:text-zinc-800'
                                     }`}
                             >
                                 Deliveries
@@ -358,110 +397,113 @@ const RiderModal = ({ isOpen, onClose, rider, variant = 'full' }) => {
                         </div>
                         <FilterDropdown 
                             selected={filter} 
-                            onSelect={setFilter} 
+                            onSelect={handleDateFilter}
+                            options={dateFilterOptions}
                         />
                     </div>
                 )}
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-6">
+                <div className="flex-1 space-y-5 overflow-y-auto bg-zinc-50/70 p-4 custom-scrollbar sm:p-5">
+                    {profileLoading ? (
+                        <div role="status" className="flex min-h-64 flex-col items-center justify-center text-center">
+                            <Loader2 className="animate-spin text-emerald-700" size={28} />
+                            <p className="mt-3 text-sm font-semibold text-zinc-800">Loading rider profile</p>
+                            <p className="mt-1 max-w-xs text-xs leading-5 text-zinc-500">Getting the full Rider record used by the Rider directory.</p>
+                        </div>
+                    ) : (
+                    <>
+                    {profileError && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">{profileError} Some profile information may be unavailable here.</div>}
                     {activeTab === 'overview' ? (
                         <>
+                            {(overviewQuery.isError || (!isLoadingOverview && !overviewShapeValid)) && (
+                                <div role="alert" className="flex items-start justify-between gap-3 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+                                    <span>{overviewQuery.error?.message || 'Unexpected Rider overview response. Please retry.'}</span>
+                                    <button type="button" onClick={() => overviewQuery.refetch()} className="shrink-0 font-bold underline">Retry</button>
+                                </div>
+                            )}
                              {/* Stats Grid */}
-                            <div className="grid grid-cols-2 gap-3 relative">
+                            <div className="relative grid grid-cols-2 gap-3 sm:grid-cols-3">
                                 {isLoadingOverview && (
-                                    <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center backdrop-blur-[1px]">
+                                    <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/75 backdrop-blur-[1px]">
                                         <Loader2 className="animate-spin text-emerald-600" size={24} />
                                     </div>
                                 )}
-                                <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
-                                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Total KM</p>
-                                    <h4 className="text-base font-bold text-zinc-900">{Number(metrics.totalKm || 0).toFixed(2)} km</h4>
+                                <div className="rounded-xl border border-zinc-200 bg-white p-3.5">
+                                    <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800"><ShoppingBag size={15} /></div>
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Orders assigned</p>
+                                    <h4 className="mt-1 text-lg font-bold text-zinc-900">{Number.isFinite(profileSummary?.totalOrders) ? profileSummary.totalOrders : '—'}</h4>
                                 </div>
-                                <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
-                                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Completed Orders</p>
-                                    <h4 className="text-base font-bold text-zinc-900">{metrics.completedOrders || 0}</h4>
+                                <div className="rounded-xl border border-zinc-200 bg-white p-3.5">
+                                    <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800"><CheckCircle2 size={15} /></div>
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Delivered orders</p>
+                                    <h4 className="mt-1 text-lg font-bold text-zinc-900">{Number.isFinite(metrics?.completedOrders) ? metrics.completedOrders : '—'}</h4>
                                 </div>
-                                <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
-                                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1 text-rose-500">Cancelled</p>
-                                    <h4 className="text-base font-bold text-zinc-900">{metrics.cancelledOrders || 0}</h4>
+                                <div className="rounded-xl border border-zinc-200 bg-white p-3.5">
+                                    <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-700"><X size={15} /></div>
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Cancelled orders</p>
+                                    <h4 className="mt-1 text-lg font-bold text-zinc-900">{Number.isFinite(metrics?.cancelledOrders) ? metrics.cancelledOrders : '—'}</h4>
                                 </div>
-                                <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
-                                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Avg KM / Order</p>
-                                    <h4 className="text-base font-bold text-zinc-900">{Number(metrics.avgKmPerOrder || 0).toFixed(2)} km</h4>
+                                <div className="rounded-xl border border-zinc-200 bg-white p-3.5">
+                                    <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-700"><Navigation size={15} /></div>
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Distance completed</p>
+                                    <h4 className="mt-1 text-lg font-bold text-zinc-900">{Number.isFinite(metrics?.totalKm) ? `${metrics.totalKm.toFixed(2)} km` : '—'}</h4>
+                                </div>
+                                <div className="rounded-xl border border-zinc-200 bg-white p-3.5">
+                                    <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-700"><Bike size={15} /></div>
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Average per delivery</p>
+                                    <h4 className="mt-1 text-lg font-bold text-zinc-900">{Number.isFinite(metrics?.avgKmPerOrder) ? `${metrics.avgKmPerOrder.toFixed(2)} km` : '—'}</h4>
                                 </div>
                             </div>
 
                             {/* Rider Details */}
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-xs font-bold text-zinc-900 flex items-center gap-2">
-                                        Details
-                                    </h3>
-                                    <span className={`px-3 py-1 rounded-full text-[9px] font-bold border uppercase tracking-tighter ${
-                                        isSuspended 
-                                            ? 'bg-rose-50 text-rose-600 border-rose-100' 
-                                            : (isPending ? 'bg-zinc-100 text-zinc-500 border-zinc-200' : 'bg-emerald-50 text-emerald-600 border-emerald-100')
-                                    }`}>
-                                        {isSuspended ? 'Suspended' : (isPending ? 'Pending' : 'Active')}
+                            <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
+                                <div className="flex items-center justify-between gap-3 border-b border-zinc-100 px-4 py-3.5">
+                                    <div><h3 className="text-sm font-bold text-zinc-900">Rider details</h3><p className="mt-0.5 text-[11px] text-zinc-500">Profile and vehicle information</p></div>
+                                    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${isSuspended ? 'bg-rose-50 text-rose-700 border-rose-200' : isPending ? 'bg-zinc-100 text-zinc-600 border-zinc-200' : derivedStatus === 'INACTIVE' ? 'bg-amber-50 text-amber-800 border-amber-200' : derivedStatus === 'ON_DELIVERY' ? 'bg-blue-50 text-blue-800 border-blue-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'}`}>
+                                        {riderStatusLabel}
                                     </span>
                                 </div>
 
-                                 <div className="grid grid-cols-2 gap-y-5 relative">
+                                 <div className="relative grid grid-cols-1 gap-2 p-3 sm:grid-cols-2">
                                     {isLoadingOverview && (
-                                        <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center backdrop-blur-[1px]">
+                                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/75 backdrop-blur-[1px]">
                                             <Loader2 className="animate-spin text-emerald-600" size={24} />
                                         </div>
                                     )}
-                                    <div>
-                                        <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Rider Name</p>
-                                        <p className="text-[11px] font-bold text-zinc-800">{formatName(riderInfo.name)}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Vehicle Name</p>
-                                        <p className="text-[11px] font-bold text-zinc-800">{capitalizeFirst(riderInfo.vehicleName || 'N/A')}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Phone</p>
-                                        <p className="text-[11px] font-bold text-zinc-800">{riderInfo.phone}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Vehicle Plate</p>
-                                        <p className="text-[11px] font-bold text-zinc-800">{formatPlate(riderInfo.vehiclePlate || 'N/A')}</p>
-                                    </div>
-                                    <div className="col-span-2">
-                                        <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Email</p>
-                                        <p className="text-[11px] font-bold text-zinc-800 lowercase">{riderInfo.email}</p>
-                                    </div>
-                                    <div className="col-span-2">
-                                        <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Address</p>
-                                        <p className="text-[11px] font-bold text-zinc-800">{riderInfo.address || 'N/A'}</p>
-                                    </div>
-                                    <div className="col-span-2">
-                                        <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Date Joined</p>
-                                        <p className="text-[11px] font-bold text-zinc-800">
-                                            {formatDate(riderInfo.joinedAt || riderInfo.createdAt)}
-                                        </p>
-                                    </div>
+                                    {[
+                                        ['Rider name', riderInfo.name ? formatName(riderInfo.name) : 'Not provided'],
+                                        ['Phone', riderInfo.phone || riderInfo.phonenumber || 'Not provided'],
+                                        ['Email', riderInfo.email || 'Not provided'],
+                                        ['Vehicle', riderInfo.vehicleName ? capitalizeFirst(riderInfo.vehicleName) : 'Not provided'],
+                                        ['Vehicle plate', riderInfo.vehiclePlate ? formatPlate(riderInfo.vehiclePlate) : 'Not provided'],
+                                        ['Address', riderInfo.address || 'Not provided'],
+                                        ['Date joined', formatDate(riderInfo.joinedAt || riderInfo.createdAt)],
+                                    ].map(([label, value]) => <div key={label} className="min-w-0 rounded-lg bg-zinc-50 px-3 py-2.5">
+                                        <p className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500">{label}</p>
+                                        <p className={`mt-1 break-words text-xs font-semibold text-zinc-900 ${label === 'Email' ? 'lowercase' : ''}`}>{value}</p>
+                                    </div>)}
                                 </div>
-                            </div>
+                            </section>
                         </>
                     ) : (
-                         <div className="space-y-6 relative">
-                            {isLoadingDeliveries && (
-                                <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center backdrop-blur-[1px]">
-                                    <Loader2 className="animate-spin text-emerald-600" size={32} />
+                         <div className="relative">
+                            {isLoadingDeliveries ? (
+                                <div className="py-16 text-center"><Loader2 className="mx-auto animate-spin text-emerald-600" size={28} /><p className="mt-2 text-xs text-zinc-500">Loading deliveries…</p></div>
+                            ) : deliveriesQuery.isError || !deliveriesShapeValid ? (
+                                <div role="alert" className="py-14 text-center">
+                                    <p className="mb-3 text-sm text-rose-600">{deliveriesQuery.error?.message || 'Unexpected deliveries response. Please retry.'}</p>
+                                    <button type="button" onClick={() => deliveriesQuery.refetch()} className="rounded-lg bg-emerald-800 px-4 py-2 text-xs font-semibold text-white">Retry</button>
                                 </div>
-                            )}
-                            {deliveries.length === 0 ? (
+                            ) : deliveries.length === 0 ? (
                                 <div className="py-20 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">No delivery records found</div>
                             ) : (
-                                <div className="space-y-4">
+                                <div className="space-y-2">
                                     {deliveries.map((delivery, i) => (
-                                        <div key={i} className="p-4 bg-zinc-50/50 rounded-2xl border border-zinc-100 hover:border-emerald-100 transition-colors group">
-                                            <div className="flex items-center justify-between mb-3">
+                                        <div key={delivery.id || delivery.orderId || delivery.code || i} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 transition-colors hover:bg-zinc-50/70">
+                                            <div className="col-span-2 flex items-center justify-between gap-3">
                                                 <div>
-                                                    <h5 className="text-[11px] font-bold text-zinc-900">{delivery.code}</h5>
+                                                    <h5 className="text-[11px] font-bold text-zinc-900">{delivery.code || 'N/A'}</h5>
                                                     <p className="text-[9px] text-zinc-500 font-medium">
                                                         {formatDate(delivery.deliveredAt || delivery.createdAt)} • {formatName(delivery.vendorStore)}
                                                     </p>
@@ -473,46 +515,57 @@ const RiderModal = ({ isOpen, onClose, rider, variant = 'full' }) => {
                                                     {delivery.status}
                                                 </span>
                                             </div>
-                                            <div className="space-y-2">
+                                            <div className="col-span-2 space-y-1">
                                                 <div className="flex gap-2 text-[9px]">
                                                     <div className="p-1 h-fit bg-emerald-100 rounded text-emerald-600 uppercase font-bold text-[7px] shrink-0">Pickup</div>
-                                                    <p className="font-bold text-zinc-700">{delivery.pickup}</p>
+                                                    <p className="line-clamp-1 font-medium text-zinc-700">{delivery.pickup}</p>
                                                 </div>
                                                 <div className="flex gap-2 text-[9px]">
                                                     <div className="p-1 h-fit bg-indigo-100 rounded text-indigo-600 uppercase font-bold text-[7px] shrink-0">Dropoff</div>
-                                                    <p className="font-bold text-zinc-700">{delivery.dropoff}</p>
+                                                    <p className="line-clamp-1 font-medium text-zinc-700">{delivery.dropoff}</p>
                                                 </div>
                                             </div>
-                                            <div className="mt-3 text-right">
+                                            <div className="col-span-2 mt-0 text-right">
                                                 <span className="text-[11px] font-bold text-zinc-900">{Number(delivery.distanceKm || 0).toFixed(2)} km</span>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             )}
+                            {deliveriesShapeValid && deliveriesData.data.total > 20 && (
+                                <div className="flex items-center justify-between border-t border-zinc-100 pt-4">
+                                    <span className="text-[10px] text-zinc-500">Page {page} of {Math.ceil(deliveriesData.data.total / deliveriesData.data.pageSize)}</span>
+                                    <div className="flex gap-2">
+                                        <button type="button" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} className="rounded-lg bg-zinc-100 px-3 py-2 text-[10px] font-semibold text-zinc-600 disabled:opacity-50">Previous</button>
+                                        <button type="button" disabled={page >= Math.ceil(deliveriesData.data.total / deliveriesData.data.pageSize)} onClick={() => setPage((value) => value + 1)} className="rounded-lg bg-zinc-100 px-3 py-2 text-[10px] font-semibold text-zinc-600 disabled:opacity-50">Next</button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
+                    )}
+                    </>
                     )}
                 </div>
 
                 {/* Footer Actions */}
                 {!isDashboard && (
-                    <div className="p-5 border-t border-zinc-100 bg-zinc-50/50 shrink-0">
+                    <div className="shrink-0 border-t border-zinc-200 bg-white px-4 py-4 sm:px-5">
                         <div className="grid grid-cols-2 gap-3">
                             <button 
                                 onClick={() => handleActionClick('delete')}
                                 disabled={deleteMutation.isPending}
-                                className="px-6 py-3 bg-white border border-rose-600 text-rose-600 rounded-2xl text-[11px] font-bold hover:bg-rose-50 transition-all flex items-center justify-center gap-2"
+                                className="flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-3 text-xs font-semibold text-rose-700 transition-colors hover:border-rose-300 hover:bg-rose-50 disabled:opacity-50"
                             >
                                 {deleteMutation.isPending ? <Loader2 className="animate-spin" size={14} /> : <><Trash2 size={14} /> Delete account</>}
                             </button>
                             <button 
-                                onClick={() => handleActionClick(isSuspended ? 'activate' : 'suspend')}
+                                onClick={() => handleActionClick(isSuspended ? 'restore' : 'suspend')}
                                 disabled={suspensionMutation.isPending}
-                                className={`px-6 py-3 rounded-2xl text-[11px] font-bold transition-all shadow-md flex items-center justify-center gap-2 ${
+                                className={`flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs font-semibold transition-colors disabled:opacity-50 ${
                                     isSuspended 
-                                        ? 'bg-emerald-800 text-white hover:bg-emerald-900 shadow-emerald-900/10' 
-                                        : 'bg-rose-600 text-white hover:bg-rose-700 shadow-rose-900/10'
+                                        ? 'bg-emerald-800 text-white hover:bg-emerald-900'
+                                        : 'bg-rose-600 text-white hover:bg-rose-700'
                                 }`}
                             >
                                 {suspensionMutation.isPending ? (
@@ -520,7 +573,7 @@ const RiderModal = ({ isOpen, onClose, rider, variant = 'full' }) => {
                                 ) : (
                                     <>
                                         {isSuspended ? <ShieldAlert size={14} /> : <AlertTriangle size={14} />}
-                                        {isSuspended ? 'Activate' : 'Suspend'}
+                                        {isSuspended ? 'Restore' : 'Suspend'}
                                     </>
                                 )}
                             </button>
@@ -535,6 +588,18 @@ const RiderModal = ({ isOpen, onClose, rider, variant = 'full' }) => {
                 type={confirmType}
                 rider={rider}
                 onConfirm={handleConfirmAction}
+            />
+            <WalletCustomDateModal
+                isOpen={isCustomDateOpen}
+                dates={draftCustomDates}
+                onDatesChange={setDraftCustomDates}
+                onClose={() => setIsCustomDateOpen(false)}
+                onApply={(dates) => {
+                    setCustomDates(dates);
+                    setFilter('custom');
+                    setPage(1);
+                    setIsCustomDateOpen(false);
+                }}
             />
         </div>
     );

@@ -1,345 +1,146 @@
 import React, { useState } from 'react';
-import { 
-    Bell, 
-    Search, 
-    Users, 
-    User, 
-    Store, 
-    Bike, 
-    Send,
-    Loader2,
-    CheckCircle2,
-    AlertCircle
-} from 'lucide-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import api from '../../api/axios';
-import { useAuthStore } from '../../store/useAuthStore';
+import { AlertCircle, Bell, Bike, Check, CheckCircle2, ChevronDown, Loader2, Store, Users, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
+import api from '../../api/axios';
+
+const audiences = [
+    { id: 'SINGLE', label: 'One person', description: 'Send to a specific account', icon: UserRound },
+    { id: 'ALL_USERS', label: 'All users', description: 'Send to all users', icon: Users },
+    { id: 'ALL_CUSTOMERS', label: 'Customers', description: 'Customer accounts only', icon: Users },
+    { id: 'ALL_VENDORS', label: 'Vendors', description: 'Vendor accounts only', icon: Store },
+    { id: 'ALL_RIDERS', label: 'Riders', description: 'Rider accounts only', icon: Bike },
+];
+
+const categories = [
+    { id: 'PROMO', label: 'Promotion', color: 'bg-emerald-500' },
+    { id: 'SYSTEM', label: 'System update', color: 'bg-blue-500' },
+    { id: 'SECURITY', label: 'Security', color: 'bg-rose-500' },
+    { id: 'PAYMENT', label: 'Payment', color: 'bg-amber-500' },
+    { id: 'ORDER', label: 'Order information', color: 'bg-zinc-500' },
+];
+
+const fieldClass = 'mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-3 text-sm text-zinc-800 outline-none transition placeholder:text-zinc-400 focus:border-emerald-700 focus:ring-4 focus:ring-emerald-700/10';
 
 const PushNotifications = () => {
-    const { accessToken } = useAuthStore();
     const [audience, setAudience] = useState('ALL_USERS');
     const [targetRole, setTargetRole] = useState('USER');
     const [actorId, setActorId] = useState('');
     const [title, setTitle] = useState('');
     const [body, setBody] = useState('');
     const [type, setType] = useState('PROMO');
-    const [payloadJson, setPayloadJson] = useState('');
-    const [idempotencyKey, setIdempotencyKey] = useState('');
+    const [isCategoryOpen, setIsCategoryOpen] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
 
-    const broadcastMutation = useMutation({
-        mutationFn: (mutationData) => api.post('/notification/broadcast', mutationData),
-        onSuccess: (res) => {
+    const sendMutation = useMutation({
+        mutationFn: (data) => api.post('/notification/broadcast', data),
+        onSuccess: (response) => {
             setShowSuccess(true);
             setTitle('');
             setBody('');
             setActorId('');
-            setPayloadJson('');
-            setIdempotencyKey('');
-            setTimeout(() => setShowSuccess(false), 5000);
-        }
+            toast.success(response?.message || 'Notification sent.');
+        },
     });
 
-    // Account Verification Query
     const { data: accountData, isFetching: isVerifying, error: verifyError } = useQuery({
-        queryKey: ['verifyAccount', targetRole, actorId],
-        queryFn: async () => {
-            const endpoint = targetRole === 'USER' 
-                ? `/superadmin/users/${actorId}/overview` 
-                : targetRole === 'VENDOR' 
-                    ? `/superadmin/vendors/${actorId}/overview` 
-                    : `/superadmin/riders/${actorId}/overview`;
-            return await api.get(endpoint);
+        queryKey: ['verifyNotificationTarget', targetRole, actorId],
+        queryFn: () => {
+            const endpoint = targetRole === 'USER'
+                ? `/superadmin/users/${encodeURIComponent(actorId)}/overview`
+                : targetRole === 'VENDOR'
+                    ? `/superadmin/vendors/${encodeURIComponent(actorId)}/overview`
+                    : `/superadmin/riders/${encodeURIComponent(actorId)}/overview`;
+            return api.get(endpoint);
         },
-        enabled: !!actorId && actorId.length > 5 && audience === 'SINGLE',
+        enabled: Boolean(actorId.trim() && actorId.trim().length > 5 && audience === 'SINGLE'),
         retry: false,
     });
 
-    const accountName = (() => {
-        if (!accountData?.data) return null;
-        const d = accountData.data;
-        if (targetRole === 'USER') return `${d.firstname || ''} ${d.lastname || ''}`.trim() || d.name;
-        if (targetRole === 'VENDOR') return d.storeName || d.ownerName;
-        if (targetRole === 'RIDER') return d.name;
-        return null;
-    })();
-
-    const handleSend = (e) => {
-        if (e) e.preventDefault();
-        if (!title.trim() || !body.trim()) return;
-        if (audience === 'SINGLE' && !actorId.trim()) return;
-        
-        const notificationData = {
-            audience,
-            title: title.trim(),
-            body: body.trim(),
-            type
-        };
-
+    const account = accountData?.data;
+    const accountName = account
+        ? (targetRole === 'USER'
+            ? `${account.firstname || ''} ${account.lastname || ''}`.trim() || account.name
+            : targetRole === 'VENDOR' ? account.storeName || account.ownerName : account.name)
+        : '';
+    const sendNotification = (event) => {
+        event.preventDefault();
+        if (!title.trim() || !body.trim() || (audience === 'SINGLE' && !actorId.trim())) return;
+        const payload = { audience, title: title.trim(), body: body.trim(), type };
         if (audience === 'SINGLE') {
-            notificationData.targetRole = targetRole;
-            notificationData.actorId = actorId.trim();
+            payload.targetRole = targetRole;
+            payload.actorId = actorId.trim();
         }
-
-        if (payloadJson.trim()) {
-            try {
-                notificationData.payload = JSON.parse(payloadJson);
-            } catch (err) {
-                toast.error('Invalid JSON format in payload field');
-                return;
-            }
-        }
-
-        if (idempotencyKey.trim()) {
-            notificationData.idempotencyKey = idempotencyKey.trim();
-        }
-
-        broadcastMutation.mutate(notificationData);
+        sendMutation.mutate(payload);
     };
 
-    const categories = [
-        { id: 'PROMO', label: 'Promotion', color: 'bg-emerald-500' },
-        { id: 'SYSTEM', label: 'System Update', color: 'bg-blue-500' },
-        { id: 'SECURITY', label: 'Security', color: 'bg-rose-500' },
-        { id: 'PAYMENT', label: 'Payment', color: 'bg-amber-500' },
-        { id: 'ORDER', label: 'Order Info', color: 'bg-zinc-500' },
-    ];
-
-    const audiences = [
-        { id: 'SINGLE', label: 'Single Target', icon: User, sub: 'Direct Message' },
-        { id: 'ALL_USERS', label: 'All Users', icon: Users, sub: 'Default' },
-        { id: 'ALL_VENDORS', label: 'All Vendors', icon: Store, sub: 'Sellers' },
-        { id: 'ALL_RIDERS', label: 'All Riders', icon: Bike, sub: 'Delivery' },
-    ];
-
     return (
-        <div className="space-y-8 max-w-[1600px] mx-auto">
-            {/* Header */}
-            
-
-            <div className="space-y-6">
-                {/* Target Audience */}
-                <div className="bg-white p-8 rounded-[2.5rem] border border-zinc-100 shadow-sm">
-                    <div className="mb-8">
-                        <h3 className="text-[15px] font-bold text-zinc-900">Target Audience</h3>
-                        <p className="text-[11px] text-zinc-400 font-medium mt-1">Select who this message is for</p>
+        <div className="w-full space-y-5 pb-10">
+            <form onSubmit={sendNotification} className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+                <header className="border-b border-zinc-100 px-5 py-4 sm:px-6">
+                    <div className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800"><Bell size={19} /></span>
+                        <div><h2 className="text-base font-bold text-zinc-900">New notification</h2><p className="mt-0.5 text-xs text-zinc-500">Send a one-off update to an account or supported audience.</p></div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {audiences.map((aud) => (
-                            <button
-                                key={aud.id}
-                                onClick={() => setAudience(aud.id)}
-                                className={`flex items-start gap-4 p-5 rounded-[2rem] border-2 transition-all duration-300 text-left ${
-                                    audience === aud.id 
-                                    ? 'bg-[#00B074]/5 border-[#00B074] shadow-xl shadow-[#00B074]/5 scale-[1.02]' 
-                                    : 'bg-white border-zinc-100 hover:border-zinc-200 grayscale opacity-60'
-                                }`}
-                            >
-                                <div className={`p-3 rounded-2xl ${audience === aud.id ? 'bg-[#00B074] text-white' : 'bg-zinc-100 text-zinc-500'}`}>
-                                    <aud.icon size={24} strokeWidth={2.5} />
-                                </div>
-                                <div>
-                                    <h4 className={`text-sm font-bold ${audience === aud.id ? 'text-[#00B074]' : 'text-zinc-900'}`}>{aud.label}</h4>
-                                    <p className="text-[10px] text-zinc-400 font-medium">{aud.sub}</p>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </div>
+                </header>
 
-                {/* Single Target Configuration */}
-                {audience === 'SINGLE' && (
-                    <div className="bg-white p-8 rounded-[2.5rem] border border-zinc-100 shadow-sm animate-in fade-in zoom-in-95 duration-300">
-                        <div className="mb-8">
-                            <h3 className="text-[15px] font-bold text-zinc-900">Target Details</h3>
-                            <p className="text-[11px] text-zinc-400 font-medium mt-1">Specify which account should receive this notification</p>
+                <div className="space-y-6 p-5 sm:p-6">
+                    {showSuccess && <div role="status" className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5">
+                        <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-700" />
+                        <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-emerald-900">Notification request accepted</p><p className="mt-0.5 text-xs leading-5 text-emerald-800">The notification service accepted the request. This does not confirm that it appeared on a device.</p></div>
+                        <button type="button" onClick={() => { setShowSuccess(false); sendMutation.reset(); }} className="shrink-0 text-xs font-semibold text-emerald-900 underline underline-offset-2">Send another</button>
+                    </div>}
+
+                    <fieldset>
+                        <legend className="text-sm font-semibold text-zinc-900">Target audience</legend>
+                        <p className="mt-1 text-xs text-zinc-500">Choose who should receive this one-off notification.</p>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            {audiences.map(({ id, label, description, icon: Icon }) => {
+                                const selected = audience === id;
+                                return <button key={id} type="button" aria-pressed={selected} onClick={() => { setAudience(id); setShowSuccess(false); }} className={`flex min-h-[68px] items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition focus:outline-none focus:ring-2 focus:ring-emerald-700/20 ${selected ? 'border-emerald-600 bg-emerald-50/70' : 'border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50'}`}>
+                                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${selected ? 'bg-emerald-700 text-white' : 'bg-zinc-100 text-zinc-500'}`}><Icon size={17} /></span>
+                                    <span className="min-w-0 flex-1"><span className={`block text-xs font-semibold ${selected ? 'text-emerald-900' : 'text-zinc-800'}`}>{label}</span><span className="mt-0.5 block text-[10px] leading-4 text-zinc-500">{description}</span></span>
+                                    {selected && <Check size={16} className="shrink-0 text-emerald-700" />}
+                                </button>;
+                            })}
                         </div>
+                    </fieldset>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-3">
-                                <label className="text-[11px] font-bold text-zinc-900 ml-1 uppercase tracking-wider">Account Role</label>
-                                <div className="flex p-1.5 bg-zinc-50 rounded-2xl border border-zinc-100">
-                                    {['USER', 'VENDOR', 'RIDER'].map((role) => (
-                                        <button
-                                            key={role}
-                                            type="button"
-                                            onClick={() => setTargetRole(role)}
-                                            className={`flex-1 py-2.5 text-[10px] font-bold rounded-xl transition-all ${
-                                                targetRole === role 
-                                                ? 'bg-white text-zinc-900 shadow-sm' 
-                                                : 'text-zinc-400 hover:text-zinc-600'
-                                            }`}
-                                        >
-                                            {role}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
+                    {audience === 'SINGLE' && <section className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-4">
+                        <div><h3 className="text-xs font-semibold text-zinc-900">Recipient</h3><p className="mt-1 text-[11px] text-zinc-500">Select an account type and enter its account ID.</p></div>
+                        <div className="mt-3 flex max-w-sm rounded-lg bg-zinc-100 p-1">{['USER', 'VENDOR', 'RIDER'].map((role) => <button key={role} type="button" onClick={() => setTargetRole(role)} className={`flex-1 rounded-md py-2 text-[11px] font-semibold transition ${targetRole === role ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'}`}>{role === 'USER' ? 'Customer' : role[0] + role.slice(1).toLowerCase()}</button>)}</div>
+                        <div className="mt-3 max-w-lg"><div className="relative"><input aria-label="Account ID" value={actorId} onChange={(event) => { setActorId(event.target.value); setShowSuccess(false); }} placeholder="Enter account ID" className={`${fieldClass} pr-10`} />{isVerifying && <Loader2 size={16} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-emerald-700" />}</div>
+                            {accountName && <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-emerald-800"><CheckCircle2 size={14} />Recipient: {accountName}</p>}
+                            {verifyError && actorId.length > 5 && <p role="alert" className="mt-2 text-xs text-rose-700">Could not verify this account ID. Check the ID and try again.</p>}
+                        </div>
+                    </section>}
 
-                            <div className="space-y-3">
-                                <label className="text-[11px] font-bold text-zinc-900 ml-1 uppercase tracking-wider">Account ID / Actor ID</label>
-                                <div className="relative">
-                                    <input 
-                                        type="text"
-                                        value={actorId}
-                                        onChange={(e) => setActorId(e.target.value)}
-                                        placeholder="e.g. user_123, vendor_456"
-                                        className={`w-full px-5 py-4 bg-zinc-50 border rounded-2xl text-xs font-medium text-zinc-700 focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none transition-all placeholder:text-zinc-300 ${
-                                            accountName ? 'border-emerald-500/50' : 'border-zinc-100'
-                                        }`}
-                                    />
-                                    {isVerifying && (
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                                            <Loader2 size={16} className="text-emerald-600 animate-spin" />
-                                        </div>
-                                    )}
-                                </div>
-                                {accountName && (
-                                    <div className="flex items-center gap-2 px-1 animate-in fade-in slide-in-from-left-2 duration-300">
-                                        <CheckCircle2 size={14} className="text-emerald-600" />
-                                        <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-tight">Verified: {accountName}</p>
-                                    </div>
-                                )}
-                                {verifyError && actorId.length > 5 && (
-                                    <div className="flex items-center gap-2 px-1 animate-in fade-in slide-in-from-left-2 duration-300">
-                                        <AlertCircle size={14} className="text-rose-500" />
-                                        <p className="text-[10px] font-bold text-rose-500 uppercase tracking-tight">Account not found or invalid ID</p>
-                                    </div>
-                                )}
+                    <section className="grid gap-5 border-t border-zinc-100 pt-5 md:grid-cols-2">
+                        <div>
+                            <label id="notification-category-label" className="text-sm font-semibold text-zinc-900">Category</label>
+                            <div className="relative mt-2">
+                                <button type="button" aria-labelledby="notification-category-label" aria-haspopup="listbox" aria-expanded={isCategoryOpen} onClick={() => setIsCategoryOpen((open) => !open)} onKeyDown={(event) => { if (event.key === 'Escape') setIsCategoryOpen(false); }} className="flex w-full items-center justify-between rounded-xl border border-zinc-200 bg-white px-3.5 py-3 text-left text-sm text-zinc-800 outline-none transition hover:border-zinc-300 focus:border-emerald-700 focus:ring-4 focus:ring-emerald-700/10">
+                                    <span className="flex items-center gap-2"><i className={`h-2 w-2 rounded-full ${categories.find((category) => category.id === type)?.color}`} />{categories.find((category) => category.id === type)?.label || 'Choose category'}</span><ChevronDown size={16} className={`text-zinc-500 transition-transform ${isCategoryOpen ? 'rotate-180' : ''}`} />
+                                </button>
+                                {isCategoryOpen && <div role="listbox" aria-labelledby="notification-category-label" className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-zinc-200 bg-white p-1 shadow-xl">{categories.map((category) => <button key={category.id} type="button" role="option" aria-selected={type === category.id} onClick={() => { setType(category.id); setIsCategoryOpen(false); }} className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs transition ${type === category.id ? 'bg-emerald-50 font-semibold text-emerald-900' : 'text-zinc-700 hover:bg-zinc-50'}`}><i className={`h-2 w-2 rounded-full ${category.color}`} />{category.label}{type === category.id && <Check size={14} className="ml-auto text-emerald-700" />}</button>)}</div>}
                             </div>
                         </div>
-                    </div>
-                )}
+                        <div className="space-y-4">
+                            <div><label htmlFor="notification-title" className="text-sm font-semibold text-zinc-900">Notification title</label><input id="notification-title" required maxLength={120} value={title} onChange={(event) => { setTitle(event.target.value); setShowSuccess(false); }} placeholder="A clear, concise title" className={fieldClass} /></div>
+                            <div><label htmlFor="notification-body" className="text-sm font-semibold text-zinc-900">Message</label><textarea id="notification-body" required rows={6} maxLength={2000} value={body} onChange={(event) => { setBody(event.target.value); setShowSuccess(false); }} placeholder="Write the message you want to send…" className={`${fieldClass} resize-y leading-5`} /></div>
+                        </div>
+                    </section>
 
-                {/* Category Selection */}
-                <div className="bg-white p-8 rounded-[2.5rem] border border-zinc-100 shadow-sm">
-                    <div className="mb-8">
-                        <h3 className="text-[15px] font-bold text-zinc-900">Notification Category</h3>
-                        <p className="text-[11px] text-zinc-400 font-medium mt-1">Classify your message for better user engagement</p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                        {categories.map((cat) => (
-                            <button
-                                key={cat.id}
-                                onClick={() => setType(cat.id)}
-                                className={`px-6 py-3 rounded-2xl text-[10px] font-bold transition-all flex items-center gap-2 ${
-                                    type === cat.id 
-                                    ? 'bg-zinc-900 text-white shadow-lg' 
-                                    : 'bg-zinc-50 text-zinc-500 hover:bg-zinc-100'
-                                }`}
-                            >
-                                <span className={`w-1.5 h-1.5 rounded-full ${cat.color}`} />
-                                {cat.label}
-                            </button>
-                        ))}
-                    </div>
+                    {sendMutation.isError && <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs text-rose-800"><AlertCircle size={16} className="mt-0.5 shrink-0" /><p>{sendMutation.error?.response?.data?.message || sendMutation.error?.message || 'Could not send the notification. Please try again.'}</p></div>}
                 </div>
 
-                {/* Message Content */}
-                <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm overflow-hidden">
-                    <div className="p-6 border-b border-zinc-100 bg-zinc-50/50">
-                        <h3 className="text-sm font-bold text-zinc-900">Message Content</h3>
-                    </div>
-                    
-                    <div className="p-8">
-                        <form onSubmit={handleSend} className="space-y-8">
-                            <div className="space-y-3">
-                                <label className="text-[11px] font-bold text-zinc-900 ml-1 uppercase tracking-wider">Title</label>
-                                <input 
-                                    type="text"
-                                    required
-                                    value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
-                                    placeholder="Flash Sale: Get 50% Off Now!"
-                                    className="w-full px-7 py-5 bg-zinc-50 border border-zinc-100 rounded-[1.5rem] text-sm font-medium text-zinc-800 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/30 outline-none transition-all placeholder:text-zinc-300"
-                                />
-                            </div>
-
-                            <div className="space-y-3">
-                                <label className="text-[11px] font-bold text-zinc-900 ml-1 uppercase tracking-wider">Message Content</label>
-                                <textarea 
-                                    required
-                                    value={body}
-                                    onChange={(e) => setBody(e.target.value)}
-                                    placeholder="Write your announcement here..."
-                                    className="w-full px-7 py-6 bg-zinc-50 border border-zinc-100 rounded-[2rem] text-sm font-medium text-zinc-800 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/30 outline-none transition-all placeholder:text-zinc-300 h-52 resize-none leading-relaxed"
-                                />
-                            </div>
-
-                            {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between ml-1">
-                                        <label className="text-[11px] font-bold text-zinc-900 uppercase tracking-wider">Payload (JSON)</label>
-                                        <span className="text-[9px] text-zinc-400 font-bold uppercase">Optional</span>
-                                    </div>
-                                    <textarea 
-                                        value={payloadJson}
-                                        onChange={(e) => setPayloadJson(e.target.value)}
-                                        placeholder='{ "link": "/promo", "id": 123 }'
-                                        className="w-full px-7 py-5 bg-zinc-50 border border-zinc-100 rounded-[1.5rem] text-xs font-mono text-zinc-800 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/30 outline-none transition-all placeholder:text-zinc-300 h-32 resize-none"
-                                    />
-                                </div>
-
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between ml-1">
-                                        <label className="text-[11px] font-bold text-zinc-900 uppercase tracking-wider">Idempotency Key</label>
-                                        <span className="text-[9px] text-zinc-400 font-bold uppercase">Optional</span>
-                                    </div>
-                                    <input 
-                                        type="text"
-                                        value={idempotencyKey}
-                                        onChange={(e) => setIdempotencyKey(e.target.value)}
-                                        placeholder="promo-april-2026-v1"
-                                        className="w-full px-7 py-5 bg-zinc-50 border border-zinc-100 rounded-[1.5rem] text-xs font-medium text-zinc-800 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/30 outline-none transition-all placeholder:text-zinc-300"
-                                    />
-                                    <p className="text-[9px] text-zinc-400 font-medium px-2 leading-relaxed">
-                                        Prevents duplicate notifications if the same key is reused. If left blank, it will be auto-generated.
-                                    </p>
-                                </div>
-                            </div> */}
-
-                            {showSuccess && (
-                                <div className="flex items-center gap-3 text-emerald-700 bg-emerald-50 p-5 rounded-[1.5rem] border border-emerald-200 animate-in fade-in slide-in-from-top-4 duration-500">
-                                    <div className="bg-emerald-100 p-1 rounded-full"><CheckCircle2 size={18} /></div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[12px] font-bold">Success!</span>
-                                        <p className="text-[10px] font-medium opacity-80">Message broadcasted to target audience.</p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {broadcastMutation.isError && (
-                                <div className="flex items-start gap-3 text-rose-700 bg-rose-50 p-5 rounded-[1.5rem] border border-rose-200 animate-in fade-in slide-in-from-top-4 duration-500">
-                                    <div className="bg-rose-100 p-1 rounded-full shrink-0"><AlertCircle size={18} /></div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[12px] font-bold">Sending Failed</span>
-                                        <p className="text-[10px] font-medium opacity-80">
-                                            {broadcastMutation.error?.response?.data?.message || broadcastMutation.error?.message || 'Please check your connection and try again.'}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-
-                            <button 
-                                type="submit"
-                                disabled={!title.trim() || !body.trim() || (audience === 'SINGLE' && !actorId.trim()) || broadcastMutation.isPending}
-                                className="w-full py-5 bg-[#00B074] text-white rounded-[1.5rem] text-sm font-bold hover:bg-[#009663] transition-all shadow-xl shadow-emerald-900/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-4 active:scale-[0.98] group"
-                            >
-                                {broadcastMutation.isPending ? (
-                                    <Loader2 className="animate-spin" size={20} />
-                                ) : (
-                                    <>
-                                        <span>Broadcast Message</span>
-                                        <Send size={18} className="translate-x-0 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                                    </>
-                                )}
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
+                <footer className="flex flex-col gap-3 border-t border-zinc-100 bg-zinc-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                    <p className="text-[11px] leading-4 text-zinc-500">This is a one-off message sent through the Notification service.</p>
+                    <button type="submit" disabled={!title.trim() || !body.trim() || (audience === 'SINGLE' && (!actorId.trim() || !accountName)) || sendMutation.isPending} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-800 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-48">
+                        {sendMutation.isPending ? <><Loader2 size={16} className="animate-spin" />Sending…</> : <>Send notification <Bell size={15} /> </>}
+                    </button>
+                </footer>
+            </form>
         </div>
     );
 };

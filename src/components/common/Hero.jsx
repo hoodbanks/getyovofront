@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Menu, X, ChevronDown, ChevronUp } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { openAppStoreBadges } from '../../config/appStores';
 import logo from '../../assets/images/GetYovo-Logo-Sized-yellow+white.png';
 import phonesImg from '../../assets/images/Phones.png';
 import mapBg from '../../assets/images/map-background.png';
@@ -15,6 +16,12 @@ const Hero = ({
 }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isLegalOpen, setIsLegalOpen] = useState(false);
+    const navigate = useNavigate();
+
+    const goToDownloads = () => {
+        if (openAppStoreBadges()) return;
+        navigate('/#get-the-app');
+    };
 
     const toggleMenu = () => {
         setIsMenuOpen(!isMenuOpen);
@@ -63,7 +70,7 @@ const Hero = ({
                 <div className="flex items-center gap-4">
                     {/* Desktop Download Button */}
                     {showDownload && (
-                        <button className="hidden md:block bg-white text-[#0F4A33] px-6 py-2.5 rounded-full text-sm font-bold shadow-sm hover:bg-zinc-100 transition-all active:scale-95">
+                        <button type="button" onClick={goToDownloads} className="hidden md:block bg-white text-[#0F4A33] px-6 py-2.5 rounded-full text-sm font-bold shadow-sm hover:bg-zinc-100 transition-all active:scale-95">
                             Download App
                         </button>
                     )}
@@ -105,7 +112,7 @@ const Hero = ({
                     </div>
 
                     {showDownload && (
-                        <button className="mt-auto bg-white text-[#0C3D2A] w-full py-4 rounded-2xl font-bold text-lg shadow-lg">
+                        <button type="button" onClick={() => { goToDownloads(); setIsMenuOpen(false); }} className="mt-auto bg-white text-[#0C3D2A] w-full py-4 rounded-2xl font-bold text-lg shadow-lg">
                             Download App
                         </button>
                     )}

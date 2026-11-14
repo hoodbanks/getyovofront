@@ -1,6 +1,7 @@
 import { useAuthStore } from '../store/useAuthStore';
-
-const BASE_URL = 'https://api.getyovo.app/api/v1';
+import { API_BASE_URL } from '../config/apiConfig';
+import { handleDisabledAdminAccountSession, handleUnauthorizedAdminSession } from '../utils/handleUnauthorizedSession';
+import { refreshSuperAdminAccessToken } from './superAdminTokenRefresh';
 
 // ─── Refresh Token Logic ──────────────────────────────────────────────────────
 // A single shared promise ensures that if multiple requests fail simultaneously
@@ -22,7 +23,7 @@ const refreshRiderToken = async () => {
                 throw new Error('No rider refresh token available');
             }
 
-            const response = await fetch(`${BASE_URL}/rider/auth/refresh`, {
+            const response = await fetch(`${API_BASE_URL}/rider/auth/refresh`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -64,7 +65,7 @@ const refreshRiderToken = async () => {
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const parseError = (result, status) => {
+const parseError = (result, status, response) => {
     let errorMessage = result.error?.message || result.message || 'Something went wrong';
     if (result.error?.details && Array.isArray(result.error.details) && result.error.details.length > 0) {
         errorMessage = result.error.details[0].message;
@@ -72,153 +73,229 @@ const parseError = (result, status) => {
     const error = new Error(errorMessage);
     error.status = status;
     error.statusCode = status;
+    error.code = result.error?.code || result.code || null;
+    error.responseReceived = true;
+    const retryAfter = response?.headers?.get?.('Retry-After');
+    const rateLimitReset = response?.headers?.get?.('RateLimit-Reset');
+    if (retryAfter) error.retryAfter = retryAfter;
+    if (rateLimitReset) error.rateLimitReset = rateLimitReset;
     return error;
 };
 
+const PUBLIC_SUPER_ADMIN_ENDPOINTS = new Set([
+    '/superadmin/auth/login',
+    '/superadmin/auth/verify-otp',
+    '/superadmin/auth/resend-otp',
+]);
+
+const isPublicSuperAdminEndpoint = (endpoint) => PUBLIC_SUPER_ADMIN_ENDPOINTS.has(endpoint);
+
+const isDisabledAdminResponse = (result) => {
+    const code = result?.error?.code || result?.error?.errorCode || result?.code || '';
+    if (/(ADMIN|ACCOUNT|SUPER.?ADMIN).*DISABLED|DISABLED.*(ADMIN|ACCOUNT|SUPER.?ADMIN)/i.test(String(code))) return true;
+    const message = result?.error?.message || result?.message || '';
+    return /\b(disabled|deactivated|inactive)\b/i.test(String(message)) && /\b(account|admin|super admin)\b/i.test(String(message));
+};
+
+const readJsonResponse = async (response) => {
+    try {
+        return await response.json();
+    } catch {
+        const error = new Error('The server returned an unreadable response.');
+        error.status = response.status;
+        error.statusCode = response.status;
+        error.responseReceived = true;
+        throw error;
+    }
+};
+
+const sendFetch = async (...args) => {
+    try {
+        return await fetch(...args);
+    } catch (error) {
+        if (error && typeof error === 'object') error.transportError = true;
+        throw error;
+    }
+};
+
 // ─── Core Retry Wrapper ───────────────────────────────────────────────────────
-// Executes a fetch call. If it returns 401 AND a rider refresh token exists,
-// it attempts a token refresh and retries the request exactly once.
-const requestWithRetry = async (buildRequest) => {
+// Refreshes expired Super Admin or rider access tokens and retries once.
+const requestWithRetry = async (buildRequest, endpoint) => {
     // First attempt
-    const { response: firstResponse, result: firstResult } = await buildRequest(
-        useAuthStore.getState().accessToken
-    );
+    const firstAccessToken = useAuthStore.getState().accessToken;
+    const { response: firstResponse, result: firstResult } = await buildRequest(firstAccessToken);
 
     if (firstResponse.ok) {
         return firstResult;
     }
 
-    // Only auto-refresh on 401 and only when a rider session exists
-    if (firstResponse.status === 401 && useAuthStore.getState().rider) {
-        try {
-            const newToken = await refreshRiderToken();
+    const authState = useAuthStore.getState();
 
-            // Retry with the refreshed token
-            const { response: retryResponse, result: retryResult } = await buildRequest(newToken);
+    const isPublicSuperAdminRequest = isPublicSuperAdminEndpoint(endpoint);
 
-            if (retryResponse.ok) {
-                return retryResult;
-            }
-
-            throw parseError(retryResult, retryResponse.status);
-        } catch (refreshError) {
-            // If refresh itself failed, surface that error
-            throw refreshError;
-        }
+    if (firstResponse.status === 403 && !isPublicSuperAdminRequest && authState.superAdmin && isDisabledAdminResponse(firstResult)) {
+        handleDisabledAdminAccountSession();
+        throw parseError(firstResult, firstResponse.status, firstResponse);
     }
 
-    throw parseError(firstResult, firstResponse.status);
+    if (firstResponse.status === 401 && !isPublicSuperAdminRequest && authState.superAdmin && !endpoint.includes('/superadmin/auth/refresh')) {
+        let newToken;
+        try {
+            newToken = await refreshSuperAdminAccessToken(firstAccessToken);
+        } catch (error) {
+            // Preserve the original HTTP response when auth refresh itself has a transport failure.
+            if (error?.transportError) {
+                error.status = firstResponse.status;
+                error.statusCode = firstResponse.status;
+            }
+            throw error;
+        }
+
+        const { response: retryResponse, result: retryResult } = await buildRequest(newToken, true);
+        if (retryResponse.ok) return retryResult;
+
+        if (retryResponse.status === 403 && isDisabledAdminResponse(retryResult)) {
+            handleDisabledAdminAccountSession();
+            throw parseError(retryResult, retryResponse.status, retryResponse);
+        }
+        if (retryResponse.status === 401) handleUnauthorizedAdminSession(endpoint);
+        throw parseError(retryResult, retryResponse.status, retryResponse);
+    }
+
+    // Refresh rider sessions independently when the rejected request belongs to a rider.
+    if (firstResponse.status === 401 && !isPublicSuperAdminRequest && authState.rider) {
+        const newToken = await refreshRiderToken();
+
+        // Retry with the refreshed token
+        const { response: retryResponse, result: retryResult } = await buildRequest(newToken, true);
+
+        if (retryResponse.ok) {
+            return retryResult;
+        }
+
+        throw parseError(retryResult, retryResponse.status, retryResponse);
+    }
+
+    throw parseError(firstResult, firstResponse.status, firstResponse);
 };
 
 // ─── API Methods ──────────────────────────────────────────────────────────────
 const api = {
     post: async (endpoint, data, token, extraHeaders = {}) => {
-        const buildRequest = async (activeToken) => {
+        const buildRequest = async (activeToken, useActiveToken = false) => {
             const headers = {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
                 ...extraHeaders,
             };
-            // Prefer the explicitly-passed token, fall back to store token
-            const authToken = token || activeToken;
+            // Prefer the explicitly-passed token, fall back to store token.
+            // Login, email OTP verification, and verification resend are public.
+            // A saved Super Admin session must not be attached to those calls.
+            const authToken = isPublicSuperAdminEndpoint(endpoint) ? null : useActiveToken ? activeToken : token || activeToken;
             if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
-            const response = await fetch(`${BASE_URL}${endpoint}`, {
+            const response = await sendFetch(`${API_BASE_URL}${endpoint}`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify(data),
             });
-            const result = await response.json();
+            const result = await readJsonResponse(response);
             return { response, result };
         };
 
-        return requestWithRetry(buildRequest);
+        return requestWithRetry(buildRequest, endpoint);
     },
 
     postForm: async (endpoint, formData, token, extraHeaders = {}) => {
-        const buildRequest = async (activeToken) => {
+        const buildRequest = async (activeToken, useActiveToken = false) => {
             const headers = {
                 'Accept': 'application/json',
                 ...extraHeaders,
             };
-            const authToken = token || activeToken;
+            const authToken = useActiveToken ? activeToken : token || activeToken;
             if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
-            const response = await fetch(`${BASE_URL}${endpoint}`, {
+            const response = await sendFetch(`${API_BASE_URL}${endpoint}`, {
                 method: 'POST',
                 headers,
                 body: formData,
             });
-            const result = await response.json();
+            const result = await readJsonResponse(response);
             return { response, result };
         };
 
-        return requestWithRetry(buildRequest);
+        return requestWithRetry(buildRequest, endpoint);
     },
 
     get: async (endpoint, token, extraHeaders = {}) => {
-        const buildRequest = async (activeToken) => {
+        const buildRequest = async (activeToken, useActiveToken = false) => {
             const headers = {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
                 ...extraHeaders,
             };
-            const authToken = token || activeToken;
+            const authToken = useActiveToken ? activeToken : token || activeToken;
             if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
-            const response = await fetch(`${BASE_URL}${endpoint}`, {
+            const superAdminGet = endpoint.startsWith('/superadmin/');
+            const response = await sendFetch(`${API_BASE_URL}${endpoint}`, {
                 method: 'GET',
                 headers,
+                // Staging has returned 304 with an empty body for authenticated
+                // Super Admin reads, including the dashboard. The browser then
+                // reused an older cached payload and the page treated that as
+                // missing data. Always read a fresh JSON body.
+                ...(superAdminGet ? { cache: 'no-store' } : {}),
             });
-            const result = await response.json();
+            const result = await readJsonResponse(response);
             return { response, result };
         };
 
-        return requestWithRetry(buildRequest);
+        return requestWithRetry(buildRequest, endpoint);
     },
 
     patch: async (endpoint, data, token, extraHeaders = {}) => {
-        const buildRequest = async (activeToken) => {
+        const buildRequest = async (activeToken, useActiveToken = false) => {
             const headers = {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
                 ...extraHeaders,
             };
-            const authToken = token || activeToken;
+            const authToken = useActiveToken ? activeToken : token || activeToken;
             if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
-            const response = await fetch(`${BASE_URL}${endpoint}`, {
+            const response = await sendFetch(`${API_BASE_URL}${endpoint}`, {
                 method: 'PATCH',
                 headers,
                 body: JSON.stringify(data),
             });
-            const result = await response.json();
+            const result = await readJsonResponse(response);
             return { response, result };
         };
 
-        return requestWithRetry(buildRequest);
+        return requestWithRetry(buildRequest, endpoint);
     },
 
     delete: async (endpoint, data, token, extraHeaders = {}) => {
-        const buildRequest = async (activeToken) => {
+        const buildRequest = async (activeToken, useActiveToken = false) => {
             const headers = {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
                 ...extraHeaders,
             };
-            const authToken = token || activeToken;
+            const authToken = useActiveToken ? activeToken : token || activeToken;
             if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
-            const response = await fetch(`${BASE_URL}${endpoint}`, {
+            const response = await sendFetch(`${API_BASE_URL}${endpoint}`, {
                 method: 'DELETE',
                 headers,
                 body: data ? JSON.stringify(data) : undefined,
             });
-            const result = await response.json();
+            const result = await readJsonResponse(response);
             return { response, result };
         };
 
-        return requestWithRetry(buildRequest);
+        return requestWithRetry(buildRequest, endpoint);
     },
 };
 

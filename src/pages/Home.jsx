@@ -16,6 +16,7 @@ import bgImage1 from '../assets/images/login-background2.png';
 import bgImage2 from '../assets/images/login-background3.png';
 import bgImage3 from '../assets/images/login-background4.png';
 import doublePhoneImg from '../assets/images/double-phone-img.png';
+import { APP_STORE_URL, GOOGLE_PLAY_URL, openAppStoreBadges } from '../config/appStores';
 
 const useReveal = () => {
     useEffect(() => {
@@ -42,6 +43,10 @@ const useReveal = () => {
 const Home = () => {
     useReveal();
 
+    useEffect(() => {
+        if (window.location.hash === '#get-the-app') openAppStoreBadges();
+    }, []);
+
     return (
         <div className="min-h-screen bg-white p-1 font-sans pb-0 overflow-x-hidden">
             <div className="max-w-[1440px] mx-auto">
@@ -62,7 +67,7 @@ const Home = () => {
                         </h2>
 
                         <div className="flex justify-center delay-200">
-                            <button className=" sm:w-auto bg-[#225B28] text-white px-10 py-4 rounded-full text-base font-bold shadow-lg shadow-[#0F4A33]/20 hover:bg-[#0C3D2A] transition-all hover:scale-105 active:scale-95">
+                            <button type="button" onClick={openAppStoreBadges} className=" sm:w-auto bg-[#225B28] text-white px-10 py-4 rounded-full text-base font-bold shadow-lg shadow-[#0F4A33]/20 hover:bg-[#0C3D2A] transition-all hover:scale-105 active:scale-95">
                                 Download App
                             </button>
                         </div>
@@ -314,11 +319,11 @@ const Home = () => {
                                 </p>
                             </div>
 
-                            <div className="flex flex-col md:flex-row justify-start gap-4">
-                                <a href="#" className="transition-transform hover:scale-105">
+                            <div id="get-the-app" className="flex flex-col md:flex-row justify-start gap-4">
+                                <a href={GOOGLE_PLAY_URL} target="_blank" rel="noopener noreferrer" className="transition-transform hover:scale-105">
                                     <img src={googlePlayImg} alt="Get it on Google Play" className="h-12 md:h-14" />
                                 </a>
-                                <a href="#" className="transition-transform hover:scale-105">
+                                <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" className="transition-transform hover:scale-105">
                                     <img src={appleStoreImg} alt="Download on the App Store" className="h-12 md:h-14" />
                                 </a>
                             </div>

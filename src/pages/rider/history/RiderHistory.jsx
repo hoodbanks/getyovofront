@@ -53,7 +53,10 @@ const RiderHistory = () => {
             try {
                 const res = await api.get('/rider/orders/counts', token);
                 if (res?.data) setCounts(res.data);
-            } catch (_) {}
+            } catch {
+                // Counts are supplementary; leave the existing values visible.
+                return;
+            }
         };
         fetchCounts();
     }, [token, setCounts]);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import {
     Search,
     ChevronDown,
@@ -8,19 +8,25 @@ import {
     Users,
     UserPlus,
     UserRoundX,
-    UserCheck,
     Loader2,
     AlertCircle,
     X,
-    Calendar
+    Calendar,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
-import { formatName, formatDate, getInitials } from '../../utils/formatters';
+import { formatName, formatShortDate } from '../../utils/formatters';
+import { CustomerAvatar } from '../../components/admin/CustomerAvatar';
 import CustomerModal from '../../components/admin/CustomerModal';
+import { WalletCustomDateModal } from '../../components/admin/wallet/WalletControls';
 
-const StatCard = ({ label, value, icon: Icon, color, bg, borderColor, cardBg, dotColor }) => (
+const getCustomerStatus = (customer) => {
+    if (customer.isSuspended || customer.status === 'SUSPENDED') return 'Suspended';
+    return customer.isPhoneVerified === true ? 'Verified' : 'Unverified';
+};
+
+const StatCard = ({ label, value, loading = false, icon: Icon, color, bg, borderColor, cardBg, dotColor }) => (
     <div className={`relative overflow-hidden p-4 pb-6 rounded-xl ${cardBg} border ${borderColor} shadow-sm transition-all hover:shadow-md group flex-1 min-w-0`}>
         {/* Grain/Texture Effect using Radial Gradients */}
         <div className={`absolute inset-0 opacity-[0.03] pointer-events-none`}
@@ -32,7 +38,11 @@ const StatCard = ({ label, value, icon: Icon, color, bg, borderColor, cardBg, do
         <div className="relative z-10 flex justify-between items-start">
             <div>
                 <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">{label}</p>
-                <h3 className="text-sm font-bold text-zinc-900 leading-none">{value}</h3>
+                {loading ? (
+                    <div aria-label={`Loading ${label.toLowerCase()}`} className="h-4 w-12 animate-pulse rounded bg-zinc-200" />
+                ) : (
+                    <h3 className="text-sm font-bold text-zinc-900 leading-none">{value}</h3>
+                )}
             </div>
             <div className={`p-2 rounded-xl ${bg} ${color} shadow-sm border border-white/40 group-hover:rotate-6 transition-all duration-300`}>
                 <Icon size={18} />
@@ -53,13 +63,17 @@ const Customers = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [draftDates, setDraftDates] = useState({ start: '', end: '' });
+    const [isDateRangeOpen, setIsDateRangeOpen] = useState(false);
     const [page, setPage] = useState(1);
 
     // Filter labels map
     const filterLabels = {
         'all': 'All customers',
-        'active': 'Active customer',
-        'suspended': 'Suspended customer'
+        'verified': 'Verified customers',
+        'unverified': 'Unverified customers',
+        'active': 'Active accounts',
+        'suspended': 'Suspended accounts'
     };
 
     // Sort labels map
@@ -70,25 +84,27 @@ const Customers = () => {
         'date_oldest': 'Oldest to newest'
     };
 
-    // Fetch Users
-    const { data: usersData, isLoading, error, refetch } = useQuery({
+    const { data: summaryData, isLoading: isSummaryLoading, error: summaryError } = useQuery({
+        // Share the default list request so the initial page does not fetch this twice.
+        queryKey: ['users', 'all', 'date_newest', 1, ''],
+        queryFn: () => api.get('/superadmin/users?filter=all&sortBy=date_newest&page=1', token),
+    });
+
+    // The API fixes the page size at 20; it does not accept a limit parameter.
+    const { data: usersData, isLoading, error, refetch, isFetching } = useQuery({
         queryKey: ['users', selectedFilter, selectedSort, page, searchQuery],
         queryFn: async () => {
             if (searchQuery) {
-                return await api.get(`/superadmin/users/search?query=${searchQuery}&page=${page}&limit=20`, token);
+                const params = new URLSearchParams({ query: searchQuery, page: String(page) });
+                return await api.get(`/superadmin/users/search?${params.toString()}`, token);
             }
-            return await api.get(`/superadmin/users?filter=${selectedFilter}&sortBy=${selectedSort}&page=${page}&limit=20`, token);
+            const params = new URLSearchParams({ filter: selectedFilter, sortBy: selectedSort, page: String(page) });
+            return await api.get(`/superadmin/users?${params.toString()}`, token);
         },
-        keepPreviousData: true
+        placeholderData: (previousData) => previousData
     });
 
-    const lastSummaryRef = useRef({ totalUsers: 0, activeUsers: 0, suspendedUsers: 0, newThisWeek: 0 });
-
-    if (usersData?.data?.summary) {
-        lastSummaryRef.current = usersData.data.summary;
-    }
-
-    const summary = usersData?.data?.summary || lastSummaryRef.current;
+    const summary = summaryData?.data?.summary || usersData?.data?.summary;
     const allCustomers = usersData?.data?.users?.data || usersData?.data?.data || [];
     
     // Apply client-side date filtering
@@ -113,7 +129,8 @@ const Customers = () => {
     });
 
     const totalItems = usersData?.data?.users?.total || usersData?.data?.total || 0;
-    const totalPages = usersData?.data?.users?.totalPages || Math.ceil(totalItems / 20) || 1;
+    const pageSize = usersData?.data?.users?.pageSize || usersData?.data?.pageSize || 20;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
 
     const openModal = (customer) => {
@@ -136,10 +153,11 @@ const Customers = () => {
         <div className="space-y-6 w-full max-w-[1600px] mx-auto pb-10">
             <div className='bg-white py-5 rounded-2xl'>
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 md:gap-4 p-4 rounded-xl">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 p-4 rounded-xl">
                     <StatCard
                         label="Total Customers"
-                        value={summary.totalUsers?.toLocaleString()}
+                        value={(summary?.totalCustomers ?? summary?.totalUsers) == null ? '—' : (summary.totalCustomers ?? summary.totalUsers).toLocaleString()}
+                        loading={isSummaryLoading && !summary}
                         icon={Users}
                         color="text-white"
                         bg="bg-emerald-900"
@@ -148,9 +166,21 @@ const Customers = () => {
                         dotColor="#10b981"
                     />
                     <StatCard
-                        label="Active Customers"
-                        value={summary.activeUsers?.toLocaleString()}
-                        icon={UserCheck}
+                        label="Active Accounts"
+                        value={summary?.activeUsers == null ? '—' : summary.activeUsers.toLocaleString()}
+                        loading={isSummaryLoading && !summary}
+                        icon={Users}
+                        color="text-white"
+                        bg="bg-teal-900"
+                        cardBg="bg-teal-100/20"
+                        borderColor="border-teal-500"
+                        dotColor="#14b8a6"
+                    />
+                    <StatCard
+                        label="Verified Customers"
+                        value={summary?.verifiedCustomers == null ? '—' : summary.verifiedCustomers.toLocaleString()}
+                        loading={isSummaryLoading && !summary}
+                        icon={Users}
                         color="text-white"
                         bg="bg-blue-900"
                         cardBg="bg-blue-100/20"
@@ -158,8 +188,20 @@ const Customers = () => {
                         dotColor="#3b82f6"
                     />
                     <StatCard
+                        label="Unverified Customers"
+                        value={summary?.unverifiedCustomers == null ? '—' : summary.unverifiedCustomers.toLocaleString()}
+                        loading={isSummaryLoading && !summary}
+                        icon={Users}
+                        color="text-white"
+                        bg="bg-orange-900"
+                        cardBg="bg-orange-100/20"
+                        borderColor="border-orange-500"
+                        dotColor="#f97316"
+                    />
+                    <StatCard
                         label="Suspended Accounts"
-                        value={summary.suspendedUsers?.toLocaleString()}
+                        value={(summary?.suspendedCustomers ?? summary?.suspendedUsers) == null ? '—' : (summary.suspendedCustomers ?? summary.suspendedUsers).toLocaleString()}
+                        loading={isSummaryLoading && !summary}
                         icon={UserRoundX}
                         color="text-white"
                         bg="bg-purple-900"
@@ -169,7 +211,8 @@ const Customers = () => {
                     />
                     <StatCard
                         label="New this week"
-                        value={summary.newThisWeek?.toLocaleString()}
+                        value={summary?.newThisWeek == null ? '—' : summary.newThisWeek.toLocaleString()}
+                        loading={isSummaryLoading && !summary}
                         icon={UserPlus}
                         color="text-white"
                         bg="bg-amber-900"
@@ -179,13 +222,16 @@ const Customers = () => {
                     />
                 </div>
 
-                {/* Search & Filters Row */}
-                <div className="p-4 flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
+            </div>
+
+            {/* Search & Filters */}
+            <div className="bg-white rounded-2xl shadow-sm p-4 flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
                     {/* Search Bar */}
                     <div className="relative flex-1 max-w-md">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
                         <input
                             type="text"
+                            maxLength={50}
                             value={searchQuery}
                             onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
                             placeholder="Search name, phone, email"
@@ -193,39 +239,27 @@ const Customers = () => {
                         />
                     </div>
 
-                    {/* Date Filters & Reset Button */}
+                    {/* Date Range & Reset Button */}
                     <div className="flex flex-wrap items-center gap-3">
-                        {/* From Date */}
-                        <div className="relative flex items-center bg-zinc-100 rounded-3xl px-4 py-3 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
-                            <span className="text-[10px] font-bold text-zinc-400 uppercase mr-2 select-none">From</span>
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
-                                className="bg-transparent border-none text-xs font-bold text-zinc-700 focus:ring-0 p-0 outline-none cursor-pointer [color-scheme:light]"
-                            />
-                            <Calendar className="text-zinc-400 ml-2" size={14} />
-                        </div>
-
-                        {/* To Date */}
-                        <div className="relative flex items-center bg-zinc-100 rounded-3xl px-4 py-3 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
-                            <span className="text-[10px] font-bold text-zinc-400 uppercase mr-2 select-none">To</span>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
-                                className="bg-transparent border-none text-xs font-bold text-zinc-700 focus:ring-0 p-0 outline-none cursor-pointer [color-scheme:light]"
-                            />
-                            <Calendar className="text-zinc-400 ml-2" size={14} />
-                        </div>
+                        <button
+                            type="button"
+                            onClick={() => { setDraftDates({ start: startDate, end: endDate }); setIsDateRangeOpen(true); }}
+                            className="flex items-center gap-3 rounded-3xl bg-zinc-100 px-4 py-3 text-left transition-colors hover:bg-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/20"
+                        >
+                            <span className="text-[10px] font-bold uppercase text-zinc-400">Joined date</span>
+                            <span className="text-xs font-semibold text-zinc-700">{startDate ? formatShortDate(startDate) : 'From'} – {endDate ? formatShortDate(endDate) : 'To'}</span>
+                            <Calendar className="text-zinc-500" size={15} />
+                        </button>
 
                         {/* Reset Button */}
                         {(searchQuery || startDate || endDate) && (
                             <button
+                                type="button"
                                 onClick={() => {
                                     setSearchQuery('');
                                     setStartDate('');
                                     setEndDate('');
+                                    setDraftDates({ start: '', end: '' });
                                     setPage(1);
                                 }}
                                 className="flex items-center gap-2 px-5 py-3 bg-zinc-900 text-white rounded-3xl text-[10px] font-bold hover:bg-zinc-800 transition-all hover:scale-[1.02] active:scale-[0.98] uppercase tracking-widest group shadow-sm cursor-pointer"
@@ -236,14 +270,13 @@ const Customers = () => {
                         )}
                     </div>
                 </div>
-            </div>
 
             {/* Table Section */}
             <div className="bg-white rounded-[1.5rem] border border-zinc-200 overflow-hidden shadow-sm">
                 <div className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-zinc-100 relative gap-4">
                     <div>
-                        <h3 className="text-sm md:text-base font-medium text-zinc-900">Active customers</h3>
-                        <p className="text-[10px] text-zinc-500 font-medium">Customers active within the system</p>
+                        <h3 className="text-sm md:text-base font-medium text-zinc-900">{filterLabels[selectedFilter]}</h3>
+                        <p className="text-[10px] text-zinc-500 font-medium">{searchQuery ? `Search results for “${searchQuery}”` : 'Customer accounts and phone verification status'}</p>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
@@ -357,8 +390,10 @@ const Customers = () => {
                                         <div className="py-2">
                                             {[
                                                 { label: 'All customers', value: 'all' },
-                                                { label: 'Active customer', value: 'active' },
-                                                { label: 'Suspended customer', value: 'suspended' }
+                                                { label: 'Verified customers', value: 'verified' },
+                                                { label: 'Unverified customers', value: 'unverified' },
+                                                { label: 'Active accounts', value: 'active' },
+                                                { label: 'Suspended accounts', value: 'suspended' }
                                             ].map(opt => (
                                                 <button
                                                     key={opt.value}
@@ -373,20 +408,21 @@ const Customers = () => {
                                 </>
                             )}
                         </div>
+                {summaryError && <p role="alert" className="px-4 pb-3 text-xs text-rose-600">Customer summary could not be loaded: {summaryError.message || 'Please retry.'}</p>}
 
                     </div>
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full">
+                    <table className="w-full min-w-[900px]">
                         <thead>
                             <tr className="bg-zinc-50/50 border-b border-zinc-100">
-                                <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Customer</th>
-                                <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Phone</th>
-                                <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Email</th>
-                                <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Joined</th>
-                                <th className="px-3 py-3.5 text-left text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Status</th>
-                                <th className="px-3 py-3.5 text-center text-[12px] font-bold text-zinc-400 uppercase tracking-wider">Action</th>
+                                <th className="w-[200px] px-3 py-2.5 text-left text-[9px] font-bold text-zinc-500 uppercase tracking-wide">Customer</th>
+                                <th className="w-[160px] px-3 py-2.5 text-left text-[9px] font-bold text-zinc-500 uppercase tracking-wide">Phone</th>
+                                <th className="w-[210px] px-3 py-2.5 text-left text-[9px] font-bold text-zinc-500 uppercase tracking-wide">Email</th>
+                                <th className="w-[145px] px-3 py-2.5 text-left text-[9px] font-bold text-zinc-500 uppercase tracking-wide">Joined</th>
+                                <th className="w-[140px] px-3 py-2.5 text-left text-[9px] font-bold text-zinc-500 uppercase tracking-wide">Status</th>
+                                <th className="w-[65px] px-3 py-2.5 text-center text-[9px] font-bold text-zinc-500 uppercase tracking-wide">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-100">
@@ -416,28 +452,27 @@ const Customers = () => {
                             ) : (
                                 customers.map((cust) => (
                                     <tr key={cust.id} className="hover:bg-zinc-50/50 transition-colors group">
-                                        <td className="px-3 py-3.5">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-[8px] font-bold text-zinc-500 shrink-0">
-                                                    {getInitials(`${cust.firstname || ''} ${cust.lastname || ''}`)}
-                                                </div>
-                                                <span className="text-[12px] font-bold text-zinc-700 max-w-[80px]">{formatName(`${cust.firstname || ''} ${cust.lastname || ''}`)}</span>
+                                        <td className="px-3 py-2.5">
+                                            <div className="flex min-w-0 items-center gap-2">
+                                                <CustomerAvatar name={`${cust.firstname || ''} ${cust.lastname || ''}`} photoUrl={cust.photoUrl} className="w-6 h-6 rounded-full bg-zinc-100 flex items-center justify-center text-[8px] font-bold text-zinc-500 shrink-0 overflow-hidden" />
+                                                <span className="whitespace-nowrap text-[11px] font-semibold text-zinc-800">{formatName(`${cust.firstname || ''} ${cust.lastname || ''}`)}</span>
                                             </div>
                                         </td>
-                                        <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 whitespace-nowrap">{cust.phonenumber}</td>
-                                        <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 truncate max-w-[100px]">{cust.email}</td>
-                                        <td className="px-3 py-3.5 text-[12px] font-medium text-zinc-500 whitespace-nowrap">{formatDate(cust.createdAt)}</td>
-                                        <td className="px-3 py-3.5">
-                                            <span className={`px-2 py-0.5 rounded-full text-[12px] font-bold border ${!cust.isSuspended
-                                                ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                                                : 'bg-rose-50 text-rose-600 border-rose-100'
-                                                }`}>
-                                                {!cust.isSuspended ? 'Active' : 'Inactive'}
-                                            </span>
+                                        <td className="whitespace-nowrap px-3 py-2.5 text-[11px] font-medium text-zinc-500">{cust.phonenumber || '—'}</td>
+                                        <td className="max-w-[210px] truncate px-3 py-2.5 text-[11px] font-medium text-zinc-500" title={cust.email}>{cust.email || '—'}</td>
+                                        <td className="whitespace-nowrap px-3 py-2.5 text-[11px] font-medium text-zinc-500">{formatShortDate(cust.createdAt)}</td>
+                                        <td className="px-3 py-2.5">
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                <span className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-[9px] font-semibold ${getCustomerStatus(cust) === 'Verified' ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : getCustomerStatus(cust) === 'Unverified' ? 'border-amber-100 bg-amber-50 text-amber-700' : 'border-rose-100 bg-rose-50 text-rose-700'}`}>
+                                                    {getCustomerStatus(cust)}
+                                                </span>
+                                            </div>
                                         </td>
-                                        <td className="px-3 py-3.5">
+                                        <td className="px-3 py-2.5">
                                             <div className="flex justify-center">
                                                 <button
+                                                    type="button"
+                                                    aria-label={`View ${formatName(`${cust.firstname || ''} ${cust.lastname || ''}`)}`}
                                                     onClick={() => openModal(cust)}
                                                     className="p-1.5 bg-indigo-50 text-indigo-500 rounded-lg hover:bg-indigo-500 hover:text-white transition-all"
                                                 >
@@ -456,7 +491,7 @@ const Customers = () => {
                 {totalPages > 1 && (
                     <div className="p-4 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-4">
                         <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
-                            Showing {Math.min((page - 1) * 20 + 1, totalItems)} to {Math.min(page * 20, totalItems)} of {totalItems} items
+                            Showing {Math.min((page - 1) * pageSize + 1, totalItems)} to {Math.min(page * pageSize, totalItems)} of {totalItems} items {isFetching && '· Updating…'}
                         </p>
                         <div className="flex items-center gap-2">
                             <button
@@ -507,9 +542,22 @@ const Customers = () => {
             </div>
 
             <CustomerModal
+                key={selectedCustomer?.id || 'customer-details'}
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 customer={selectedCustomer}
+            />
+            <WalletCustomDateModal
+                isOpen={isDateRangeOpen}
+                dates={draftDates}
+                onDatesChange={setDraftDates}
+                onClose={() => setIsDateRangeOpen(false)}
+                onApply={(dates) => {
+                    setStartDate(dates.start);
+                    setEndDate(dates.end);
+                    setPage(1);
+                    setIsDateRangeOpen(false);
+                }}
             />
         </div>
     );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Loader2, Save, Timer } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/api';
@@ -9,15 +9,8 @@ const OrderTimingModal = ({ isOpen, onClose, settingsMap }) => {
     const token = useAuthStore((state) => state.accessToken);
     const queryClient = useQueryClient();
 
-    const [prepTime, setPrepTime] = useState('');
-    const [kmRate, setKmRate] = useState('');
-
-    useEffect(() => {
-        if (settingsMap) {
-            setPrepTime(settingsMap.ORDER_PREP_TIME_MINUTES || '20');
-            setKmRate(settingsMap.ORDER_KM_RATE_MINUTES || '5');
-        }
-    }, [settingsMap, isOpen]);
+    const [prepTime, setPrepTime] = useState(settingsMap?.ORDER_PREP_TIME_MINUTES || '20');
+    const [kmRate, setKmRate] = useState(settingsMap?.ORDER_KM_RATE_MINUTES || '5');
 
     const updateMutation = useMutation({
         mutationFn: async ({ key, value }) => {
@@ -38,7 +31,10 @@ const OrderTimingModal = ({ isOpen, onClose, settingsMap }) => {
 
             toast.success('Timing settings updated successfully');
             onClose();
-        } catch (err) {}
+        } catch {
+            // The mutation already shows an error toast; keep the form open.
+            return;
+        }
     };
 
     if (!isOpen) return null;

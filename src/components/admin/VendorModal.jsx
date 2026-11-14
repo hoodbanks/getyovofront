@@ -5,17 +5,16 @@ import {
     AlertCircle,
     CheckCircle2,
     AlertTriangle,
-    Copy,
-    Check,
     Loader2
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import api from '../../api/api';
 import { useAuthStore } from '../../store/useAuthStore';
+import { getVendorAccountStatus } from '../../utils/vendorAccountStatus';
 import { formatName, formatDate, getInitials } from '../../utils/formatters';
 
-const ConfirmationModal = ({ isOpen, onClose, type, vendor, onConfirm }) => {
+const ConfirmationModal = ({ isOpen, onClose, type, onConfirm }) => {
     const [reason, setReason] = useState('');
     const [otherReason, setOtherReason] = useState('');
     const [showReasons, setShowReasons] = useState(false);
@@ -44,7 +43,7 @@ const ConfirmationModal = ({ isOpen, onClose, type, vendor, onConfirm }) => {
 
     if (!isOpen) return null;
 
-    const isActivate = type === 'activate' || type === 'approve';
+    const isActivate = type === 'activate' || type === 'approve' || type === 'restore';
     const isDelete = type === 'delete';
 
     return (
@@ -64,11 +63,11 @@ const ConfirmationModal = ({ isOpen, onClose, type, vendor, onConfirm }) => {
                             <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mb-6">
                                 <CheckCircle2 size={40} className="text-emerald-600" />
                             </div>
-                            <h3 className="text-xl font-bold text-zinc-900 mb-2">Confirm Account {type === 'approve' ? 'Approval' : 'Activation'}</h3>
+                            <h3 className="text-xl font-bold text-zinc-900 mb-2">{type === 'approve' ? 'Approve vendor account?' : 'Restore vendor account?'}</h3>
                             <p className="text-xs text-zinc-400 font-medium leading-relaxed mb-8 px-4">
                                 {type === 'approve'
-                                    ? 'Approving this vendor will allow them to start receiving orders on the platform.'
-                                    : 'Activating this account will allow the vendor to log in and use all available features.'}
+                                    ? 'This approves the vendor account. It does not open the store or change its store status.'
+                                    : 'This removes the suspension. Store availability remains controlled by its store status.'}
                             </p>
                         </>
                     ) : (
@@ -147,7 +146,7 @@ const ConfirmationModal = ({ isOpen, onClose, type, vendor, onConfirm }) => {
                                     : 'bg-rose-600 hover:bg-rose-700 shadow-rose-900/10'
                                 }`}
                         >
-                            {isActivate ? (type === 'approve' ? 'Approve' : 'Activate') : (isDelete ? 'Delete' : 'Suspend')}
+                            {isActivate ? (type === 'approve' ? 'Approve vendor' : 'Restore account') : (isDelete ? 'Delete' : 'Suspend')}
                         </button>
                     </div>
                 </div>
@@ -209,26 +208,36 @@ const FilterDropdown = ({ selected, onSelect, options = ['all', 'today', 'yester
     );
 };
 
+const formatVendorMoney = (naira, kobo) => {
+    const value = Number.isFinite(naira) ? naira : Number.isFinite(kobo) ? kobo / 100 : null;
+    return value === null ? '—' : `₦${value.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+const formatVendorCount = (value) => Number.isFinite(value) ? value.toLocaleString() : '—';
 const VendorModal = ({ isOpen, onClose, vendor }) => {
     const token = useAuthStore((state) => state.accessToken);
     const queryClient = useQueryClient();
+    const vendorId = vendor?.vendorId || vendor?.id;
     const [showConfirm, setShowConfirm] = useState(false);
     const [confirmType, setConfirmType] = useState(''); // 'activate', 'suspend', 'approve', 'delete'
-    const [copied, setCopied] = useState(false);
     const [filter, setFilter] = useState('all');
 
     // Fetch Overview
-    const { data: overviewData, isLoading: isOverviewLoading } = useQuery({
-        queryKey: ['vendorOverview', vendor?.id, filter],
-        queryFn: () => api.get(`/superadmin/vendors/${vendor?.id}/overview?filter=${filter}`, token),
-        enabled: !!vendor?.id && isOpen
+    const { data: overviewData, isLoading: isOverviewLoading, isError: isOverviewError, error: overviewError, refetch: refetchOverview } = useQuery({
+        queryKey: ['vendorOverview', vendorId, filter],
+        queryFn: () => api.get(`/superadmin/vendors/${encodeURIComponent(vendorId)}/overview?filter=${filter}`, token),
+        enabled: Boolean(vendorId && isOpen)
+    });
+    const { data: walletData, isLoading: isWalletLoading, isError: isWalletError, error: walletError, refetch: refetchWallet } = useQuery({
+        queryKey: ['vendor-wallet-detail', vendorId],
+        queryFn: () => api.get(`/superadmin/vendor-wallets/${encodeURIComponent(vendorId)}`, token),
+        enabled: Boolean(vendorId && isOpen),
     });
 
     // Mutations
     const suspensionMutation = useMutation({
-        mutationFn: (data) => api.patch(`/superadmin/vendors/${vendor?.id}/suspension`, data, token),
+        mutationFn: (data) => api.patch(`/superadmin/vendors/${encodeURIComponent(vendorId)}/suspension`, data, token),
         onSuccess: (res) => {
-            queryClient.invalidateQueries(['vendorOverview', vendor?.id]);
+            queryClient.invalidateQueries({ queryKey: ['vendorOverview', vendorId] });
             queryClient.invalidateQueries(['vendors']);
             setShowConfirm(false);
             toast.success(res.message || 'Suspension status updated');
@@ -239,7 +248,7 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
     });
 
     const deleteMutation = useMutation({
-        mutationFn: () => api.delete('/superadmin/vendors', { vendorId: vendor?.id }, token),
+        mutationFn: () => api.delete('/superadmin/vendors', { vendorId }, token),
         onSuccess: (res) => {
             queryClient.invalidateQueries(['vendors']);
             toast.success(res.message || 'Vendor deleted successfully');
@@ -251,9 +260,9 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
     });
 
     const verifyMutation = useMutation({
-        mutationFn: (isVerified) => api.patch(`/superadmin/vendors/${vendor?.id}/verify`, { isVerified }, token),
+        mutationFn: (isVerified) => api.patch(`/superadmin/vendors/${encodeURIComponent(vendorId)}/verify`, { isVerified }, token),
         onSuccess: (res) => {
-            queryClient.invalidateQueries(['vendorOverview', vendor?.id]);
+            queryClient.invalidateQueries({ queryKey: ['vendorOverview', vendorId] });
             queryClient.invalidateQueries(['vendors']);
             toast.success(res.message || 'Verification status updated');
         },
@@ -265,6 +274,24 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
     if (!isOpen) return null;
 
     const overview = overviewData?.data || {};
+    const wallet = walletData?.data;
+    const rawAccountStatus = String(overview.accountStatus || vendor?.accountStatus || overview.status || vendor?.status || '').trim().toUpperCase();
+    const accountStatus = ['ACTIVE', 'INACTIVE', 'PENDING', 'SUSPENDED'].includes(rawAccountStatus) ? rawAccountStatus : '';
+    const vendorStatus = getVendorAccountStatus({
+        ...vendor,
+        ...overview,
+        status: accountStatus,
+        isVerified: overview.isVerified ?? vendor?.isVerified,
+        isSuspended: overview.isSuspended ?? vendor?.isSuspended,
+    });
+    const storeStatus = String(overview.storeStatus || overview.store?.status || vendor?.storeStatus || vendor?.store?.status || '').toUpperCase();
+    const storeStatusTone = storeStatus === 'OPEN'
+        ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+        : storeStatus === 'CLOSED'
+            ? 'border-rose-200 bg-rose-50 text-rose-700'
+            : 'border-zinc-200 bg-zinc-50 text-zinc-500';
+    const isPendingVendor = vendorStatus === 'PENDING';
+    const isSuspendedVendor = vendorStatus === 'SUSPENDED';
 
     const handleActionClick = (type) => {
         setConfirmType(type);
@@ -282,135 +309,97 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
         }
     };
 
-    const copyToClipboard = (text) => {
-        if (!text) return;
-        navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-
     return (
         <>
             <div className="fixed inset-0 z-50 overflow-hidden">
                 <div className={`absolute inset-0 bg-black/50 animate-fade-in`} onClick={onClose} />
-                <div className={`absolute inset-y-0 right-0 max-w-lg w-full bg-white shadow-2xl animate-slide-in`}>
+                <div className="absolute inset-y-0 right-0 w-full max-w-xl animate-slide-in bg-white shadow-2xl">
                     <div className="h-full flex flex-col">
                         {/* Header */}
-                        <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 font-bold text-sm overflow-hidden">
+                        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-white/10 bg-[#0F172B] px-5 py-5 sm:px-6">
+                            <div className="flex min-w-0 items-center gap-3">
+                                <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-emerald-200/20 bg-emerald-400/10 text-sm font-bold text-emerald-300">
                                     {overview.logo ? <img src={overview.logo} alt="Store logo" className="w-full h-full object-cover" /> : getInitials(overview.storeName || vendor?.storeName || 'Store')}
                                 </div>
-                                <div>
-                                    <h2 className="text-xl font-bold text-zinc-900">{formatName(overview.storeName || vendor?.storeName || 'Store')}</h2>
-                                    <p className="text-xs text-zinc-400 font-medium tracking-wide uppercase">{vendor?.id}</p>
+                                <div className="min-w-0">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Vendor profile</p>
+                                    <h2 className="mt-1 truncate text-base font-bold text-white">{formatName(overview.storeName || vendor?.storeName || 'Store')}</h2>
+                                    <p className="mt-1 truncate text-xs text-slate-300">{vendorId}</p>
                                 </div>
                             </div>
-                            <button onClick={onClose} className="p-2 hover:bg-zinc-100 rounded-full transition-colors text-zinc-400 hover:text-zinc-600">
+                            <button type="button" aria-label="Close vendor details" onClick={onClose} className="shrink-0 rounded-lg p-2 text-slate-300 transition-colors hover:bg-white/10 hover:text-white">
                                 <X size={20} />
                             </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
-                            {/* Stats Grid */}
-                            <div className="flex items-center justify-between gap-4">
-                                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Metrics</label>
-                                <FilterDropdown 
-                                    selected={filter} 
-                                    onSelect={setFilter} 
-                                />
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-4">
-                                {isOverviewLoading ? (
-                                    <div className="col-span-2 flex justify-center py-10">
-                                        <Loader2 className="text-emerald-600 animate-spin" size={32} />
-                                    </div>
-                                ) : (
-                                    [
-                                        { label: 'Total Orders', value: overview.metrics?.totalOrders || 0 },
-                                        { label: 'Delivered', value: overview.metrics?.deliveredOrders || 0 },
-                                        { label: 'Cancelled', value: overview.metrics?.cancelledOrders || 0 },
-                                        { label: 'Total Payout', value: `₦${(overview.metrics?.totalPayout || 0).toLocaleString()}` },
-                                    ].map((stat, i) => (
-                                        <div key={i} className="bg-zinc-100 border border-zinc-100 p-5 rounded-2xl hover:bg-white hover:shadow-md transition-all group">
-                                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2 group-hover:text-zinc-500">{stat.label}</p>
-                                            <p className="text-xl font-bold text-zinc-900">{stat.value}</p>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
+                        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto bg-zinc-50/70 p-4 custom-scrollbar sm:p-5">
+                            <section className="space-y-3">
+                                <div className="flex items-center justify-between gap-4">
+                                    <div><h3 className="text-sm font-bold text-zinc-900">Order metrics</h3><p className="text-[10px] text-zinc-500">All-order counts follow the selected date filter; paid counts are all-time.</p></div>
+                                    <FilterDropdown selected={filter} onSelect={setFilter} />
+                                </div>
+                                {isOverviewLoading ? <div className="flex justify-center rounded-2xl bg-zinc-50 py-8"><Loader2 className="animate-spin text-emerald-600" size={26}/></div> : isOverviewError ? <div role="alert" className="rounded-xl bg-rose-50 p-4 text-xs text-rose-700">{overviewError?.message || 'Could not load vendor overview.'}<button type="button" onClick={() => refetchOverview()} className="ml-2 font-bold underline">Retry</button></div> : <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{[
+                                    ['All orders', overview.metrics?.totalOrders], ['Delivered', overview.metrics?.deliveredOrders], ['All cancelled', overview.metrics?.cancelledOrders],
+                                    ['Paid orders · All time', overview.metrics?.paidOrders], ['Paid cancelled · All time', overview.metrics?.paidCancelledOrders]
+                                ].map(([label, value]) => <div key={label} className="rounded-xl border border-zinc-200 bg-white p-3.5"><p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{label}</p><p className="mt-1.5 text-base font-bold text-zinc-900">{formatVendorCount(value)}</p></div>)}
+                                </div>}
+                            </section>
+
+                            <section className="space-y-3">
+                                <div><h3 className="text-sm font-bold text-zinc-900">Vendor Wallet</h3><p className="text-[10px] text-zinc-500">Lifetime wallet measures, separate from the order date filter. Completed withdrawals are manual transfers recorded by an admin, not independently verified.</p></div>
+                                {isWalletLoading ? <div className="flex justify-center rounded-2xl bg-zinc-50 py-8"><Loader2 className="animate-spin text-emerald-600" size={26}/></div> : isWalletError ? <div role="alert" className="rounded-xl bg-rose-50 p-4 text-xs text-rose-700">{walletError?.message || 'Could not load Vendor Wallet metrics.'}<button type="button" onClick={() => refetchWallet()} className="ml-2 font-bold underline">Retry</button></div> : !wallet || typeof wallet !== 'object' ? <div role="alert" className="rounded-xl bg-rose-50 p-4 text-xs text-rose-700">Unexpected response from GET /superadmin/vendor-wallets/{vendorId}.</div> : wallet.walletExists === false ? <div className="rounded-xl bg-zinc-50 p-4 text-xs text-zinc-600">No Vendor Wallet record exists for this vendor.</div> : <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{[
+                                    ['Available wallet balance', formatVendorMoney(wallet.balanceNaira, wallet.balanceKobo)],
+                                    ['Gross order credits', formatVendorMoney(wallet.totalOrderCreditsNaira, wallet.totalOrderCreditsKobo)],
+                                    ['Earnings reversed', formatVendorMoney(wallet.totalReversalsNaira, wallet.totalReversalsKobo)],
+                                    ['Net order earnings', formatVendorMoney(wallet.netOrderEarningsNaira, wallet.netOrderEarningsKobo)],
+                                    ['Completed withdrawals · manual transfers recorded', formatVendorMoney(wallet.totalWithdrawalsPaidNaira, wallet.totalWithdrawalsPaidKobo)],
+                                    ['Reserved for withdrawals', formatVendorMoney(wallet.reservedWithdrawalAmountNaira, wallet.reservedWithdrawalAmountKobo)],
+                                    ['Pending withdrawals', typeof wallet.pendingWithdrawalCount === 'number' ? wallet.pendingWithdrawalCount.toLocaleString() : '—'],
+                                ].map(([label, value]) => <div key={label} className="rounded-xl border border-zinc-200 bg-white p-3.5"><p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{label}</p><p className="mt-1.5 text-base font-bold text-zinc-900">{value}</p></div>)}</div>}
+                            </section>
 
                             {/* Details Section */}
-                            <div className="bg-white border border-zinc-100 rounded-2xl p-6 shadow-sm">
-                                <h3 className="text-sm font-bold text-zinc-900 mb-4">Details</h3>
-                                <div className="mb-6 flex flex-wrap gap-3">
-                                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold border capitalize ${!overview.isSuspended && overview.status !== 'PENDING'
-                                            ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                                            : overview.isSuspended
-                                                ? 'bg-rose-50 text-rose-600 border-rose-100'
-                                                : 'bg-amber-50 text-amber-600 border-amber-100'
-                                        }`}>
-                                        {overview.isSuspended ? 'Inactive' : (overview.status || vendor?.status || 'Active')}
+                            <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
+                                <div className="flex items-center justify-between gap-3 border-b border-zinc-100 px-4 py-3.5">
+                                    <div><h3 className="text-sm font-bold text-zinc-900">Vendor details</h3><p className="mt-0.5 text-[11px] text-zinc-500">Store and account information</p></div>
+                                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold border ${vendorStatus === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : vendorStatus === 'SUSPENDED' ? 'bg-rose-50 text-rose-700 border-rose-100' : vendorStatus === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-zinc-100 text-zinc-700 border-zinc-200'}`}>
+                                        {vendorStatus}
                                     </span>
-                                    {overview.isVerified && (
-                                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-full text-[10px] font-bold">
-                                            <CheckCircle2 size={12} />
-                                            Verified
-                                        </span>
-                                    )}
                                 </div>
-                                <div className="grid grid-cols-2 gap-y-6">
-                                    <div>
+                                {overview.isVerified === true && <div className="border-b border-zinc-100 px-4 py-2"><span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-semibold text-blue-700"><CheckCircle2 size={12}/>Approved vendor</span></div>}
+                                <div className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-2">
+                                    <div className="min-w-0 rounded-lg bg-zinc-50 px-3 py-2.5">
                                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Store owner</label>
                                         <p className="text-sm font-bold text-zinc-800">{formatName(overview.ownerName || vendor?.ownerName || 'N/A')}</p>
                                     </div>
-                                    <div>
+                                    <div className="min-w-0 rounded-lg bg-zinc-50 px-3 py-2.5">
                                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Store Type</label>
                                         <p className="text-sm font-bold text-zinc-800">{overview.storeType || 'N/A'}</p>
                                     </div>
-                                    <div>
+                                    <div className="min-w-0 rounded-lg bg-zinc-50 px-3 py-2.5">
+                                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Store status</label>
+                                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${storeStatusTone}`}><span className={`h-1.5 w-1.5 rounded-full ${storeStatus === 'OPEN' ? 'bg-emerald-500' : storeStatus === 'CLOSED' ? 'bg-rose-500' : 'bg-zinc-400'}`} />{storeStatus || 'Not provided'}</span>
+                                    </div>
+                                    <div className="min-w-0 rounded-lg bg-zinc-50 px-3 py-2.5">
                                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Phone</label>
                                         <p className="text-sm font-bold text-zinc-800">{overview.phone || vendor?.phonenumber || 'N/A'}</p>
                                     </div>
-                                    <div>
+                                    <div className="min-w-0 rounded-lg bg-zinc-50 px-3 py-2.5">
                                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Email</label>
                                         <p className="text-sm font-bold text-zinc-800 lowercase break-all pr-2">{overview.email || vendor?.email || 'N/A'}</p>
                                     </div>
-                                    <div className="col-span-2">
+                                    <div className="min-w-0 rounded-lg bg-zinc-50 px-3 py-2.5 sm:col-span-2">
                                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Address</label>
                                         <p className="text-sm font-bold text-zinc-800">{overview.address || vendor?.address || 'N/A'}</p>
                                     </div>
-                                    <div className="col-span-2">
+                                    <div className="min-w-0 rounded-lg bg-zinc-50 px-3 py-2.5 sm:col-span-2">
                                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Date Joined</label>
                                         <p className="text-sm font-bold text-zinc-800">
                                             {formatDate(overview.joinedAt || vendor?.createdAt)}
                                         </p>
                                     </div>
                                 </div>
-                            </div>
-
-                            {/* Payout Account */}
-                            <div className="bg-white border border-zinc-100 rounded-2xl p-6 shadow-sm">
-                                <h3 className="text-sm font-bold text-zinc-900 mb-4">Payout Account</h3>
-                                <div className="space-y-4">
-                                    <div className="bg-zinc-100 rounded-2xl p-4 flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm font-bold text-zinc-600">{overview.bank?.accountName || 'N/A'}</p>
-                                            <p className="text-xs font-medium text-zinc-400 mt-0.5">{overview.bank?.bankName || 'N/A'}</p>
-                                            <div className="flex items-center gap-3 mt-4">
-                                                <span className="text-sm font-medium text-zinc-400 tracking-widest">{overview.bank?.accountNumber || 'N/A'}</span>
-                                                <button
-                                                    onClick={() => copyToClipboard(overview.bank?.accountNumber)}
-                                                    className="p-1.5 bg-white rounded-lg border border-zinc-200 text-zinc-400 hover:text-zinc-600 transition-colors"
-                                                >
-                                                    {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            </section>
 
                             {/* Contextual Alerts */}
                             {vendor?.status === 'Suspended' && (
@@ -425,53 +414,54 @@ const VendorModal = ({ isOpen, onClose, vendor }) => {
                                 </div>
                             )}
 
-                            {(overview.status?.toUpperCase() === 'PENDING' || vendor?.status?.toUpperCase() === 'PENDING') && (
+                            {isPendingVendor && (
                                 <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-5 flex items-start gap-3">
                                     <AlertCircle className="text-amber-500 shrink-0" size={18} />
                                     <div>
                                         <p className="text-sm font-bold text-amber-900">Vendor account pending approval.</p>
                                         <p className="text-[11px] text-amber-600 font-medium leading-relaxed mt-1">
-                                            Vendor account pending approval. Store access is restricted until approved by administrator.
+                                            Approve this account after the store profile is complete. Approval marks the account Active. It does not open the store.
                                         </p>
                                     </div>
                                 </div>
                             )}
                         </div>
 
-                        <div className="p-6 border-t border-zinc-100 flex flex-col gap-3">
+                        <div className="shrink-0 border-t border-zinc-200 bg-white px-5 py-4 sm:px-6">
                             <div className="flex items-center gap-3 w-full">
                                 <button 
                                     onClick={() => handleActionClick('delete')}
                                     disabled={deleteMutation.isPending}
-                                    className="flex-1 py-3 text-xs font-bold text-emerald-800 border-2 border-emerald-800/20 rounded-3xl hover:bg-emerald-50 transition-all disabled:opacity-50"
+                                    className="flex-1 rounded-xl border border-rose-200 bg-white py-3 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-50 disabled:opacity-50"
                                 >
                                     {deleteMutation.isPending ? <Loader2 className="animate-spin mx-auto" size={16} /> : 'Delete account'}
                                 </button>
                                 <button
-                                    onClick={() => handleActionClick((overview.isSuspended || overview.status?.toUpperCase() === 'PENDING' || vendor?.status?.toUpperCase() === 'PENDING') ? 'activate' : 'suspend')}
-                                    disabled={suspensionMutation.isPending || overview.status?.toUpperCase() === 'PENDING' || vendor?.status?.toUpperCase() === 'PENDING'}
-                                    className={`flex-1 py-3 text-xs font-bold text-white rounded-3xl transition-all shadow-md shadow-emerald-900/10 flex items-center justify-center gap-2 disabled:opacity-50 ${(overview.isSuspended || overview.status?.toUpperCase() === 'PENDING' || vendor?.status?.toUpperCase() === 'PENDING') ? 'bg-emerald-800 hover:bg-emerald-900' : 'bg-emerald-900 hover:bg-black'
+                                    onClick={() => handleActionClick(isSuspendedVendor ? 'restore' : 'suspend')}
+                                    disabled={suspensionMutation.isPending}
+                                    className={`flex-1 rounded-xl py-3 text-xs font-semibold text-white transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 ${isSuspendedVendor ? 'bg-emerald-800 hover:bg-emerald-900' : 'bg-rose-600 hover:bg-rose-700'
                                         }`}>
-                                    {suspensionMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : ((overview.isSuspended || overview.status?.toUpperCase() === 'PENDING' || vendor?.status?.toUpperCase() === 'PENDING') ? 'Activate account' : 'Suspend account')}
+                                    {suspensionMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : (isSuspendedVendor ? 'Restore account' : 'Suspend account')}
                                 </button>
                             </div>
                             
-                            {(overview.status?.toUpperCase() === 'PENDING' || vendor?.status?.toUpperCase() === 'PENDING') && (
+                            {isPendingVendor && (
                                 <button
                                     onClick={() => verifyMutation.mutate(true)}
                                     disabled={verifyMutation.isPending}
-                                    className="w-full py-3 text-xs font-bold rounded-3xl transition-all flex items-center justify-center gap-2 border-2 text-blue-600 border-blue-100 hover:bg-blue-50 disabled:opacity-50"
+                                    className="mt-3 w-full rounded-xl border border-blue-200 bg-white py-3 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-50 flex items-center justify-center gap-2 disabled:opacity-50"
                                 >
                                     {verifyMutation.isPending ? (
                                         <Loader2 className="animate-spin" size={16} />
                                     ) : (
                                         <>
                                             <CheckCircle2 size={16} />
-                                            Verify Vendor
+                                            Approve vendor
                                         </>
                                     )}
                                 </button>
                             )}
+                            {isPendingVendor && <p className="text-center text-[10px] text-zinc-500">This marks the account Active. The store stays Closed until the vendor opens it.</p>}
                         </div>
                     </div>
                 </div>

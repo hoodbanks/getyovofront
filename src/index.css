@@ -11,6 +11,18 @@ body {
     overflow-x: hidden;
 }
 
+[role="dialog"] footer .grid.grid-cols-2.gap-2.sm\:grid-cols-4 > button {
+    min-width: 0;
+    padding: 0.5rem 0.375rem;
+    font-size: 0.625rem;
+    line-height: 1.15;
+}
+
+/* Search and date controls are intentionally omitted from the pending-withdrawals drawer. */
+div:has(> input[placeholder="Search vendor or reference"]) {
+    display: none;
+}
+
 .no-scrollbar,
     .scrollbar-hide {
         -ms-overflow-style: none;
@@ -90,3 +102,77 @@ body {
 .delay-200 { transition-delay: 200ms; }
 .delay-300 { transition-delay: 300ms; }
 .delay-400 { transition-delay: 400ms; }
+
+/* Keep the vendor wallet profile hierarchy calm and consistent with wallet panels. */
+main:has(a[href="/admin/wallet/vendor/vendors"]) h1,
+main:has(a[href="/admin/wallet/vendor/vendors"]) h2 {
+    color: #27272a;
+    letter-spacing: -0.02em;
+}
+
+main:has(a[href="/admin/wallet/vendor/vendors"]) section {
+    border-color: #e4e4e7;
+}
+
+main:has(a[href="/admin/wallet/vendor/vendors"]) section header {
+    border-color: #f4f4f5;
+}
+
+/* Keep the notification recovery drawer aligned with the dark admin drawer headers. */
+aside[aria-labelledby="notification-recovery-heading"] > header {
+    background-color: #0f172b;
+    border-color: rgb(255 255 255 / 10%);
+    color: white;
+}
+
+aside[aria-labelledby="notification-recovery-heading"] > header p:first-child {
+    color: #6ee7b7;
+}
+
+aside[aria-labelledby="notification-recovery-heading"] > header h2 {
+    color: white;
+}
+
+aside[aria-labelledby="notification-recovery-heading"] > header p:not(:first-child) {
+    color: #cbd5e1;
+}
+
+aside[aria-labelledby="notification-recovery-heading"] > header button {
+    color: #cbd5e1;
+}
+
+aside[aria-labelledby="notification-recovery-heading"] > header button:hover {
+    background-color: rgb(255 255 255 / 10%);
+    color: white;
+}
+
+aside[aria-labelledby="status-history-title"] > header,
+section[aria-labelledby="add-super-admin-title"] > header {
+    background-color: #0f172b;
+    border-color: rgb(255 255 255 / 10%);
+}
+
+aside[aria-labelledby="status-history-title"] > header p:first-child {
+    color: #6ee7b7;
+}
+
+aside[aria-labelledby="status-history-title"] > header h2,
+section[aria-labelledby="add-super-admin-title"] > header h2 {
+    color: white;
+}
+
+aside[aria-labelledby="status-history-title"] > header p:not(:first-child),
+section[aria-labelledby="add-super-admin-title"] > header p {
+    color: #cbd5e1;
+}
+
+aside[aria-labelledby="status-history-title"] > header button,
+section[aria-labelledby="add-super-admin-title"] > header button {
+    color: #cbd5e1;
+}
+
+aside[aria-labelledby="status-history-title"] > header button:hover,
+section[aria-labelledby="add-super-admin-title"] > header button:hover {
+    background-color: rgb(255 255 255 / 10%);
+    color: white;
+}
