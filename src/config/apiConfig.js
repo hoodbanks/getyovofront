@@ -1,3 +1,4 @@
+// Used when the host does not set VITE_API_BASE_URL.
 const PRODUCTION_API_BASE_URL = 'https://api.getyovo.app/api/v1';
 
 export const API_BASE_URL =
