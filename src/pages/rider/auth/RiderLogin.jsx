@@ -32,9 +32,11 @@ const RiderLogin = () => {
                 setError('Account not found. Please check your phone number.');
             } else if (err.statusCode === 401) {
                 setError('Invalid phone number or password.');
-            } else if (err.statusCode === 400 && err.message === 'Verification pending') {
-                // Redirect to OTP verification if the account is not verified
-                navigate('/rider/verify-otp', { state: { phonenumber } });
+            } else if (
+                (err.statusCode === 403 || err.statusCode === 400) &&
+                /verify your phone/i.test(err.message || '')
+            ) {
+                navigate('/rider/verify-otp', { state: { phonenumber, codeAlreadySent: true } });
             } else {
                 setError(err.message || 'Login failed. Please try again.');
             }

@@ -9,6 +9,7 @@ const RiderResetPassword = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const phonenumber = location.state?.phonenumber;
+    const resetToken = location.state?.resetToken;
 
     const [showPassword, setShowPassword] = useState(false);
     const [password, setPassword] = useState('');
@@ -17,10 +18,10 @@ const RiderResetPassword = () => {
 
     useEffect(() => {
         // Redirect if no phone number provided (security measure)
-        if (!phonenumber) {
+        if (!phonenumber || !resetToken) {
             navigate('/rider/forgot-password');
         }
-    }, [phonenumber, navigate]);
+    }, [phonenumber, resetToken, navigate]);
 
     const resetMutation = useMutation({
         mutationFn: (data) => api.post('/rider/auth/set-password', data),
@@ -47,10 +48,12 @@ const RiderResetPassword = () => {
             phonenumber,
             newPassword: password,
             confirmPassword,
+            resetToken,
         });
     };
 
-    const isFormValid = password && confirmPassword && password === confirmPassword;
+    const passwordReady = password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /\d/.test(password) && /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    const isFormValid = passwordReady && confirmPassword && password === confirmPassword;
 
     return (
         <div className="min-h-screen bg-[#768C76] flex flex-col items-center justify-center px-4 relative">
@@ -75,6 +78,9 @@ const RiderResetPassword = () => {
                 )}
 
                 <form onSubmit={handleReset} className="w-full space-y-4">
+                    <p className="text-[12px] font-medium text-zinc-500">
+                        Use at least 8 characters, with an uppercase letter, a lowercase letter, a number, and a symbol such as ! or $.
+                    </p>
                     <div className="relative">
                         <input
                             type={showPassword ? "text" : "password"}

@@ -54,9 +54,6 @@ const OrderDetails = lazy(() => import('./pages/rider/dashboard/OrderDetails'));
 const ActiveOrder = lazy(() => import('./pages/rider/dashboard/ActiveOrder'));
 const RiderHistory = lazy(() => import('./pages/rider/history/RiderHistory'));
 const RiderProfile = lazy(() => import('./pages/rider/profile/RiderProfile'));
-const RiderProfileForgotPassword = lazy(() => import('./pages/rider/profile/reset/RiderProfileForgotPassword'));
-const RiderProfileVerifyOtp = lazy(() => import('./pages/rider/profile/reset/RiderProfileVerifyOtp'));
-const RiderProfileResetPassword = lazy(() => import('./pages/rider/profile/reset/RiderProfileResetPassword'));
 const RiderProfileSuccessState = lazy(() => import('./pages/rider/profile/reset/RiderProfileSuccessState'));
 const RiderChangePassword = lazy(() => import('./pages/rider/profile/reset/RiderChangePassword'));
 const RiderNotifications = lazy(() => import('./pages/rider/notifications/RiderNotifications'));
@@ -106,9 +103,6 @@ function App() {
           <Route path="notifications" element={<RiderNotifications />} />
           <Route path="profile" element={<RiderProfile />} />
           <Route path="profile/reset/change-password" element={<RiderChangePassword />} />
-          <Route path="profile/reset/forgot-password" element={<RiderProfileForgotPassword />} />
-          <Route path="profile/reset/verify-otp" element={<RiderProfileVerifyOtp />} />
-          <Route path="profile/reset/new-password" element={<RiderProfileResetPassword />} />
           <Route path="profile/reset/success" element={<RiderProfileSuccessState />} />
         </Route>
         </Route>

@@ -10,10 +10,11 @@ const RiderVerifyOtp = () => {
     const location = useLocation();
     const phonenumber = location.state?.phonenumber;
     const isPasswordReset = location.state?.isPasswordReset;
+    const codeAlreadySent = location.state?.codeAlreadySent !== false;
     
     // OTP is 4 digits as per updated requirement
     const [otp, setOtp] = useState(['', '', '', '']);
-    const [timer, setTimer] = useState(60);
+    const [timer, setTimer] = useState(codeAlreadySent ? 60 : 0);
     const [error, setError] = useState(null);
     const inputRefs = useRef([]);
 
@@ -54,7 +55,12 @@ const RiderVerifyOtp = () => {
         onSuccess: (response) => {
             if (response.success) {
                 if (isPasswordReset) {
-                    navigate('/rider/reset-password', { state: { phonenumber } });
+                    const resetToken = response.data?.resetToken;
+                    if (!resetToken) {
+                        setError('The code was not confirmed. Request a new one.');
+                        return;
+                    }
+                    navigate('/rider/reset-password', { state: { phonenumber, resetToken } });
                 } else {
                     navigate('/rider/login', { state: { message: 'Verification successful! You can now log in.' } });
                 }

@@ -139,7 +139,7 @@ const RiderProfile = () => {
                 >
                     <div className="text-left">
                         <p className="text-[15px] font-bold text-[#103D2E]">Password</p>
-                        <p className="text-[14px] text-zinc-500 font-medium">Reset your password</p>
+                        <p className="text-[14px] text-zinc-500 font-medium">Change your password</p>
                     </div>
                     <ChevronRight className="text-zinc-400" size={24} />
                 </button>

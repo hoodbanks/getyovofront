@@ -21,7 +21,7 @@ const RiderSuccessState = () => {
                 </h1>
 
                 <p className="text-[13px] text-zinc-500 font-medium mb-10 px-4 leading-relaxed italic">
-                    Your password has been reset successfully.
+                    Your password has been changed. You stay signed in.
                 </p>
 
                 <button

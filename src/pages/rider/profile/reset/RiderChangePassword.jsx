@@ -14,7 +14,15 @@ const RiderChangePassword = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const isFormValid = passwords.old && passwords.new && passwords.confirm && passwords.new === passwords.confirm;
+    const passwordReady = (value) => (
+        value.length >= 8 &&
+        /[A-Z]/.test(value) &&
+        /[a-z]/.test(value) &&
+        /\d/.test(value) &&
+        /[!@#$%^&*(),.?":{}|<>]/.test(value)
+    );
+
+    const isFormValid = passwords.old && passwordReady(passwords.new) && passwords.new === passwords.confirm;
 
     const handleUpdate = async (e) => {
         e.preventDefault();
@@ -81,6 +89,14 @@ const RiderChangePassword = () => {
                         </div>
                     ))}
 
+                    <p className="text-[12px] font-medium text-zinc-500 -mt-3">
+                        Use at least 8 characters, with an uppercase letter, a lowercase letter, a number, and a symbol such as ! or $.
+                    </p>
+
+                    {passwords.new && !passwordReady(passwords.new) && (
+                        <p className="text-[12px] font-medium text-red-500 -mt-3">That password does not meet the rules yet.</p>
+                    )}
+
                     {passwords.new && passwords.confirm && passwords.new !== passwords.confirm && (
                         <p className="text-[12px] font-medium text-red-500 -mt-3">Passwords do not match.</p>
                     )}
@@ -93,14 +109,6 @@ const RiderChangePassword = () => {
                         {isLoading ? <><Loader2 size={18} className="animate-spin" /> Updating...</> : 'Change Password'}
                     </button>
 
-                    <div className="text-center">
-                        <button
-                            onClick={() => navigate('/rider/app/profile/reset/forgot-password')}
-                            className="text-[14px] text-[#1C5E20] font-bold hover:underline"
-                        >
-                            Forgot Password?
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>
