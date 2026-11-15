@@ -116,7 +116,6 @@ const formatNaira = (value) => typeof value === 'number' && Number.isFinite(valu
 const cardCount = (value, isLoading) => isLoading ? '…' : Number.isFinite(value) ? value.toLocaleString() : '—';
 
 const Orders = () => {
-    const [isMobileLayout, setIsMobileLayout] = useState(() => window.innerWidth < 768);
     const token = useAuthStore((state) => state.accessToken);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -128,12 +127,6 @@ const Orders = () => {
     const [draftDates, setDraftDates] = useState({ start: '', end: '' });
     const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
     const [page, setPage] = useState(1);
-
-    useEffect(() => {
-        const updateLayout = () => setIsMobileLayout(window.innerWidth < 768);
-        window.addEventListener('resize', updateLayout);
-        return () => window.removeEventListener('resize', updateLayout);
-    }, []);
 
     const trimmedQuery = searchQuery.trim();
     const ordersQuery = useQuery({
@@ -347,8 +340,8 @@ const Orders = () => {
                     </div>
                 </div>
 
-                {!isMobileLayout && <div className="w-full overflow-x-auto">
-                    <table className="mx-auto w-full max-w-[1200px] table-fixed">
+                <div className="w-full overflow-x-auto">
+                    <table className="mx-auto w-full min-w-[1040px] max-w-[1200px] table-fixed">
                         <colgroup>
                             <col className="w-[10%]" /><col className="w-[15%]" /><col className="w-[15%]" />
                             <col className="w-[12%]" /><col className="w-[11%]" /><col className="w-[15%]" />
@@ -430,30 +423,7 @@ const Orders = () => {
                             )}
                         </tbody>
                     </table>
-                </div>}
-                {isMobileLayout && <div className="divide-y divide-zinc-100">
-                    {isLoading ? (
-                        <div className="flex flex-col items-center gap-3 py-14"><Loader2 size={28} className="animate-spin text-emerald-600" /><p className="text-xs font-semibold text-zinc-500">Loading orders…</p></div>
-                    ) : error ? (
-                        <div className="px-5 py-10 text-center"><p className="text-sm font-semibold text-rose-600" role="alert">{error.message || 'Orders could not be loaded.'}</p><button onClick={() => refetch()} className="mt-3 text-xs font-bold text-zinc-600 underline">Try again</button></div>
-                    ) : orders.length === 0 ? (
-                        <p className="px-5 py-12 text-center text-sm text-zinc-500">No orders found</p>
-                    ) : orders.map((order) => (
-                        <article key={order.id} className="space-y-3 px-4 py-4">
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0"><p className="truncate text-sm font-bold text-zinc-900">{order.orderCode || 'Order'}</p><p className="mt-0.5 text-[11px] text-zinc-500">{formatLagosDateTime(order.orderTime)}</p></div>
-                                <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase ${order.status === 'DELIVERED' ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : order.status === 'CANCELLED' ? 'border-rose-100 bg-rose-50 text-rose-700' : order.status === 'OUT_FOR_DELIVERY' ? 'border-blue-100 bg-blue-50 text-blue-700' : 'border-amber-100 bg-amber-50 text-amber-700'}`}>{order.status?.replace(/_/g, ' ') || 'Unknown'}</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-xl bg-zinc-50 p-3">
-                                <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-wide text-zinc-400">Customer</p><p className="mt-0.5 truncate text-xs font-semibold text-zinc-800">{formatName(order.customerName)}</p></div>
-                                <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-wide text-zinc-400">Vendor</p><p className="mt-0.5 truncate text-xs font-semibold text-zinc-800">{formatName(order.vendorStoreName)}</p></div>
-                                <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-wide text-zinc-400">Rider</p><p className="mt-0.5 truncate text-xs font-semibold text-zinc-800">{order.riderName ? formatName(order.riderName) : 'Not assigned'}</p></div>
-                                <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-wide text-zinc-400">Order total</p><p className="mt-0.5 truncate text-xs font-bold tabular-nums text-zinc-900">{formatNaira(order.totalAmount)}</p></div>
-                            </div>
-                            <button onClick={() => openModal(order)} aria-label={`Open details for ${order.orderCode || order.code || 'order'}`} className="flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100"><Eye size={14} /> View order details</button>
-                        </article>
-                    ))}
-                </div>}
+                </div>
                 {/* Pagination */}
                 {!isLoading && !error && ordersShapeValid && (
                     <div className="px-4 py-3 bg-zinc-50 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-4">
