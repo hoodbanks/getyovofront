@@ -67,9 +67,12 @@ const RiderHistory = () => {
         try {
             let url;
             if (fromDate && toDate) {
-                const from = fromDate.toISOString().split('T')[0];
-                const to = toDate.toISOString().split('T')[0];
-                url = `/rider/orders/history/date?from=${from}&to=${to}&page=${page}`;
+                const calendarDay = (date) => {
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    return `${date.getFullYear()}-${month}-${day}`;
+                };
+                url = `/rider/orders/history/date?from=${calendarDay(fromDate)}&to=${calendarDay(toDate)}&page=${page}`;
             } else {
                 url = `/rider/orders/history?page=${page}`;
             }
@@ -84,8 +87,9 @@ const RiderHistory = () => {
                 if (page === 1) {
                     const seen = new Map();
                     orders.forEach(o => {
-                        if (o.shopType && !seen.has(o.shopType)) {
-                            seen.set(o.shopType, o.shopType);
+                        const shopType = o.shopTypeName || o.shopType;
+                        if (shopType && !seen.has(shopType)) {
+                            seen.set(shopType, shopType);
                         }
                     });
                     if (seen.size > 0) setShopTypes([...seen.keys()]);
@@ -105,7 +109,7 @@ const RiderHistory = () => {
     // Client-side filter by shop type
     const displayedOrders = filter === 'All'
         ? allOrders
-        : allOrders.filter(o => o.shopType === filter);
+        : allOrders.filter(o => (o.shopTypeName || o.shopType) === filter);
 
     // Calendar helpers
     const handleDateClick = (day) => {
@@ -290,8 +294,8 @@ const RiderHistory = () => {
                                     {orders.map((order) => (
                                         <div key={order.orderId} className="bg-white rounded-xl p-6 border border-zinc-100 shadow-sm">
                                             <p className="text-[11px] font-bold text-zinc-400 mb-1">{order.code}</p>
-                                            {order.shopType && (
-                                                <p className="text-[13px] font-semibold text-zinc-800">{capitalize(order.shopType)}</p>
+                                            {(order.shopTypeName || order.shopType) && (
+                                                <p className="text-[13px] font-semibold text-zinc-800">{capitalize(order.shopTypeName || order.shopType)}</p>
                                             )}
                                             <h3 className="text-[18px] font-bold text-[#1C5E20] leading-tight mt-1 mb-1">{capitalize(order.vendorStoreName)}</h3>
                                             {order.itemsString && (
@@ -301,7 +305,7 @@ const RiderHistory = () => {
                                             )}
                                             <div className="flex items-center justify-between mt-3">
                                                 <span className="px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-[11px] font-bold border border-green-100">
-                                                    {order.status || 'DELIVERED'}
+                                                    Delivered
                                                 </span>
                                                 {order.totalAmount && (
                                                     <span className="text-[15px] font-extrabold text-zinc-900">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Navigation, Copy, X, AlertCircle, Loader2 } from 'lucide-react';
+import { Navigation, X, AlertCircle, Loader2 } from 'lucide-react';
 import RiderHeader from '../../../components/rider/RiderHeader';
 import success from '../../../assets/images/account-verified-icon.png';
 import api from '../../../api/api';
@@ -26,11 +26,14 @@ const ActiveOrder = () => {
     const [isLoading, setIsLoading] = useState(true);
 
     const [showCodeModal, setShowCodeModal] = useState(false);
+    const [showStartModal, setShowStartModal] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [showError, setShowError] = useState(false);
+    const [errorTitle, setErrorTitle] = useState('Could not update this order');
     const [errorMessage, setErrorMessage] = useState('');
     const [deliveryCode, setDeliveryCode] = useState('');
     const [isConfirming, setIsConfirming] = useState(false);
+    const [isStartingDelivery, setIsStartingDelivery] = useState(false);
     
     const [activeMapUrl, setActiveMapUrl] = useState('');
     const [mapType, setMapType] = useState('');
@@ -42,7 +45,17 @@ const ActiveOrder = () => {
             try {
                 if (orderId) {
                     const res = await api.get(`/rider/orders/${orderId}`, token);
-                    if (res?.data) setOrderData(res.data);
+                    let details = res?.data || null;
+                    if (details && !details.status) {
+                        try {
+                            const active = await api.get('/rider/orders/active', token);
+                            const match = active?.data?.data?.find((row) => row.orderId === orderId);
+                            if (match?.status) details = { ...details, status: match.status };
+                        } catch {
+                            // The order can still be shown. Mark out for delivery stays available.
+                        }
+                    }
+                    if (details) setOrderData(details);
                 } else {
                     const res = await api.get('/rider/orders/active', token);
                     if (res?.data?.data) {
@@ -62,14 +75,16 @@ const ActiveOrder = () => {
 
     const handleConfirmDelivery = async () => {
         const currentOrderId = orderId || orderData?.orderId;
-        if (!deliveryCode || isConfirming || !currentOrderId) return;
+        const code = deliveryCode.replace(/\s/g, '');
+        if (!code || isConfirming || !currentOrderId) return;
         setIsConfirming(true);
         setShowError(false);
         try {
-            await api.post(`/rider/orders/${currentOrderId}/confirm`, { deliveryCode }, token);
+            await api.post(`/rider/orders/${currentOrderId}/confirm`, { deliveryCode: code }, token);
             setShowCodeModal(false);
             setShowSuccessModal(true);
         } catch (err) {
+            setErrorTitle('Incorrect delivery code');
             setErrorMessage(err.message || 'Incorrect delivery code. Please try again.');
             setShowError(true);
             setTimeout(() => setShowError(false), 4000);
@@ -78,38 +93,81 @@ const ActiveOrder = () => {
         }
     };
 
-    const handleCopyCode = () => {
-        if (orderData?.vendorCode) {
-            navigator.clipboard.writeText(orderData.vendorCode).catch(() => {});
+    const handleStartDelivery = async () => {
+        if (!orderId || isStartingDelivery) return;
+        setIsStartingDelivery(true);
+        setShowError(false);
+        try {
+            await api.post(`/rider/orders/${orderId}/pickup`, {}, token);
+            setOrderData((current) => (current ? { ...current, status: 'OUT_FOR_DELIVERY' } : current));
+            setShowStartModal(false);
+        } catch (err) {
+            setShowStartModal(false);
+            if (err.status === 409) {
+                setOrderData((current) => (current ? { ...current, status: 'OUT_FOR_DELIVERY' } : current));
+                return;
+            }
+            setErrorTitle('Could not start the delivery');
+            setErrorMessage(err.message || 'Could not mark this order out for delivery.');
+            setShowError(true);
+            setTimeout(() => setShowError(false), 4000);
+        } finally {
+            setIsStartingDelivery(false);
         }
     };
 
+    const mapDestination = (latitude, longitude, address) => {
+        if (Number.isFinite(latitude) && Number.isFinite(longitude)) return `${latitude},${longitude}`;
+        if (address) return encodeURIComponent(address);
+        return '';
+    };
+
     const handleNavigateToStore = () => {
+        const destination = mapDestination(orderData.vendorLatitude, orderData.vendorLongitude, orderData.storeAddress);
+        if (!destination) {
+            setErrorTitle('Store location missing');
+            setErrorMessage('This store has no address to open in the map.');
+            setShowError(true);
+            return;
+        }
         setIsMapLoading(true);
         setMapType('store');
         navigator.geolocation.getCurrentPosition((position) => {
             const riderLat = position.coords.latitude;
             const riderLng = position.coords.longitude;
-            const vendorLat = orderData.vendorLatitude;
-            const vendorLng = orderData.vendorLongitude;
 
-            setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${vendorLat},${vendorLng}&output=embed`);
+            setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${destination}&output=embed`);
             setIsMapLoading(false);
-        }, () => setIsMapLoading(false));
+        }, () => {
+            setIsMapLoading(false);
+            setErrorTitle('Location is off');
+            setErrorMessage('Allow location so the map can start from where you are.');
+            setShowError(true);
+        });
     };
 
     const handleNavigateToDropoff = () => {
+        const destination = mapDestination(orderData.deliveryLatitude, orderData.deliveryLongitude, orderData.deliveryAddress);
+        if (!destination) {
+            setErrorTitle('Customer location missing');
+            setErrorMessage('This order has no drop-off to open in the map.');
+            setShowError(true);
+            return;
+        }
         setIsMapLoading(true);
         setMapType('dropoff');
         navigator.geolocation.getCurrentPosition((position) => {
             const riderLat = position.coords.latitude;
             const riderLng = position.coords.longitude;
-            const deliveryLat = orderData.deliveryLatitude;
-            const deliveryLng = orderData.deliveryLongitude;
 
-            setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${deliveryLat},${deliveryLng}&output=embed`);
+            setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${destination}&output=embed`);
             setIsMapLoading(false);
-        }, () => setIsMapLoading(false));
+        }, () => {
+            setIsMapLoading(false);
+            setErrorTitle('Location is off');
+            setErrorMessage('Allow location so the map can start from where you are.');
+            setShowError(true);
+        });
     };
 
     return (
@@ -131,8 +189,13 @@ const ActiveOrder = () => {
                                     <p className="text-[13px] font-semibold text-zinc-800">{capitalize(order.shopType || 'Order')}</p>
                                     <h3 className="text-[20px] font-bold text-[#1C5E20] leading-tight mt-1 mb-1">{capitalize(order.vendorStoreName)}</h3>
                                     <p className="text-[14px] text-zinc-500 font-medium mb-1">{order.storeAddress}</p>
-                                    <p className="text-[13px] font-medium text-zinc-400 mb-6">
+                                    <p className="text-[13px] font-medium text-zinc-400 mb-1">
                                         Drop-off: <span className="text-zinc-600">{order.deliveryAddress}</span>
+                                    </p>
+                                    <p className="text-[13px] font-bold text-[#1C5E20] mb-6">
+                                        {order.status === 'OUT_FOR_DELIVERY'
+                                            ? 'Out for delivery. Go to the customer.'
+                                            : 'Accepted. Go to the store, then mark it out for delivery.'}
                                     </p>
                                     <button
                                         onClick={() => navigate(`/rider/app/active-order/${order.orderId}`)}
@@ -177,26 +240,6 @@ const ActiveOrder = () => {
                                 Items: <span className="text-[#1C5E20]">{orderData.itemsString}</span>
                             </p>
 
-                            {/* Vendor Order Code */}
-                            {orderData.vendorCode && (
-                                <div className="bg-[#FFF9E5] rounded-[16px] p-5 mb-6 border border-[#FFD100]/20">
-                                    <div className="flex justify-between items-center mb-1">
-                                        <p className="text-[12px] font-bold text-zinc-400">Vendor Order Code</p>
-                                        <button
-                                            onClick={handleCopyCode}
-                                            className="flex items-center gap-1.5 text-[#A1792B] font-bold text-[12px] bg-[#FEF4E3] px-3 py-2 rounded-lg"
-                                        >
-                                            <Copy size={16} />
-                                            Copy
-                                        </button>
-                                    </div>
-                                    <p className="text-[18px] font-bold text-zinc-900 mb-4">{orderData.vendorCode}</p>
-
-                                    <p className="text-[12px] font-bold text-zinc-400 mb-1">Items to pick:</p>
-                                    <p className="text-[13px] font-medium text-[#1C5E20]">{orderData.itemsString}</p>
-                                </div>
-                            )}
-
                             <button 
                                 onClick={handleNavigateToStore}
                                 disabled={isMapLoading}
@@ -224,32 +267,47 @@ const ActiveOrder = () => {
                             <div className="bg-[#F8F9F8] rounded-[16px] p-5">
                                 <label className="text-[11px] font-bold text-zinc-400 block mb-1">Drop-off</label>
                                 <p className="text-[15px] font-bold text-zinc-900 mb-1">{orderData.deliveryAddress}</p>
-                                <button 
-                                    onClick={handleNavigateToDropoff}
-                                    disabled={isMapLoading}
-                                    className="flex items-center gap-1.5 text-[#1C5E20] font-bold text-[13px] underline mt-1 disabled:opacity-70"
-                                >
-                                    {isMapLoading && mapType === 'dropoff' ? (
-                                        <Loader2 size={14} className="animate-spin" />
-                                    ) : (
-                                        <Navigation size={14} className="fill-current" />
-                                    )}
-                                    Navigate to Drop-off
-                                </button>
-                                
-                                {mapType === 'dropoff' && activeMapUrl && (
-                                    <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200">
-                                        <iframe title="Dropoff Map" width="100%" height="300" src={activeMapUrl} style={{ border: 0 }} allowFullScreen="" loading="lazy"></iframe>
-                                    </div>
+                                {orderData.status === 'OUT_FOR_DELIVERY' && (
+                                    <>
+                                        <button
+                                            onClick={handleNavigateToDropoff}
+                                            disabled={isMapLoading}
+                                            className="flex items-center gap-1.5 text-[#1C5E20] font-bold text-[13px] underline mt-1 disabled:opacity-70"
+                                        >
+                                            {isMapLoading && mapType === 'dropoff' ? (
+                                                <Loader2 size={14} className="animate-spin" />
+                                            ) : (
+                                                <Navigation size={14} className="fill-current" />
+                                            )}
+                                            Navigate to customer
+                                        </button>
+
+                                        {mapType === 'dropoff' && activeMapUrl && (
+                                            <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200">
+                                                <iframe title="Dropoff Map" width="100%" height="300" src={activeMapUrl} style={{ border: 0 }} allowFullScreen="" loading="lazy"></iframe>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </div>
 
-                            <button
-                                onClick={() => setShowCodeModal(true)}
-                                className="w-full bg-[#1C5E20] text-white font-bold py-4 rounded-xl shadow-lg shadow-[#1C5E20]/20 text-[15px] mt-2 transition-all hover:bg-[#144416]"
-                            >
-                                Enter delivery code
-                            </button>
+                            {orderData.status === 'OUT_FOR_DELIVERY' ? (
+                                <button
+                                    onClick={() => setShowCodeModal(true)}
+                                    className="w-full bg-[#1C5E20] text-white font-bold py-4 rounded-xl shadow-lg shadow-[#1C5E20]/20 text-[15px] mt-2 transition-all hover:bg-[#144416]"
+                                >
+                                    Enter delivery code
+                                </button>
+                            ) : orderData.status === 'DELIVERED' ? (
+                                <p className="text-center text-[14px] font-bold text-zinc-500 mt-2">This order is already delivered.</p>
+                            ) : (
+                                <button
+                                    onClick={() => setShowStartModal(true)}
+                                    className="w-full bg-[#1C5E20] text-white font-bold py-4 rounded-xl shadow-lg shadow-[#1C5E20]/20 text-[15px] mt-2 transition-all hover:bg-[#144416]"
+                                >
+                                    Mark out for delivery
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
@@ -263,12 +321,38 @@ const ActiveOrder = () => {
                             <AlertCircle size={18} />
                         </div>
                         <div className="flex-1">
-                            <p className="text-[13px] font-bold text-red-900">Incorrect Delivery Code</p>
+                            <p className="text-[13px] font-bold text-red-900">{errorTitle}</p>
                             <p className="text-[11px] text-red-700 font-medium">{errorMessage}</p>
                         </div>
                         <button onClick={() => setShowError(false)} className="text-red-400 hover:text-red-600">
                             <X size={18} />
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {showStartModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-8">
+                    <div className="bg-white w-full max-w-sm rounded-xl p-6 text-center shadow-2xl relative animate-in fade-in zoom-in duration-300">
+                        <h2 className="text-md font-bold text-[#1C5E20] mb-2">Mark out for delivery</h2>
+                        <p className="text-[13px] text-zinc-500 mb-6 font-medium px-2 leading-relaxed">
+                            Use this when you have the order and you are leaving the store. The customer is then told you are on the way.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowStartModal(false)}
+                                className="flex-1 bg-zinc-100 text-zinc-800 font-bold py-3 rounded-xl text-[14px]"
+                            >
+                                Not yet
+                            </button>
+                            <button
+                                onClick={handleStartDelivery}
+                                disabled={isStartingDelivery}
+                                className="flex-1 bg-[#1C5E20] text-white font-bold py-3 rounded-xl text-[14px] disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {isStartingDelivery ? <><Loader2 size={16} className="animate-spin" /> Starting...</> : 'Start delivery'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -281,13 +365,17 @@ const ActiveOrder = () => {
                             Enter Delivery Code — {capitalize(orderData?.vendorStoreName)}
                         </h2>
                         <p className="text-[13px] text-zinc-500 mb-4 font-medium px-4 leading-relaxed text-left">
-                            Ask the customer for their code to confirm delivery.
+                            Ask the customer for the code on their phone. A new code is 6 digits. Keep any zeros at the front.
                         </p>
 
                         <div className="mb-6">
                             <input
                                 type="text"
-                                placeholder="e.g. AE-YTR778"
+                                inputMode="text"
+                                autoCapitalize="none"
+                                autoCorrect="off"
+                                spellCheck="false"
+                                placeholder="e.g. 042781"
                                 value={deliveryCode}
                                 onChange={(e) => setDeliveryCode(e.target.value)}
                                 className="w-full bg-zinc-100 border-none rounded-2xl px-6 py-5 text-[15px] font-bold text-zinc-900 placeholder:text-zinc-300 focus:ring-2 focus:ring-[#1C5E20] outline-none"
@@ -303,7 +391,7 @@ const ActiveOrder = () => {
                             </button>
                             <button
                                 onClick={handleConfirmDelivery}
-                                disabled={!deliveryCode || isConfirming}
+                                disabled={!deliveryCode.replace(/\s/g, '') || isConfirming}
                                 className="flex-1 bg-[#1C5E20] text-white font-bold py-3 rounded-xl text-[14px] disabled:opacity-50 flex items-center justify-center gap-2"
                             >
                                 {isConfirming ? <><Loader2 size={16} className="animate-spin" /> Confirming...</> : 'Confirm'}

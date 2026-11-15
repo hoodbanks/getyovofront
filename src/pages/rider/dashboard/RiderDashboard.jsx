@@ -244,7 +244,7 @@ const RiderDashboard = () => {
                                         }}
                                         className="flex-1 bg-[#1C5E20] text-white font-medium py-4 rounded-xl text-[14px] transition-all hover:bg-[#144416] shadow-md shadow-[#1C5E20]/20 active:scale-[0.98]"
                                     >
-                                        Accept pick up
+                                        Accept order
                                     </button>
                                 </div>
                             </div>
@@ -292,9 +292,9 @@ const RiderDashboard = () => {
             {showAcceptModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-8">
                     <div className="bg-white w-full max-w-xs rounded-[40px] p-8 text-center shadow-2xl relative animate-in fade-in zoom-in duration-300">
-                        <h2 className="text-[20px] font-medium text-[#1C5E20] mb-2">Accept Pickup</h2>
+                        <h2 className="text-[20px] font-medium text-[#1C5E20] mb-2">Accept order</h2>
                         <p className="text-sm text-zinc-500 mb-2 font-medium px-4 leading-relaxed">
-                            Accepting means you're available for this order.
+                            Accept this order and go to the store. Mark it out for delivery only after you have collected it.
                         </p>
                         {selectedOrder && (
                             <p className="text-[13px] font-bold text-zinc-700 mb-8 px-2">

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Bell } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import logo from '../../assets/images/GetYovo-Logo-yellow.png';
 import { useRiderStore } from '../../store/useRiderStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -32,24 +32,13 @@ const RiderHeader = ({ activeTab, activeCount = 0, historyCount = 0 }) => {
                     <img src={logo} alt="GetYovo" className="h-16 object-contain" />
                 </button>
 
-                <div className="relative flex-1">
-                    <input
-                        type="text"
-                        placeholder="Enter new address"
-                        className="w-full bg-[#F3F4F6] rounded-xl py-3.5 px-4 pr-10 text-[13px] font-medium text-zinc-800 placeholder:text-zinc-600 focus:outline-none shadow-sm"
-                    />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
-                        <MapPin className="text-red-500 fill-red-500" size={14} />
-                    </div>
-                </div>
-
                 <div className="flex items-center gap-3">
-                    <button 
+                    <button
                         onClick={() => navigate('/rider/app/notifications')}
-                        className="w-11 h-11 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-all relative text-white"
+                        aria-label="Notifications"
+                        className="w-11 h-11 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-all text-white"
                     >
                         <Bell size={22} />
-                        <span className="absolute top-2.5 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[#1C5E20] animate-pulse"></span>
                     </button>
 
                     <button

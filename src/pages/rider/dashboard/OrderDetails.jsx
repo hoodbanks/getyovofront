@@ -73,29 +73,47 @@ const OrderDetails = () => {
     const handleNavigateToStore = () => {
         setIsMapLoading(true);
         setMapType('store');
+        const destination = Number.isFinite(orderData.vendorLatitude) && Number.isFinite(orderData.vendorLongitude)
+            ? `${orderData.vendorLatitude},${orderData.vendorLongitude}`
+            : encodeURIComponent(orderData.storeAddress || '');
+        if (!destination) {
+            setIsMapLoading(false);
+            showToast('This store has no address to open in the map.');
+            return;
+        }
         navigator.geolocation.getCurrentPosition((position) => {
             const riderLat = position.coords.latitude;
             const riderLng = position.coords.longitude;
-            const vendorLat = orderData.vendorLatitude;
-            const vendorLng = orderData.vendorLongitude;
 
-            setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${vendorLat},${vendorLng}&output=embed`);
+            setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${destination}&output=embed`);
             setIsMapLoading(false);
-        }, () => setIsMapLoading(false));
+        }, () => {
+            setIsMapLoading(false);
+            showToast('Allow location so the map can start from where you are.');
+        });
     };
 
     const handleNavigateToDropoff = () => {
         setIsMapLoading(true);
         setMapType('dropoff');
+        const destination = Number.isFinite(orderData.deliveryLatitude) && Number.isFinite(orderData.deliveryLongitude)
+            ? `${orderData.deliveryLatitude},${orderData.deliveryLongitude}`
+            : encodeURIComponent(orderData.deliveryAddress || '');
+        if (!destination) {
+            setIsMapLoading(false);
+            showToast('This order has no drop-off to open in the map.');
+            return;
+        }
         navigator.geolocation.getCurrentPosition((position) => {
             const riderLat = position.coords.latitude;
             const riderLng = position.coords.longitude;
-            const deliveryLat = orderData.deliveryLatitude;
-            const deliveryLng = orderData.deliveryLongitude;
 
-            setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${deliveryLat},${deliveryLng}&output=embed`);
+            setActiveMapUrl(`https://maps.google.com/maps?saddr=${riderLat},${riderLng}&daddr=${destination}&output=embed`);
             setIsMapLoading(false);
-        }, () => setIsMapLoading(false));
+        }, () => {
+            setIsMapLoading(false);
+            showToast('Allow location so the map can start from where you are.');
+        });
     };
 
     return (
@@ -200,7 +218,7 @@ const OrderDetails = () => {
                                     onClick={() => setShowAcceptModal(true)}
                                     className="w-full bg-[#1C5E20] text-white font-bold py-4 rounded-xl text-[15px] transition-all hover:bg-[#144416] shadow-md shadow-[#1C5E20]/20 mt-2"
                                 >
-                                    Accept pick up
+                                    Accept order
                                 </button>
                             </div>
                         </div>
@@ -212,9 +230,9 @@ const OrderDetails = () => {
             {showAcceptModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-8">
                     <div className="bg-white w-full max-w-xs rounded-[40px] p-8 text-center shadow-2xl relative animate-in fade-in zoom-in duration-300">
-                        <h2 className="text-[20px] font-medium text-[#1C5E20] mb-2">Accept Pickup</h2>
+                        <h2 className="text-[20px] font-medium text-[#1C5E20] mb-2">Accept order</h2>
                         <p className="text-sm text-zinc-500 mb-8 font-medium px-4 leading-relaxed">
-                            Accepting means you're available for this order.
+                            Accept this order and go to the store. Mark it out for delivery only after you have collected it.
                         </p>
 
                         <div className="space-y-6">
