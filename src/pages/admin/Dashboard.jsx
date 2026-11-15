@@ -150,6 +150,7 @@ const validateDashboardResponse = (response) => {
 };
 
 const Dashboard = () => {
+    const [isCompactOrderLayout, setIsCompactOrderLayout] = React.useState(() => window.innerWidth < 1024);
     const { accessToken } = useAuthStore();
     const [view, setView] = React.useState('revenue');
     const [showTimeDropdown, setShowTimeDropdown] = React.useState(false);
@@ -169,6 +170,12 @@ const Dashboard = () => {
     const [orderPage, setOrderPage] = React.useState(1);
     const [vendorPage, setVendorPage] = React.useState(1);
     const [riderPage, setRiderPage] = React.useState(1);
+
+    React.useEffect(() => {
+        const updateLayout = () => setIsCompactOrderLayout(window.innerWidth < 1024);
+        window.addEventListener('resize', updateLayout);
+        return () => window.removeEventListener('resize', updateLayout);
+    }, []);
     const ITEMS_PER_PAGE = 5;
 
     const { data: adminData, isLoading, error: dashboardError, refetch: refetchDashboard } = useQuery({
@@ -357,7 +364,7 @@ const Dashboard = () => {
                         </div>
                         <a href="/admin/orders" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-[10px] font-semibold text-emerald-800 hover:bg-emerald-50">View all orders <ArrowRight size={13} /></a>
                     </div>
-                    <div className="min-w-0 overflow-hidden">
+                    {!isCompactOrderLayout && <div className="min-w-0 overflow-hidden">
                         <table className="w-full table-fixed text-left">
                             <colgroup><col className="w-[12%]"/><col className="w-[12%]"/><col className="w-[15%]"/><col className="w-[16%]"/><col className="w-[10%]"/><col className="w-[18%]"/><col className="w-[10%]"/><col className="w-[7%]"/></colgroup>
                             <thead>
@@ -438,7 +445,28 @@ const Dashboard = () => {
                                 )}
                             </tbody>
                         </table>
-                    </div>
+                    </div>}
+                    {isCompactOrderLayout && <div className="divide-y divide-zinc-100">
+                        {isLoading ? (
+                            <div className="flex flex-col items-center gap-2 py-12"><Loader2 className="animate-spin text-emerald-600" size={28} /><p className="text-xs font-medium text-zinc-500">Loading orders...</p></div>
+                        ) : dashboard.orders.data.length === 0 ? (
+                            <p className="px-4 py-12 text-center text-xs font-medium text-zinc-400">No recent orders found.</p>
+                        ) : dashboard.orders.data.slice((orderPage - 1) * ITEMS_PER_PAGE, orderPage * ITEMS_PER_PAGE).map((row, i) => (
+                            <article key={row.id || row.code || i} className="space-y-3 px-4 py-4">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0"><p className="truncate text-sm font-bold text-zinc-900">{row.code || 'Order'}</p><p className="mt-0.5 text-[11px] text-zinc-500">{formatCompactOrderDate(row.createdAt)}</p></div>
+                                    <StatusBadge status={orderStatusLabel(row.status)} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-xl bg-zinc-50 p-3">
+                                    <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-wide text-zinc-400">Customer</p><p className="mt-0.5 truncate text-xs font-semibold text-zinc-800">{formatName(row.customerName)}</p></div>
+                                    <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-wide text-zinc-400">Vendor</p><p className="mt-0.5 truncate text-xs font-semibold text-zinc-800">{formatName(row.vendor?.storeName)}</p></div>
+                                    <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-wide text-zinc-400">Rider</p><p className="mt-0.5 truncate text-xs font-semibold text-zinc-800">{row.rider ? formatName(row.rider.name) : 'Not assigned'}</p></div>
+                                    <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-wide text-zinc-400">ETA</p><p className="mt-0.5 truncate text-xs font-semibold text-zinc-800">{Number.isFinite(row.etaMin) && Number.isFinite(row.etaMax) ? `${row.etaMin}–${row.etaMax} min` : 'Not available'}</p></div>
+                                </div>
+                                <button onClick={() => setSelectedOrder(row)} aria-label={`Open details for ${row.code || 'order'}`} className="flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100"><Eye size={14} /> View order details</button>
+                            </article>
+                        ))}
+                    </div>}
                     {/* Pagination for Orders */}
                     {dashboard.orders.data.length > ITEMS_PER_PAGE && (
                         <div className="px-6 py-4 bg-zinc-50/50 border-t border-zinc-100 flex items-center justify-between gap-4">
