@@ -6,6 +6,7 @@ import success from '../../../assets/images/account-verified-icon.png';
 import api from '../../../api/api';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useRiderStore } from '../../../store/useRiderStore';
+import { customerCoordinateText, customerMapQuery } from './customerLocation';
 
 const capitalize = (str) => {
     if (!str) return '';
@@ -147,7 +148,11 @@ const ActiveOrder = () => {
     };
 
     const handleNavigateToDropoff = () => {
-        const destination = mapDestination(orderData.deliveryLatitude, orderData.deliveryLongitude, orderData.deliveryAddress);
+        const destination = customerMapQuery(
+            orderData.deliveryLatitude,
+            orderData.deliveryLongitude,
+            orderData.deliveryAddress,
+        );
         if (!destination) {
             setErrorTitle('Customer location missing');
             setErrorMessage('This order has no drop-off to open in the map.');
@@ -267,6 +272,11 @@ const ActiveOrder = () => {
                             <div className="bg-[#F8F9F8] rounded-[16px] p-5">
                                 <label className="text-[11px] font-bold text-zinc-400 block mb-1">Drop-off</label>
                                 <p className="text-[15px] font-bold text-zinc-900 mb-1">{orderData.deliveryAddress}</p>
+                                {customerCoordinateText(orderData.deliveryLatitude, orderData.deliveryLongitude) && (
+                                    <p className="text-[13px] font-medium text-zinc-500 mb-1">
+                                        {customerCoordinateText(orderData.deliveryLatitude, orderData.deliveryLongitude)}
+                                    </p>
+                                )}
                                 {orderData.status === 'OUT_FOR_DELIVERY' && (
                                     <>
                                         <button

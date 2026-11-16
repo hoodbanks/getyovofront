@@ -26,7 +26,9 @@ const order = (status) => ({
     itemsString: '1x Rice',
     customerName: 'Kai Example',
     customerPhone: '08000000000',
-    deliveryAddress: '2 Example Close',
+    deliveryAddress: '14 Zik Avenue, Awka, Anambra',
+    deliveryLatitude: 6.210412345678,
+    deliveryLongitude: 7.072312345678,
     totalAmount: 3000,
 });
 
@@ -61,6 +63,16 @@ describe('rider active order steps', () => {
         renderOrder('OUT_FOR_DELIVERY');
         expect(await screen.findByRole('button', { name: 'Enter delivery code' })).toBeTruthy();
         expect(screen.getByRole('button', { name: 'Navigate to customer' })).toBeTruthy();
+        expect(screen.getByText('Lat 6.210412 · Long 7.072312')).toBeTruthy();
+        expect(screen.getByText('14 Zik Avenue, Awka, Anambra')).toBeTruthy();
+
+        navigator.geolocation = {
+            getCurrentPosition: (success) => success({ coords: { latitude: 6.2, longitude: 7.07 } }),
+        };
+        fireEvent.click(screen.getByRole('button', { name: 'Navigate to customer' }));
+        const map = await screen.findByTitle('Dropoff Map');
+        expect(map.src).toContain('daddr=6.210412345678,7.072312345678');
+        expect(map.src).not.toContain('Zik');
         expect(screen.queryByRole('button', { name: 'Mark out for delivery' })).toBeNull();
     });
 

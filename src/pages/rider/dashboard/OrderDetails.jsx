@@ -5,6 +5,7 @@ import RiderHeader from '../../../components/rider/RiderHeader';
 import api from '../../../api/api';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useRiderStore } from '../../../store/useRiderStore';
+import { customerCoordinateText, customerMapQuery } from './customerLocation';
 
 const capitalize = (str) => {
     if (!str) return '';
@@ -96,9 +97,11 @@ const OrderDetails = () => {
     const handleNavigateToDropoff = () => {
         setIsMapLoading(true);
         setMapType('dropoff');
-        const destination = Number.isFinite(orderData.deliveryLatitude) && Number.isFinite(orderData.deliveryLongitude)
-            ? `${orderData.deliveryLatitude},${orderData.deliveryLongitude}`
-            : encodeURIComponent(orderData.deliveryAddress || '');
+        const destination = customerMapQuery(
+            orderData.deliveryLatitude,
+            orderData.deliveryLongitude,
+            orderData.deliveryAddress,
+        );
         if (!destination) {
             setIsMapLoading(false);
             showToast('This order has no drop-off to open in the map.');
@@ -189,6 +192,11 @@ const OrderDetails = () => {
                                 <div className="bg-[#F8F9F8] rounded-[16px] p-5">
                                     <h4 className="text-[12px] font-bold text-zinc-400 mb-1">Drop-off</h4>
                                     <p className="text-[15px] font-bold text-zinc-800">{orderData.deliveryAddress}</p>
+                                    {customerCoordinateText(orderData.deliveryLatitude, orderData.deliveryLongitude) && (
+                                        <p className="text-[13px] font-medium text-zinc-500 mt-1">
+                                            {customerCoordinateText(orderData.deliveryLatitude, orderData.deliveryLongitude)}
+                                        </p>
+                                    )}
                                     <button 
                                         onClick={handleNavigateToDropoff}
                                         disabled={isMapLoading}
