@@ -4,9 +4,10 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import PushNotifications from './PushNotifications';
-import api from '../../api/axios';
+import api from '../../api/api';
 
-vi.mock('../../api/axios', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
+vi.mock('../../api/api', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
+vi.mock('../../store/useAuthStore', () => ({ useAuthStore: (selector) => selector({ accessToken: 'admin-token' }) }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const renderPage = () => {
@@ -37,7 +38,7 @@ describe('Super Admin one-off Notifications', () => {
         expect(await screen.findByText('Notification request accepted')).toBeTruthy();
         expect(api.post).toHaveBeenCalledWith('/notification/broadcast', {
             audience: 'ALL_VENDORS', title: 'Service update', body: 'Scheduled maintenance tonight.', type: 'PROMO',
-        });
+        }, 'admin-token');
     });
 
     it('sends to All users and Customers through the existing notification audience values', async () => {
@@ -52,7 +53,7 @@ describe('Super Admin one-off Notifications', () => {
         await screen.findByText('Notification request accepted');
         expect(api.post).toHaveBeenLastCalledWith('/notification/broadcast', {
             audience: 'ALL_USERS', title: 'Platform update', body: 'A message for all users.', type: 'PROMO',
-        });
+        }, 'admin-token');
 
         await user.click(screen.getByRole('button', { name: 'Send another' }));
         await user.click(screen.getByRole('button', { name: /customers/i }));
@@ -61,7 +62,33 @@ describe('Super Admin one-off Notifications', () => {
         await user.click(screen.getByRole('button', { name: /send notification/i }));
         await waitFor(() => expect(api.post).toHaveBeenLastCalledWith('/notification/broadcast', {
             audience: 'ALL_CUSTOMERS', title: 'Customer update', body: 'A message for customers.', type: 'PROMO',
-        }));
+        }, 'admin-token'));
+    });
+
+    it('fills the account id from a customer search result and sends to that person', async () => {
+        const user = userEvent.setup();
+        api.get.mockImplementation(async (path) => {
+            if (path.startsWith('/superadmin/users/search?')) {
+                return { data: { users: { data: [{ id: 'user_ada', firstname: 'Ada', lastname: 'Okonkwo', phonenumber: '+2348012345678', email: 'ada@example.com' }] } } };
+            }
+            if (path === '/superadmin/users/user_ada/overview') return { data: { name: 'Ada Okonkwo' } };
+            return { data: { users: { data: [] } } };
+        });
+        renderPage();
+        await user.click(screen.getByRole('button', { name: /one person/i }));
+        expect(screen.getByRole('button', { name: /send notification/i }).disabled).toBe(true);
+        await user.type(screen.getByLabelText('Find recipient'), 'Ada');
+        await user.click(await screen.findByRole('option', { name: /Ada Okonkwo/ }));
+        expect(screen.getByLabelText('Account ID').value).toBe('user_ada');
+        expect(screen.getByText('Recipient: Ada Okonkwo')).toBeTruthy();
+        await user.type(screen.getByLabelText('Notification title'), 'Hello');
+        await user.type(screen.getByLabelText('Message'), 'A note for Ada.');
+        expect(screen.getByRole('button', { name: /send notification/i }).disabled).toBe(false);
+        await user.click(screen.getByRole('button', { name: /send notification/i }));
+        await screen.findByText('Notification request accepted');
+        expect(api.post).toHaveBeenCalledWith('/notification/broadcast', {
+            audience: 'SINGLE', targetRole: 'USER', actorId: 'user_ada', title: 'Hello', body: 'A note for Ada.', type: 'PROMO',
+        }, 'admin-token');
     });
 
     it('uses a styled category menu instead of a native select', async () => {
