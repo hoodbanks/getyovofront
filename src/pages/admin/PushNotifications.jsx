@@ -7,8 +7,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 
 const audiences = [
     { id: 'SINGLE', label: 'One person', description: 'Send to a specific account', icon: UserRound },
-    { id: 'ALL_USERS', label: 'All users', description: 'Send to all users', icon: Users },
-    { id: 'ALL_CUSTOMERS', label: 'Customers', description: 'Customer accounts only', icon: Users },
+    { id: 'ALL_USERS', label: 'Customers', description: 'Customer accounts only', icon: Users },
     { id: 'ALL_VENDORS', label: 'Vendors', description: 'Vendor accounts only', icon: Store },
     { id: 'ALL_RIDERS', label: 'Riders', description: 'Rider accounts only', icon: Bike },
 ];

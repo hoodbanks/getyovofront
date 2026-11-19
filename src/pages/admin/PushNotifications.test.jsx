@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import PushNotifications from './PushNotifications';
@@ -41,28 +41,19 @@ describe('Super Admin one-off Notifications', () => {
         }, 'admin-token');
     });
 
-    it('sends to All users and Customers through the existing notification audience values', async () => {
+    it('sends the Customers choice as the customer audience the API accepts', async () => {
         const user = userEvent.setup();
         renderPage();
-        expect(screen.getByRole('button', { name: /all users/i })).toBeTruthy();
-        expect(screen.getByRole('button', { name: /customers/i })).toBeTruthy();
-        await user.type(screen.getByLabelText('Notification title'), 'Platform update');
-        await user.type(screen.getByLabelText('Message'), 'A message for all users.');
+        expect(screen.queryByRole('button', { name: /all users/i })).toBeNull();
+        await user.click(screen.getByRole('button', { name: /customers/i }));
+        await user.type(screen.getByLabelText('Notification title'), 'Customer update');
+        await user.type(screen.getByLabelText('Message'), 'A message for customers.');
         expect(screen.getByRole('button', { name: /send notification/i }).disabled).toBe(false);
         await user.click(screen.getByRole('button', { name: /send notification/i }));
         await screen.findByText('Notification request accepted');
         expect(api.post).toHaveBeenLastCalledWith('/notification/broadcast', {
-            audience: 'ALL_USERS', title: 'Platform update', body: 'A message for all users.', type: 'PROMO',
+            audience: 'ALL_USERS', title: 'Customer update', body: 'A message for customers.', type: 'PROMO',
         }, 'admin-token');
-
-        await user.click(screen.getByRole('button', { name: 'Send another' }));
-        await user.click(screen.getByRole('button', { name: /customers/i }));
-        await user.type(screen.getByLabelText('Notification title'), 'Customer update');
-        await user.type(screen.getByLabelText('Message'), 'A message for customers.');
-        await user.click(screen.getByRole('button', { name: /send notification/i }));
-        await waitFor(() => expect(api.post).toHaveBeenLastCalledWith('/notification/broadcast', {
-            audience: 'ALL_CUSTOMERS', title: 'Customer update', body: 'A message for customers.', type: 'PROMO',
-        }, 'admin-token'));
     });
 
     it('fills the account id from a customer search result and sends to that person', async () => {
