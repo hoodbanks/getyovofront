@@ -103,7 +103,20 @@ const OrderModal = ({ isOpen, onClose, order }) => {
                                     <DetailField label="Rider phone" value={orderDetails.riderPhone} />
                                 </div>
                                 <div className="mt-3 flex items-start gap-2 border-t border-zinc-100 pt-2"><MapPin size={13} className="mt-0.5 shrink-0 text-zinc-400" /><DetailField label="Delivery address" value={orderDetails.deliveryAddress} /></div>
+                                <div className="mt-3 border-t border-zinc-100 pt-2"><DetailField label="Note for rider" value={orderDetails.riderInstruction} /></div>
                             </section>
+
+                            {(orderDetails.status === 'CANCELLED' || orderDetails.cancellationReason) && (
+                            <section className="rounded-xl border border-zinc-100 bg-white p-3">
+                                <h3 className="text-[10px] font-bold text-zinc-900">Cancellation</h3>
+                                <div className="mt-2">
+                                    <DetailField label="Cancel reason" value={orderDetails.cancellationReason?.label || orderDetails.cancellationReason?.code} />
+                                    {orderDetails.cancellationReason?.note && (
+                                        <div className="mt-2"><DetailField label="Cancel note" value={orderDetails.cancellationReason.note} /></div>
+                                    )}
+                                </div>
+                            </section>
+                            )}
 
                             <section className="rounded-xl border border-zinc-100 bg-white p-3">
                                 <h3 className="text-[10px] font-bold text-zinc-900">Items and add-ons</h3>

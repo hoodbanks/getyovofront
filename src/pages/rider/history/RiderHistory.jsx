@@ -303,6 +303,9 @@ const RiderHistory = () => {
                                                     Items: <span className="text-zinc-600">{order.itemsString}</span>
                                                 </p>
                                             )}
+                                            {order.riderInstruction && (
+                                                <p className="text-[13px] font-medium text-zinc-600 mb-2">Note for rider: {order.riderInstruction}</p>
+                                            )}
                                             <div className="flex items-center justify-between mt-3">
                                                 <span className="px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-[11px] font-bold border border-green-100">
                                                     Delivered

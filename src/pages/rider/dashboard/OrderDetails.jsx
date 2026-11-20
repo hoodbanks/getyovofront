@@ -192,6 +192,9 @@ const OrderDetails = () => {
                                 <div className="bg-[#F8F9F8] rounded-[16px] p-5">
                                     <h4 className="text-[12px] font-bold text-zinc-400 mb-1">Drop-off</h4>
                                     <p className="text-[15px] font-bold text-zinc-800">{orderData.deliveryAddress}</p>
+                                    {orderData.riderInstruction && (
+                                        <p className="mt-2 text-[13px] font-medium text-zinc-600">Note for rider: {orderData.riderInstruction}</p>
+                                    )}
                                     {customerCoordinateText(orderData.deliveryLatitude, orderData.deliveryLongitude) && (
                                         <p className="text-[13px] font-medium text-zinc-500 mt-1">
                                             {customerCoordinateText(orderData.deliveryLatitude, orderData.deliveryLongitude)}

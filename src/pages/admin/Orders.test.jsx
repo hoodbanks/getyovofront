@@ -119,7 +119,31 @@ describe('Super Admin Orders screen', () => {
         expect(screen.getAllByText('₦3,270.00').length).toBeGreaterThanOrEqual(2);
         expect(screen.queryByText('Africa/Lagos')).toBeNull();
         expect(screen.getAllByText('Not available').length).toBeGreaterThanOrEqual(1);
+        expect(screen.getByText('Note for rider').parentElement.textContent).toContain('Not available');
+        expect(screen.queryByText('Cancel reason')).toBeNull();
         expect(api.get).toHaveBeenCalledWith('/superadmin/orders/order-received/overview', 'admin-token');
+    });
+
+    it('shows the vendor cancel reason and the rider note on order details', async () => {
+        api.get.mockImplementation(async (path) => {
+            if (path.startsWith('/superadmin/orders?')) return response;
+            if (path === '/superadmin/orders/order-received/overview') return { success: true, data: { order: {
+                ...rowReceived,
+                status: 'CANCELLED',
+                riderInstruction: 'Call when you arrive. Gate code 2241',
+                cancellationReason: { code: 'OUT_OF_STOCK', label: 'Out of stock', note: 'The jollof sold out' },
+                items: [],
+            } } };
+            throw new Error(`Unexpected GET ${path}`);
+        });
+        const user = userEvent.setup();
+        renderPage();
+        await screen.findByText('GY-REC');
+        await user.click(screen.getByRole('button', { name: 'Open details for GY-REC' }));
+        expect(await screen.findByText('Cancel reason')).toBeTruthy();
+        expect(screen.getByText('Cancel reason').parentElement.textContent).toContain('Out of stock');
+        expect(screen.getByText('Cancel note').parentElement.textContent).toContain('The jollof sold out');
+        expect(screen.getByText('Note for rider').parentElement.textContent).toContain('Call when you arrive. Gate code 2241');
     });
 
     it('uses overview legacy aliases for code, time, and Naira total while preserving a null distance', async () => {

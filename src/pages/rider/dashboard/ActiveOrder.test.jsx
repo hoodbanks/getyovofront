@@ -29,6 +29,7 @@ const order = (status) => ({
     deliveryAddress: '14 Zik Avenue, Awka, Anambra',
     deliveryLatitude: 6.210412345678,
     deliveryLongitude: 7.072312345678,
+    riderInstruction: 'Call when you arrive',
     totalAmount: 3000,
 });
 
@@ -65,6 +66,7 @@ describe('rider active order steps', () => {
         expect(screen.getByRole('button', { name: 'Navigate to customer' })).toBeTruthy();
         expect(screen.getByText('Lat 6.210412 · Long 7.072312')).toBeTruthy();
         expect(screen.getByText('14 Zik Avenue, Awka, Anambra')).toBeTruthy();
+        expect(screen.getByText('Note for rider: Call when you arrive')).toBeTruthy();
 
         navigator.geolocation = {
             getCurrentPosition: (success) => success({ coords: { latitude: 6.2, longitude: 7.07 } }),

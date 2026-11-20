@@ -226,9 +226,12 @@ const RiderDashboard = () => {
                                 <p className="text-[13px] font-medium text-zinc-400 mb-1">
                                     Items: <span className="text-zinc-600">{order.itemsString}</span>
                                 </p>
-                                <p className="text-[13px] font-medium text-zinc-400 mb-6">
+                                <p className={`text-[13px] font-medium text-zinc-400 ${order.riderInstruction ? 'mb-1' : 'mb-6'}`}>
                                     Drop-off: <span className="text-zinc-600">{order.deliveryAddress}</span>
                                 </p>
+                                {order.riderInstruction && (
+                                    <p className="text-[13px] font-medium text-zinc-600 mb-6">Note for rider: {order.riderInstruction}</p>
+                                )}
 
                                 <div className="flex gap-4">
                                     <button
@@ -297,9 +300,14 @@ const RiderDashboard = () => {
                             Accept this order and go to the store. Mark it out for delivery only after you have collected it.
                         </p>
                         {selectedOrder && (
-                            <p className="text-[13px] font-bold text-zinc-700 mb-8 px-2">
-                                {capitalize(selectedOrder.vendorStoreName)} — {selectedOrder.itemsString}
-                            </p>
+                            <div className="mb-8 px-2">
+                                <p className="text-[13px] font-bold text-zinc-700">
+                                    {capitalize(selectedOrder.vendorStoreName)} — {selectedOrder.itemsString}
+                                </p>
+                                {selectedOrder.riderInstruction && (
+                                    <p className="mt-2 text-[13px] font-medium text-zinc-600">Note for rider: {selectedOrder.riderInstruction}</p>
+                                )}
+                            </div>
                         )}
 
                         <div className="space-y-6">

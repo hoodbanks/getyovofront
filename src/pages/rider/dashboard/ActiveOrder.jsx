@@ -197,6 +197,9 @@ const ActiveOrder = () => {
                                     <p className="text-[13px] font-medium text-zinc-400 mb-1">
                                         Drop-off: <span className="text-zinc-600">{order.deliveryAddress}</span>
                                     </p>
+                                    {order.riderInstruction && (
+                                        <p className="text-[13px] font-medium text-zinc-600 mb-1">Note for rider: {order.riderInstruction}</p>
+                                    )}
                                     <p className="text-[13px] font-bold text-[#1C5E20] mb-6">
                                         {order.status === 'OUT_FOR_DELIVERY'
                                             ? 'Out for delivery. Go to the customer.'
@@ -272,6 +275,9 @@ const ActiveOrder = () => {
                             <div className="bg-[#F8F9F8] rounded-[16px] p-5">
                                 <label className="text-[11px] font-bold text-zinc-400 block mb-1">Drop-off</label>
                                 <p className="text-[15px] font-bold text-zinc-900 mb-1">{orderData.deliveryAddress}</p>
+                                {orderData.riderInstruction && (
+                                    <p className="text-[13px] font-medium text-zinc-600 mb-1">Note for rider: {orderData.riderInstruction}</p>
+                                )}
                                 {customerCoordinateText(orderData.deliveryLatitude, orderData.deliveryLongitude) && (
                                     <p className="text-[13px] font-medium text-zinc-500 mb-1">
                                         {customerCoordinateText(orderData.deliveryLatitude, orderData.deliveryLongitude)}
